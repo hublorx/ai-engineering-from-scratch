@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" font-family="Georgia, 'Times New Roman', serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1a1a1a"/>
+    </marker>
+    <style>
+      .box { fill: #faf6ef; stroke: #1a1a1a; stroke-width: 1.5; }
+      .dense { fill: #eef3ff; stroke: #1a1a1a; stroke-width: 1.5; }
+      .moe { fill: #fff1d6; stroke: #c0392b; stroke-width: 1.5; }
+      .latent { fill: #e6f4ea; stroke: #2e7d32; stroke-width: 1.5; }
+      .expert { fill: #faf6ef; stroke: #1a1a1a; stroke-width: 1; }
+      .shared { fill: #ffe4ec; stroke: #b03060; stroke-width: 1.5; }
+      .skipped { fill: #eeeeee; stroke: #bbbbbb; stroke-width: 1; opacity: 0.6; }
+      .mtp { fill: #e7ecff; stroke: #3b4ba8; stroke-width: 1.5; }
+      .label { font-size: 13px; font-weight: 600; fill: #1a1a1a; }
+      .step { font-size: 12px; font-family: 'Menlo', monospace; fill: #222; }
+      .small { font-size: 10px; font-family: 'Menlo', monospace; fill: #555; }
+      .tiny { font-size: 9px; font-family: 'Menlo', monospace; fill: #666; }
+      .caption { font-size: 11px; fill: #555; font-style: italic; }
+      .title { font-size: 16px; font-weight: 700; fill: #1a1a1a; }
+      .head { font-size: 12px; font-weight: 700; fill: #1a1a1a; }
+    </style>
+  </defs>
+
+  <text x="480" y="26" text-anchor="middle" class="title">DeepSeek-V3 architecture (671B total / 37B active)</text>
+  <text x="480" y="44" text-anchor="middle" class="caption">61 layers = 3 dense + 58 MoE, MLA attention, 256 routed + 1 shared expert, top-8, MTP depth 1</text>
+
+  <!-- Left column: layer stack diagram -->
+  <text x="110" y="78" class="head">layer stack</text>
+
+  <!-- embedding -->
+  <rect x="40" y="90" width="170" height="28" class="box"/>
+  <text x="125" y="108" text-anchor="middle" class="step">embedding (129280 x 7168)</text>
+
+  <!-- dense layers 1-3 -->
+  <rect x="40" y="126" width="170" height="52" class="dense"/>
+  <text x="125" y="144" text-anchor="middle" class="step">layers 1-3 (dense)</text>
+  <text x="125" y="160" text-anchor="middle" class="small">MLA + SwiGLU ff=18432</text>
+  <text x="125" y="172" text-anchor="middle" class="tiny">~583M each</text>
+
+  <!-- moe layers 4-61 -->
+  <rect x="40" y="186" width="170" height="244" class="moe"/>
+  <text x="125" y="204" text-anchor="middle" class="step">layers 4-61 (MoE)</text>
+  <text x="125" y="220" text-anchor="middle" class="small">MLA + DeepSeekMoE</text>
+  <text x="125" y="232" text-anchor="middle" class="tiny">58 blocks</text>
+  <text x="125" y="252" text-anchor="middle" class="tiny">each stores 11.5B</text>
+  <text x="125" y="264" text-anchor="middle" class="tiny">each activates ~585M</text>
+
+  <!-- zigzag dots for layer indicator -->
+  <circle cx="125" cy="284" r="2.5" fill="#c0392b"/>
+  <circle cx="125" cy="296" r="2.5" fill="#c0392b"/>
+  <circle cx="125" cy="308" r="2.5" fill="#c0392b"/>
+  <text x="125" y="336" text-anchor="middle" class="tiny">(58 MoE blocks)</text>
+  <circle cx="125" cy="360" r="2.5" fill="#c0392b"/>
+  <circle cx="125" cy="372" r="2.5" fill="#c0392b"/>
+  <circle cx="125" cy="384" r="2.5" fill="#c0392b"/>
+
+  <text x="125" y="414" text-anchor="middle" class="tiny">per-layer: 187M attn + 11.32B experts</text>
+
+  <!-- final norm + lm head -->
+  <rect x="40" y="438" width="170" height="28" class="box"/>
+  <text x="125" y="456" text-anchor="middle" class="step">RMSNorm + LM head</text>
+
+  <!-- MTP module -->
+  <rect x="40" y="474" width="170" height="52" class="mtp"/>
+  <text x="125" y="492" text-anchor="middle" class="step">MTP module</text>
+  <text x="125" y="508" text-anchor="middle" class="small">depth 1, ~11.6B extra</text>
+  <text x="125" y="520" text-anchor="middle" class="tiny">predicts next-next token</text>
+
+  <text x="125" y="548" text-anchor="middle" class="caption">headline: 671B total / 37B active</text>
+
+  <!-- connector arrows for stack -->
+  <line x1="125" y1="118" x2="125" y2="124" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="125" y1="178" x2="125" y2="184" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="125" y1="430" x2="125" y2="436" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="125" y1="466" x2="125" y2="472" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- Middle column: MLA attention -->
+  <text x="380" y="78" class="head">Multi-Head Latent Attention</text>
+
+  <rect x="240" y="90" width="280" height="28" class="box"/>
+  <text x="380" y="108" text-anchor="middle" class="step">hidden x (x in R^7168)</text>
+
+  <!-- down projections -->
+  <rect x="240" y="136" width="130" height="36" class="latent"/>
+  <text x="305" y="152" text-anchor="middle" class="step">W_DQ: 7168 -&gt; 1536</text>
+  <text x="305" y="166" text-anchor="middle" class="tiny">Q latent (11.0M)</text>
+
+  <rect x="390" y="136" width="130" height="36" class="latent"/>
+  <text x="455" y="152" text-anchor="middle" class="step">W_DKV: 7168 -&gt; 576</text>
+  <text x="455" y="166" text-anchor="middle" class="tiny">KV latent + RoPE (4.1M)</text>
+
+  <line x1="305" y1="118" x2="305" y2="133" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="455" y1="118" x2="455" y2="133" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- up projections -->
+  <rect x="240" y="188" width="130" height="50" class="box"/>
+  <text x="305" y="204" text-anchor="middle" class="step">W_UQ</text>
+  <text x="305" y="218" text-anchor="middle" class="tiny">1536 -&gt; 128 heads</text>
+  <text x="305" y="230" text-anchor="middle" class="tiny">x (128+64) = 37.7M</text>
+
+  <rect x="390" y="188" width="130" height="50" class="box"/>
+  <text x="455" y="204" text-anchor="middle" class="step">W_UK, W_UV</text>
+  <text x="455" y="218" text-anchor="middle" class="tiny">512 -&gt; 128 heads</text>
+  <text x="455" y="230" text-anchor="middle" class="tiny">x 128 = 8.4M each</text>
+
+  <line x1="305" y1="172" x2="305" y2="185" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="455" y1="172" x2="455" y2="185" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- attention core -->
+  <rect x="240" y="254" width="280" height="36" class="box"/>
+  <text x="380" y="270" text-anchor="middle" class="step">softmax(Q K^T / sqrt(d_h)) V</text>
+  <text x="380" y="284" text-anchor="middle" class="tiny">128 heads, per-head dim 128</text>
+
+  <line x1="305" y1="238" x2="355" y2="252" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="455" y1="238" x2="405" y2="252" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- output projection -->
+  <rect x="240" y="306" width="280" height="36" class="box"/>
+  <text x="380" y="322" text-anchor="middle" class="step">W_O: 128 x 128 -&gt; 7168</text>
+  <text x="380" y="336" text-anchor="middle" class="tiny">out proj, 117.4M (dominant)</text>
+
+  <line x1="380" y1="290" x2="380" y2="304" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- cache box -->
+  <rect x="240" y="362" width="280" height="60" class="latent"/>
+  <text x="380" y="380" text-anchor="middle" class="step">KV cache = latent (576 dim)</text>
+  <text x="380" y="394" text-anchor="middle" class="tiny">per token per layer, 2 bytes (bf16)</text>
+  <text x="380" y="408" text-anchor="middle" class="tiny">17.2 GB at 128k context  vs  732 GB MHA-equiv</text>
+
+  <text x="380" y="446" text-anchor="middle" class="caption">total MLA params per layer: 187M (cheaper than full MHA)</text>
+
+  <!-- Right column: MoE block -->
+  <text x="760" y="78" class="head">DeepSeekMoE block</text>
+
+  <rect x="600" y="90" width="320" height="28" class="box"/>
+  <text x="760" y="108" text-anchor="middle" class="step">token hidden state (7168)</text>
+
+  <!-- router -->
+  <rect x="600" y="130" width="320" height="34" class="box"/>
+  <text x="760" y="148" text-anchor="middle" class="step">router: sigmoid(x W_r) + bias</text>
+  <text x="760" y="160" text-anchor="middle" class="tiny">aux-loss-free load balance, node-limited (&lt;=4 nodes)</text>
+
+  <line x1="760" y1="118" x2="760" y2="128" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <!-- shared expert -->
+  <rect x="600" y="180" width="80" height="46" class="shared"/>
+  <text x="640" y="196" text-anchor="middle" class="step">shared</text>
+  <text x="640" y="210" text-anchor="middle" class="tiny">always on</text>
+  <text x="640" y="222" text-anchor="middle" class="tiny">44M</text>
+
+  <!-- 8 active routed experts -->
+  <g>
+    <rect x="692" y="180" width="42" height="46" class="box"/>
+    <text x="713" y="204" text-anchor="middle" class="step">E_1</text>
+    <rect x="738" y="180" width="42" height="46" class="box"/>
+    <text x="759" y="204" text-anchor="middle" class="step">E_2</text>
+    <rect x="784" y="180" width="42" height="46" class="box"/>
+    <text x="805" y="204" text-anchor="middle" class="step">...</text>
+    <rect x="830" y="180" width="42" height="46" class="box"/>
+    <text x="851" y="204" text-anchor="middle" class="step">E_8</text>
+    <text x="780" y="222" text-anchor="middle" class="tiny">8 routed chosen (44M each)</text>
+  </g>
+
+  <!-- skipped experts -->
+  <g>
+    <rect x="600" y="246" width="320" height="70" class="skipped"/>
+    <text x="760" y="266" text-anchor="middle" class="step">248 routed experts skipped</text>
+    <g>
+      <circle cx="620" cy="288" r="4" class="skipped"/>
+      <circle cx="640" cy="288" r="4" class="skipped"/>
+      <circle cx="660" cy="288" r="4" class="skipped"/>
+      <circle cx="680" cy="288" r="4" class="skipped"/>
+      <circle cx="700" cy="288" r="4" class="skipped"/>
+      <circle cx="720" cy="288" r="4" class="skipped"/>
+      <circle cx="740" cy="288" r="4" class="skipped"/>
+      <circle cx="760" cy="288" r="4" class="skipped"/>
+      <circle cx="780" cy="288" r="4" class="skipped"/>
+      <circle cx="800" cy="288" r="4" class="skipped"/>
+      <circle cx="820" cy="288" r="4" class="skipped"/>
+      <circle cx="840" cy="288" r="4" class="skipped"/>
+      <circle cx="860" cy="288" r="4" class="skipped"/>
+      <circle cx="880" cy="288" r="4" class="skipped"/>
+      <circle cx="900" cy="288" r="4" class="skipped"/>
+    </g>
+    <text x="760" y="308" text-anchor="middle" class="tiny">total stored: 256 routed + 1 shared, ~11.32B expert weights per block</text>
+  </g>
+
+  <!-- combine -->
+  <rect x="600" y="336" width="320" height="34" class="box"/>
+  <text x="760" y="354" text-anchor="middle" class="step">weighted sum of 9 active experts</text>
+  <text x="760" y="366" text-anchor="middle" class="tiny">+ residual + RMSNorm</text>
+
+  <line x1="640" y1="226" x2="700" y2="334" stroke="#1a1a1a" stroke-width="1.1" marker-end="url(#arrow)" opacity="0.6"/>
+  <line x1="780" y1="226" x2="800" y2="334" stroke="#1a1a1a" stroke-width="1.1" marker-end="url(#arrow)" opacity="0.6"/>
+
+  <text x="760" y="394" text-anchor="middle" class="caption">active per token: attn 187M + 9 experts x 44M + router = ~585M</text>
+  <text x="760" y="408" text-anchor="middle" class="caption">stored per block: ~11.5B  (that is where 671B comes from)</text>
+
+  <!-- footer legend -->
+  <g transform="translate(40,568)">
+    <text x="0" y="0" class="head">legend</text>
+    <rect x="70" y="-10" width="14" height="14" class="dense"/><text x="90" y="0" class="small">dense block (layers 1-3)</text>
+    <rect x="260" y="-10" width="14" height="14" class="moe"/><text x="280" y="0" class="small">MoE block (layers 4-61)</text>
+    <rect x="440" y="-10" width="14" height="14" class="latent"/><text x="460" y="0" class="small">MLA latent path</text>
+    <rect x="590" y="-10" width="14" height="14" class="shared"/><text x="610" y="0" class="small">shared expert (always on)</text>
+    <rect x="760" y="-10" width="14" height="14" class="mtp"/><text x="780" y="0" class="small">MTP module (depth 1)</text>
+  </g>
+
+  <g transform="translate(40,596)">
+    <text x="0" y="0" class="caption">source: DeepSeek-V3 Technical Report (arXiv:2412.19437); HuggingFace deepseek-ai/DeepSeek-V3 config.json</text>
+  </g>
+</svg>
