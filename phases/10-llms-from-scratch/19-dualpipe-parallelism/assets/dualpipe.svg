@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" font-family="Georgia, 'Times New Roman', serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1a1a1a"/>
+    </marker>
+    <style>
+      .box { fill: #faf6ef; stroke: #1a1a1a; stroke-width: 1.5; }
+      .attn { fill: #fff1d6; stroke: #c0392b; stroke-width: 1.2; }
+      .mlp { fill: #e6f4ea; stroke: #2e7d32; stroke-width: 1.2; }
+      .disp { fill: #e7eaff; stroke: #2540a0; stroke-width: 1.2; }
+      .comb { fill: #f0e6ff; stroke: #5e3fbe; stroke-width: 1.2; }
+      .bubble { fill: #ffffff; stroke: #999; stroke-dasharray: 3 2; stroke-width: 1; }
+      .title { font-size: 16px; font-weight: 700; fill: #1a1a1a; }
+      .label { font-size: 12px; font-weight: 600; fill: #1a1a1a; }
+      .step { font-size: 10px; font-family: 'Menlo', monospace; fill: #222; }
+      .small { font-size: 10px; font-family: 'Menlo', monospace; fill: #555; }
+      .caption { font-size: 11px; fill: #555; font-style: italic; }
+      .lane { font-size: 11px; fill: #333; font-weight: 600; }
+    </style>
+  </defs>
+
+  <text x="480" y="26" text-anchor="middle" class="title">DualPipe — four-component chunk, compute and comm overlap</text>
+
+  <!-- Panel A: single chunk decomposed into four components -->
+  <text x="30" y="60" class="label">A. One chunk, four components (DeepSeek-V3)</text>
+
+  <rect x="30"  y="72" width="110" height="40" class="attn"/>
+  <text x="85"  y="96" text-anchor="middle" class="step">attention</text>
+  <text x="85"  y="108" text-anchor="middle" class="small">compute</text>
+
+  <rect x="150" y="72" width="110" height="40" class="disp"/>
+  <text x="205" y="96" text-anchor="middle" class="step">all-to-all dispatch</text>
+  <text x="205" y="108" text-anchor="middle" class="small">comm (EP)</text>
+
+  <rect x="270" y="72" width="110" height="40" class="mlp"/>
+  <text x="325" y="96" text-anchor="middle" class="step">MLP (experts)</text>
+  <text x="325" y="108" text-anchor="middle" class="small">compute</text>
+
+  <rect x="390" y="72" width="110" height="40" class="comb"/>
+  <text x="445" y="96" text-anchor="middle" class="step">all-to-all combine</text>
+  <text x="445" y="108" text-anchor="middle" class="small">comm (EP)</text>
+
+  <line x1="140" y1="92" x2="150" y2="92" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="260" y1="92" x2="270" y2="92" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+  <line x1="380" y1="92" x2="390" y2="92" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+  <text x="520" y="95" class="small">= chunk (F or B)</text>
+
+  <!-- Panel B: 1F1B timeline, compute and comm run in sequence -->
+  <text x="30" y="160" class="label">B. 1F1B — compute and comm in sequence on every chunk</text>
+
+  <text x="20" y="192" class="lane" text-anchor="end">rank 0</text>
+  <text x="20" y="224" class="lane" text-anchor="end">rank 1</text>
+  <text x="20" y="256" class="lane" text-anchor="end">rank 2</text>
+  <text x="20" y="288" class="lane" text-anchor="end">rank 3</text>
+
+  <!-- rank 0 -->
+  <rect x="30"  y="178" width="30" height="22" class="attn"/>
+  <rect x="60"  y="178" width="24" height="22" class="disp"/>
+  <rect x="84"  y="178" width="38" height="22" class="mlp"/>
+  <rect x="122" y="178" width="24" height="22" class="comb"/>
+  <rect x="146" y="178" width="30" height="22" class="attn"/>
+  <rect x="176" y="178" width="24" height="22" class="disp"/>
+  <rect x="200" y="178" width="38" height="22" class="mlp"/>
+  <rect x="238" y="178" width="24" height="22" class="comb"/>
+  <rect x="262" y="178" width="260" height="22" class="bubble"/>
+  <text x="392" y="193" text-anchor="middle" class="small">idle (bubble)</text>
+
+  <!-- rank 1: 1-chunk warm-up offset -->
+  <rect x="146" y="210" width="30" height="22" class="attn"/>
+  <rect x="176" y="210" width="24" height="22" class="disp"/>
+  <rect x="200" y="210" width="38" height="22" class="mlp"/>
+  <rect x="238" y="210" width="24" height="22" class="comb"/>
+  <rect x="262" y="210" width="30" height="22" class="attn"/>
+  <rect x="292" y="210" width="24" height="22" class="disp"/>
+  <rect x="316" y="210" width="38" height="22" class="mlp"/>
+  <rect x="354" y="210" width="24" height="22" class="comb"/>
+  <rect x="30"  y="210" width="116" height="22" class="bubble"/>
+  <rect x="378" y="210" width="144" height="22" class="bubble"/>
+
+  <!-- rank 2 -->
+  <rect x="262" y="242" width="30" height="22" class="attn"/>
+  <rect x="292" y="242" width="24" height="22" class="disp"/>
+  <rect x="316" y="242" width="38" height="22" class="mlp"/>
+  <rect x="354" y="242" width="24" height="22" class="comb"/>
+  <rect x="378" y="242" width="30" height="22" class="attn"/>
+  <rect x="408" y="242" width="24" height="22" class="disp"/>
+  <rect x="432" y="242" width="38" height="22" class="mlp"/>
+  <rect x="470" y="242" width="24" height="22" class="comb"/>
+  <rect x="30"  y="242" width="232" height="22" class="bubble"/>
+  <rect x="494" y="242" width="28" height="22" class="bubble"/>
+
+  <!-- rank 3 -->
+  <rect x="378" y="274" width="30" height="22" class="attn"/>
+  <rect x="408" y="274" width="24" height="22" class="disp"/>
+  <rect x="432" y="274" width="38" height="22" class="mlp"/>
+  <rect x="470" y="274" width="24" height="22" class="comb"/>
+  <rect x="30"  y="274" width="348" height="22" class="bubble"/>
+  <rect x="494" y="274" width="28" height="22" class="bubble"/>
+
+  <line x1="30" y1="308" x2="530" y2="308" stroke="#1a1a1a" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="530" y="320" class="small">time</text>
+
+  <!-- Panel C: DualPipe timeline, compute lane and comm lane overlap -->
+  <text x="30" y="360" class="label">C. DualPipe — compute lane (attn + mlp) overlaps comm lane (dispatch + combine)</text>
+
+  <text x="20" y="392" class="lane" text-anchor="end">rank 0 compute</text>
+  <text x="20" y="416" class="lane" text-anchor="end">rank 0 comm</text>
+  <text x="20" y="448" class="lane" text-anchor="end">rank 1 compute</text>
+  <text x="20" y="472" class="lane" text-anchor="end">rank 1 comm</text>
+
+  <!-- rank 0 compute lane: attn+mlp back-to-back for consecutive chunks -->
+  <rect x="30"  y="378" width="30" height="22" class="attn"/>
+  <rect x="60"  y="378" width="38" height="22" class="mlp"/>
+  <rect x="98"  y="378" width="30" height="22" class="attn"/>
+  <rect x="128" y="378" width="38" height="22" class="mlp"/>
+  <rect x="166" y="378" width="30" height="22" class="attn"/>
+  <rect x="196" y="378" width="38" height="22" class="mlp"/>
+  <rect x="234" y="378" width="30" height="22" class="attn"/>
+  <rect x="264" y="378" width="38" height="22" class="mlp"/>
+
+  <!-- rank 0 comm lane: dispatch+combine running in parallel with next chunk's compute -->
+  <rect x="30"  y="404" width="24" height="22" class="disp"/>
+  <rect x="54"  y="404" width="24" height="22" class="comb"/>
+  <rect x="98"  y="404" width="24" height="22" class="disp"/>
+  <rect x="122" y="404" width="24" height="22" class="comb"/>
+  <rect x="166" y="404" width="24" height="22" class="disp"/>
+  <rect x="190" y="404" width="24" height="22" class="comb"/>
+  <rect x="234" y="404" width="24" height="22" class="disp"/>
+  <rect x="258" y="404" width="24" height="22" class="comb"/>
+  <rect x="282" y="404" width="20" height="22" class="bubble"/>
+
+  <!-- rank 1: bidirectional (reverse direction), starts earlier because stream B goes backward through the pipe -->
+  <rect x="68"  y="434" width="30" height="22" class="attn"/>
+  <rect x="98"  y="434" width="38" height="22" class="mlp"/>
+  <rect x="136" y="434" width="30" height="22" class="attn"/>
+  <rect x="166" y="434" width="38" height="22" class="mlp"/>
+  <rect x="204" y="434" width="30" height="22" class="attn"/>
+  <rect x="234" y="434" width="38" height="22" class="mlp"/>
+  <rect x="272" y="434" width="30" height="22" class="attn"/>
+  <rect x="302" y="434" width="38" height="22" class="mlp"/>
+  <rect x="30"  y="434" width="38" height="22" class="bubble"/>
+
+  <rect x="68"  y="460" width="24" height="22" class="disp"/>
+  <rect x="92"  y="460" width="24" height="22" class="comb"/>
+  <rect x="136" y="460" width="24" height="22" class="disp"/>
+  <rect x="160" y="460" width="24" height="22" class="comb"/>
+  <rect x="204" y="460" width="24" height="22" class="disp"/>
+  <rect x="228" y="460" width="24" height="22" class="comb"/>
+  <rect x="272" y="460" width="24" height="22" class="disp"/>
+  <rect x="296" y="460" width="24" height="22" class="comb"/>
+  <rect x="30"  y="460" width="38" height="22" class="bubble"/>
+
+  <line x1="30" y1="494" x2="400" y2="494" stroke="#1a1a1a" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="400" y="506" class="small">time</text>
+
+  <!-- Legend -->
+  <rect x="560" y="180" width="14" height="14" class="attn"/>
+  <text x="582" y="192" class="small">attention (compute)</text>
+  <rect x="560" y="200" width="14" height="14" class="mlp"/>
+  <text x="582" y="212" class="small">MLP / experts (compute)</text>
+  <rect x="560" y="220" width="14" height="14" class="disp"/>
+  <text x="582" y="232" class="small">all-to-all dispatch (comm)</text>
+  <rect x="560" y="240" width="14" height="14" class="comb"/>
+  <text x="582" y="252" class="small">all-to-all combine (comm)</text>
+  <rect x="560" y="260" width="14" height="14" class="bubble"/>
+  <text x="582" y="272" class="small">bubble (idle rank)</text>
+
+  <!-- summary card -->
+  <rect x="560" y="300" width="370" height="160" class="box"/>
+  <text x="745" y="322" text-anchor="middle" class="label">Why DualPipe is faster</text>
+  <text x="575" y="344" class="step">1F1B bubble:     (PP − 1) · (F + B)</text>
+  <text x="575" y="362" class="step">DualPipe bubble: (PP/2 − 1) · ((F&amp;B) + B − 3W)</text>
+  <text x="575" y="386" class="step">compute lane: attn + mlp</text>
+  <text x="575" y="402" class="step">comm lane:    dispatch + combine</text>
+  <text x="575" y="418" class="step">→ chunk time = max(compute, comm)</text>
+  <text x="575" y="440" class="caption">cost: 2× parameter copies, ~PP+1 activation MBs</text>
+
+  <text x="480" y="540" text-anchor="middle" class="caption">per-chunk time drops from attn+disp+mlp+comb to max(attn+mlp, disp+comb) — overlap is the whole trick</text>
+</svg>
