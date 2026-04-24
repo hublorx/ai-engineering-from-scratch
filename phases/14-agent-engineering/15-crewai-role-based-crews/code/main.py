@@ -15,7 +15,7 @@ class Agent:
     role: str
     goal: str
     backstory: str
-    fn: Callable[[str], str]
+    fn: Callable[..., str]
 
 
 @dataclass
@@ -90,6 +90,7 @@ class Flow:
     def kickoff(self, payload: Any) -> list[tuple[str, str, Any]]:
         if self.start_step is None:
             return []
+        self.trace = []
         topic, out = self.start_step(payload)
         self.trace.append(("start", topic, out))
         while topic in self.listeners:
