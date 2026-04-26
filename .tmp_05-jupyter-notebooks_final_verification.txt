@@ -1,0 +1,20 @@
+# Raport weryfikacji
+
+## BŁĘDY: 1
+
+### 1. DIAKRYTYKI
+- **Linia:** `Zasada: **eksploruj w notatnikach, wdrzężaj w skryptach**.`
+- **Problem:** `wdrzężaj` → poprawnie `wdrążaj`
+- **Wyjaśnienie:** Czasownik "wdrzężać" nie istnieje w języku polskim. Poprawny czasownik to "wdrażać/wdrążać" (od "wdrój"). Imperativus to "wdrążaj".
+
+---
+
+## Weryfikacja pozostałych kategorii
+
+| Kategoria | Status |
+|-----------|--------|
+| **NIEPOLSKIE ZNAKI** | ✅ Brak błędów |
+| **BRAK PRZECINKA** | ✅ Brak błędów |
+| **ANGLICYZMY** | ✅ Brak błędów (notebook w kontekście Google Colab do przyjęty) |
+| **KOD** | ✅ Kod nienaruszony, polskie etykiety w diagramach Mermaid są poprawne |
+| **SEKCJE ANGIELSKIE** | ✅ Wszystkie sekcje przetłumaczone poprawnie (Cele uczenia się, Problem, Koncepcja, Zbuduj to, Użyj tego, Wdróż to, Ćwiczenia, Kluczowe pojęcia, Dalsza lektura) |

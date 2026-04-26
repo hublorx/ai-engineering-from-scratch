@@ -1,32 +1,32 @@
-# Decision Trees and Random Forests
+# Drzewa decyzyjne i lasy losowe
 
-> A decision tree is just a flowchart. But a forest of them is one of the most powerful tools in ML.
+> Drzewo decyzyjne to po prostu schemat blokowy. Ale las z nich to jedno z najpotężniejszych narzędzi w ML.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 1 (Lessons 09 Information Theory, 06 Probability)
-**Time:** ~90 minutes
+**Typ:** Budowanie
+**Język:** Python
+**Wymagania wstępne:** Faza 1 (Lekcje 09 Teoria informacji, 06 Prawdopodobieństwo)
+**Czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement Gini impurity, entropy, and information gain calculations to find optimal decision tree splits
-- Build a decision tree classifier from scratch with pre-pruning controls (max depth, min samples)
-- Construct a random forest using bootstrap sampling and feature randomization, and explain why it reduces variance
-- Compare MDI feature importance with permutation importance and identify when MDI is biased
+- Implementacja obliczeń domieszki Gini, entropii i zysku informacyjnego w celu znalezienia optymalnych podziałów drzewa decyzyjnego
+- Zbudowanie klasyfikatora drzewa decyzyjnego od zera z kontrolami przycinania wstępnego (maksymalna głębokość, minimalna liczba próbek)
+- Konstrukcja lasu losowego przy użyciu próbkowania bootstrap i randomizacji cech oraz wyjaśnienie, dlaczego redukuje on wariancję
+- Porównanie ważności cech MDI z ważnością permutacyjną oraz identyfikacja, kiedy MDI jest stronnicze
 
-## The Problem
+## Problem
 
-You have tabular data. Rows are samples, columns are features, and there is a target column you want to predict. You could throw a neural network at it. But for tabular data, tree-based models (decision trees, random forests, gradient boosted trees) consistently outperform deep learning. Kaggle competitions on structured data are dominated by XGBoost and LightGBM, not transformers.
+Masz dane tabelaryczne. Wiersze to próbki, kolumny to cechy, a kolumna docelowa to wartość, którą chcesz przewidzieć. Mógłbyś rzucić na to sieć neuronową. Ale dla danych tabelarycznych modele oparte na drzewach (drzewa decyzyjne, lasy losowe, drzewa wzmacniane gradientowo) konsekwentnie przewyższają głębokie uczenie. Konkursy Kaggle na danych strukturalnych są zdominowane przez XGBoost i LightGBM, a nie transformery.
 
-Why? Trees handle mixed feature types (numeric and categorical) without preprocessing. They handle nonlinear relationships without feature engineering. They are interpretable: you can look at the tree and see exactly why a prediction was made. And random forests, which average many trees, are highly resistant to overfitting on moderate-sized datasets.
+Dlaczego? Drzewa obsługują mieszane typy cech (numeryczne i kategorialne) bez wstępnego przetwarzania. Obsługują nieliniowe zależności bez inżynierii cech. Są interpretowalne: możesz spojrzeć na drzewo i dokładnie zobaczyć, dlaczego została podjęta dana predykcja. A lasy losowe, które uśredniają wiele drzew, są wysoce odporne na nadmierne dopasowanie w zbiorach danych o umiarkowanej wielkości.
 
-This lesson builds decision trees from scratch using recursive splitting, then builds a random forest on top. You will implement the math behind split criteria (Gini impurity, entropy, information gain) and understand why an ensemble of weak learners becomes a strong one.
+Ta lekcja buduje drzewa decyzyjne od zera przy użyciu rekursywnego dzielenia, a następnie buduje las losowy na tym. Zaimplementujesz matematykę stojącą za kryteriami podziału (domieszka Gini, entropia, zysk informacyjny) i zrozumiesz, dlaczego ansambl słabych uczących się staje się silnym.
 
-## The Concept
+## Koncepcja
 
-### What a decision tree does
+### Co robi drzewo decyzyjne
 
-A decision tree partitions the feature space into rectangular regions by asking a sequence of yes/no questions.
+Drzewo decyzyjne dzieli przestrzeń cech na prostokątne regiony poprzez zadawanie sekwencji pytań tak/nie.
 
 ```mermaid
 graph TD
@@ -38,40 +38,40 @@ graph TD
     C -->|No| G["Deny"]
 ```
 
-Each internal node tests a feature against a threshold. Each leaf node makes a prediction. To classify a new data point, you start at the root and follow the branches until you reach a leaf.
+Każdy wewnętrzny węzeł testuje cechę względem progu. Każdy liść wykonuje predykcję. Aby sklasyfikować nowy punkt danych, zaczynasz od korzenia i podążasz za gałęziami, aż dotrzesz do liścia.
 
-The tree is built top-down by choosing, at each node, the feature and threshold that best separate the data. "Best" is defined by a split criterion.
+Drzewo jest budowane od góry poprzez wybieranie, w każdym węźle, cechy i progu, które najlepiej separują dane. "Najlepiej" jest definiowane przez kryterium podziału.
 
-### Split criteria: measuring impurity
+### Kryteria podziału: pomiar domieszki
 
-At each node, we have a set of samples. We want to split them so that the resulting child nodes are as "pure" as possible, meaning each child contains mostly one class.
+W każdym węźle mamy zbiór próbek. Chcemy je podzielić tak, aby wynikowe węzły potomne były jak najbardziej "czyste", co oznacza, że każdy potomek zawiera głównie jedną klasę.
 
-**Gini impurity** measures the probability that a randomly chosen sample would be misclassified if it were labeled according to the class distribution at that node.
+**Domieszka Gini** mierzy prawdopodobieństwo, że losowo wybrana próbka zostałaby błędnie sklasyfikowana, gdyby została oznaczona zgodnie z rozkładem klas w tym węźle.
 
 ```
 Gini(S) = 1 - sum(p_k^2)
 
-where p_k is the proportion of class k in set S.
+gdzie p_k to proporcja klasy k w zbiorze S.
 ```
 
-For a pure node (all one class), Gini = 0. For a binary split with 50/50 classes, Gini = 0.5. Lower is better.
+Dla czystego węzła (wszystkie jednej klasy), Gini = 0. Dla binarnego podziału z klasami 50/50, Gini = 0.5. Niższy jest lepszy.
 
 ```
-Example: 6 cats, 4 dogs
+Przykład: 6 kotów, 4 psy
 
 Gini = 1 - (0.6^2 + 0.4^2) = 1 - (0.36 + 0.16) = 0.48
 ```
 
-**Entropy** measures the information content (disorder) in a node. Covered in Phase 1 Lesson 09.
+**Entropia** mierzy zawartość informacji (nieuporządkowanie) w węźle. Omówiona w Lekcji 09 Fazy 1.
 
 ```
 Entropy(S) = -sum(p_k * log2(p_k))
 ```
 
-For a pure node, entropy = 0. For a 50/50 binary split, entropy = 1.0. Lower is better.
+Dla czystego węzła, entropia = 0. Dla binarnego podziału 50/50, entropia = 1.0. Niższa jest lepsza.
 
 ```
-Example: 6 cats, 4 dogs
+Przykład: 6 kotów, 4 psy
 
 Entropy = -(0.6 * log2(0.6) + 0.4 * log2(0.4))
         = -(0.6 * -0.737 + 0.4 * -1.322)
@@ -79,61 +79,61 @@ Entropy = -(0.6 * log2(0.6) + 0.4 * log2(0.4))
         = 0.971 bits
 ```
 
-**Information gain** is the reduction in impurity (entropy or Gini) after a split.
+**Zysk informacyjny** to redukcja domieszki (entropii lub Gini) po podziale.
 
 ```
 IG(S, feature, threshold) = Impurity(S) - weighted_avg(Impurity(S_left), Impurity(S_right))
 
-where the weights are the proportions of samples in each child.
+gdzie wagi to proporcje próbek w każdym potomku.
 ```
 
-The greedy algorithm at each node: try every feature and every possible threshold. Pick the (feature, threshold) pair that maximizes information gain.
+Zachłanny algorytm w każdym węźle: wypróbuj każdą cechę i każdy możliwy próg. Wybierz parę (cecha, próg), która maksymalizuje zysk informacyjny.
 
-### How splitting works
+### Jak działa dzielenie
 
-For a dataset with n features and m samples at the current node:
+Dla zbioru danych z n cechami i m próbkami w bieżącym węźle:
 
-1. For each feature j (j = 1 to n):
-   - Sort the samples by feature j
-   - Try every midpoint between consecutive distinct values as a threshold
-   - Compute the information gain for each threshold
-2. Select the feature and threshold with the highest information gain
-3. Split the data into left (feature <= threshold) and right (feature > threshold)
-4. Recurse on each child
+1. Dla każdej cechy j (j = 1 do n):
+   - Posortuj próbki według cechy j
+   - Wypróbuj każdy punkt środkowy między kolejnymi distinct wartościami jako próg
+   - Oblicz zysk informacyjny dla każdego progu
+2. Wybierz cechę i próg z najwyższym zyskiem informacyjnym
+3. Podziel dane na lewo (cecha <= próg) i prawo (cecha > próg)
+4. Rekuruj na każdym potomku
 
-This greedy approach does not guarantee the globally optimal tree. Finding the optimal tree is NP-hard. But greedy splitting works well in practice.
+To zachłanne podejście nie gwarantuje globalnie optymalnego drzewa. Znalezienie optymalnego drzewa jest NP-trudne. Ale zachłanne dzielenie działa dobrze w praktyce.
 
-### Stopping conditions
+### Warunki zatrzymania
 
-Without stopping conditions, the tree grows until every leaf is pure (one sample per leaf). This perfectly memorizes the training data and generalizes terribly.
+Bez warunków zatrzymania drzewo rośnie, aż każdy liść będzie czysty (jedna próbka na liść). To doskonale zapamiętuje dane treningowe i generalizuje tragicznie.
 
-**Pre-pruning** stops the tree before it fully grows:
-- Maximum depth: stop splitting when the tree reaches a set depth
-- Minimum samples per leaf: stop if a node has fewer than k samples
-- Minimum information gain: stop if the best split improves impurity by less than a threshold
-- Maximum leaf nodes: limit the total number of leaves
+**Przycinanie wstępne** zatrzymuje drzewo, zanim w pełni wyrośnie:
+- Maksymalna głębokość: przestań dzielić, gdy drzewo osiągnie ustawioną głębokość
+- Minimalna liczba próbek na liść: przestań, jeśli węzeł ma mniej niż k próbek
+- Minimalny zysk informacyjny: przestań, jeśli najlepszy podział poprawia domieszkę o mniej niż próg
+- Maksymalna liczba liści: ogranicz całkowitą liczbę liści
 
-**Post-pruning** grows the full tree, then trims it back:
-- Cost-complexity pruning (used by scikit-learn): adds a penalty proportional to the number of leaves. Increase the penalty to get smaller trees
-- Reduced error pruning: remove a subtree if the validation error does not increase
+**Przycinanie końcowe** rośnie pełne drzewo, a następnie przycina je:
+- Przycinanie złożoności kosztowej (używane przez scikit-learn): dodaje karę proporcjonalną do liczby liści. Zwiększ karę, aby uzyskać mniejsze drzewa
+- Przycinanie zredukowanym błędem: usuń poddrzewo, jeśli błąd walidacji nie wzrasta
 
-Pre-pruning is simpler and faster. Post-pruning often produces better trees because it does not prematurely stop splits that might lead to useful further splits.
+Przycinanie wstępne jest prostsze i szybsze. Przycinanie końcowe często produkuje lepsze drzewa, bo nie zatrzymuje przedwcześnie podziałów, które mogłyby prowadzić do użytecznych dalszych podziałów.
 
-### Decision trees for regression
+### Drzewa decyzyjne dla regresji
 
-For regression, the leaf prediction is the mean of the target values in that leaf. The split criterion changes too:
+Dla regresji predykcja liścia to średnia wartości docelowych w tym liściu. Kryterium podziału również się zmienia:
 
-**Variance reduction** replaces information gain:
+**Redukcja wariancji** zastępuje zysk informacyjny:
 
 ```
 VR(S, feature, threshold) = Var(S) - weighted_avg(Var(S_left), Var(S_right))
 ```
 
-Pick the split that reduces variance the most. The tree partitions the input space into regions, and predicts a constant (the mean) in each region.
+Wybierz podział, który najbardziej redukuje wariancję. Drzewo dzieli przestrzeń wejściową na regiony i przewiduje stałą (średnią) w każdym regionie.
 
-### Random forests: the power of ensembles
+### Lasy losowe: siła ansambli
 
-A single decision tree is high variance. Small changes in the data can produce completely different trees. Random forests fix this by averaging many trees.
+Pojedyncze drzewo decyzyjne ma wysoką wariancję. Małe zmiany w danych mogą produkować całkowicie różne drzewa. Lasy losowe to naprawiają poprzez uśrednianie wielu drzew.
 
 ```mermaid
 graph TD
@@ -151,49 +151,49 @@ graph TD
     TN --> V
 ```
 
-Two sources of randomness make the trees diverse:
+Dwa źródła losowości czynią drzewa zróżnicowanymi:
 
-**Bagging (bootstrap aggregating):** Each tree is trained on a bootstrap sample, a random sample with replacement from the training data. About 63% of the original samples appear in each bootstrap (the rest are out-of-bag samples that can be used for validation).
+**Bagging (agregacja bootstrap):** Każde drzewo jest trenowane na próbce bootstrap, losowej próbce z powtórzeniami z danych treningowych. Około 63% oryginalnych próbek pojawia się w każdej próbce bootstrap (reszta to próbki out-of-bag, które mogą być używane do walidacji).
 
-**Feature randomization:** At each split, only a random subset of features is considered. For classification, the default is sqrt(n_features). For regression, n_features/3. This prevents all trees from splitting on the same dominant feature.
+**Randomizacja cech:** W każdym podziale rozważana jest tylko losowy podzbiór cech. Dla klasyfikacji domyślnie sqrt(n_features). Dla regresji n_features/3. To zapobiega wszystkim drzewom dzielącym na tej samej dominującej cesze.
 
-The key insight: averaging many decorrelated trees reduces variance without increasing bias. Each individual tree may be mediocre. The ensemble is strong.
+Kluczowy wgląd: uśrednianie wielu zdekorelowanych drzew redukuje wariancję bez zwiększania obciążenia. Każde pojedyncze drzewo może być przeciętne. Ansambl jest silny.
 
-### Feature importance
+### Ważność cech
 
-Random forests naturally provide feature importance scores. The most common method:
+Lasy losowe naturalnie dostarczają wyniki ważności cech. Najczęstsza metoda:
 
-**Mean Decrease in Impurity (MDI):** For each feature, sum the total reduction in impurity across all trees and all nodes where that feature is used. Features that produce bigger impurity reductions at earlier splits are more important.
+**Średni spadek domieszki (MDI):** Dla każdej cechy sumuj całkowitą redukcję domieszki we wszystkich drzewach i węzłach, gdzie ta cecha jest używana. Cechy produkujące większe redukcje domieszki we wcześniejszych podziałach są ważniejsze.
 
 ```
-importance(feature_j) = sum over all nodes where feature_j is used:
+importance(feature_j) = suma po wszystkich węzłach gdzie feature_j jest używane:
     (n_samples_at_node / n_total_samples) * impurity_decrease
 ```
 
-This is fast (computed during training) but biased toward high-cardinality features and features with many possible split points.
+To jest szybkie (obliczane podczas treningu), ale stronnicze wobec cech o wysokiej kardynalności i cech z wieloma możliwymi punktami podziału.
 
-**Permutation importance** is the alternative: shuffle one feature's values and measure how much the model's accuracy drops. More reliable but slower.
+**Ważność permutacji** to alternatywa: tasuj wartości jednej cechy i zmierz, jak bardzo spada dokładność modelu. Bardziej wiarygodne, ale wolniejsze.
 
-### When trees beat neural networks
+### Kiedy drzewa biją sieci neuronowe
 
-Trees and forests dominate neural networks on tabular data. Several reasons:
+Drzewa i lasy dominują sieci neuronowe na danych tabelarycznych. Kilka powodów:
 
-| Factor | Trees | Neural networks |
+| Czynnik | Drzewa | Sieci neuronowe |
 |--------|-------|----------------|
-| Mixed types (numeric + categorical) | Native support | Need encoding |
-| Small datasets (< 10k rows) | Work well | Overfit |
-| Feature interactions | Found by splitting | Need architecture design |
-| Interpretability | Full transparency | Black box |
-| Training time | Minutes | Hours |
-| Hyperparameter sensitivity | Low | High |
+| Mieszane typy (numeryczne + kategorialne) | Natywne wsparcie | Wymaga kodowania |
+| Małe zbiory danych (< 10k wierszy) | Działają dobrze | Nadmierne dopasowanie |
+| Interakcje cech | Znajdywane przez dzielenie | Wymaga projektowania architektury |
+| Interpretowalność | Pełna transparentność | Czarna skrzynka |
+| Czas treningu | Minuty | Godziny |
+| Wrażliwość na hiperparametry | Niska | Wysoka |
 
-Neural networks win when the data has spatial or sequential structure (images, text, audio). For flat tables of features, trees are the default.
+Sieci neuronowe wygrywają, gdy dane mają strukturę przestrzenną lub sekwencyjną (obrazy, tekst, audio). Dla płaskich tabel cech drzewa są domyślne.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Gini impurity and entropy
+### Krok 1: Domieszka Gini i entropia
 
-Build both split criteria from scratch and verify they agree on which splits are good.
+Zbuduj oba kryteria podziału od zera i zweryfikuj, że zgadzają się co do tego, które podziały są dobre.
 
 ```python
 import math
@@ -219,9 +219,9 @@ def entropy(labels):
     )
 ```
 
-### Step 2: Find the best split
+### Krok 2: Znajdź najlepszy podział
 
-Try every feature and every threshold. Return the one with the highest information gain.
+Wypróbuj każdą cechę i każdy próg. Zwróć ten z najwyższym zyskiem informacyjnym.
 
 ```python
 def information_gain(parent_labels, left_labels, right_labels, criterion="gini"):
@@ -239,9 +239,9 @@ def information_gain(parent_labels, left_labels, right_labels, criterion="gini")
     return parent_impurity - child_impurity
 ```
 
-### Step 3: Build the DecisionTree class
+### Krok 3: Zbuduj klasę DecisionTree
 
-Recursive splitting, prediction, and feature importance tracking.
+Rekursywne dzielenie, predykcja i śledzenie ważności cech.
 
 ```python
 class DecisionTree:
@@ -271,9 +271,9 @@ class DecisionTree:
         return [self._predict_one(x, self.tree) for x in X]
 ```
 
-### Step 4: Build the RandomForest class
+### Krok 4: Zbuduj klasę RandomForest
 
-Bootstrap sampling, feature randomization, and majority voting.
+Próbkowanie bootstrap, randomizacja cech i głosowanie większościowe.
 
 ```python
 class RandomForest:
@@ -314,11 +314,11 @@ class RandomForest:
         return predictions
 ```
 
-See `code/trees.py` for the complete implementation with all helper methods.
+Zobacz `code/trees.py` po kompletną implementację ze wszystkimi metodami pomocniczymi.
 
-## Use It
+## Użyj tego
 
-With scikit-learn, training a random forest is three lines:
+Z scikit-learn trening lasu losowego to trzy linie:
 
 ```python
 from sklearn.ensemble import RandomForestClassifier
@@ -334,44 +334,44 @@ print(f"Accuracy: {rf.score(X_test, y_test):.4f}")
 print(f"Feature importances: {rf.feature_importances_}")
 ```
 
-In practice, gradient boosted trees (XGBoost, LightGBM, CatBoost) are often stronger than random forests because they build trees sequentially, with each tree correcting the errors of the previous ones. But random forests are harder to misconfigure and require almost no hyperparameter tuning.
+W praktyce drzewa wzmacniane gradientowo (XGBoost, LightGBM, CatBoost) są często silniejsze niż lasy losowe, ponieważ budują drzewa sekwencyjnie, z każdym drzewem korygującym błędy poprzednich. Ale lasy losowe są trudniejsze do błędnego skonfigurowania i wymagają prawie żadnego dostrajania hiperparametrów.
 
-## Ship It
+## Dostarcz to
 
-This lesson produces `outputs/prompt-tree-interpreter.md` -- a prompt that interprets decision tree splits for business stakeholders. Feed it a trained tree's structure (depth, features, split thresholds, accuracy) and it translates the model into plain-language rules, ranks feature importance, flags overfitting or leakage, and recommends next steps. Use it any time you need to explain a tree-based model to someone who does not read code.
+Ta lekcja produkuje `outputs/prompt-tree-interpreter.md` -- prompt, który interpretuje podziały drzewa decyzyjnego dla interesariuszy biznesowych. Podaj strukturę wytrenowanego drzewa (głębokość, cechy, progi podziału, dokładność), a przetłumaczy model w reguły w prostym języku, uszereguje ważność cech, oznaczy nadmierne dopasowanie lub przeciek oraz zaproponuje następne kroki. Używaj go za każdym razem, gdy musisz wyjaśnić model oparty na drzewach komuś, kto nie czyta kodu.
 
-## Exercises
+## Ćwiczenia
 
-1. Train a single decision tree on a 2D dataset with 3 classes. Manually trace the splits and draw the rectangular decision boundaries. Compare the boundaries at max_depth=2 vs max_depth=10.
+1. Trenuj pojedyncze drzewo decyzyjne na zbiorze 2D z 3 klasami. Ręcznie prześledź podziały i narysuj prostokątne granice decyzyjne. Porównaj granice przy max_depth=2 vs max_depth=10.
 
-2. Implement variance reduction splitting for regression trees. Generate y = sin(x) + noise for 200 points and fit your regression tree. Plot the tree's piecewise-constant predictions against the true curve.
+2. Zaimplementuj podziały z redukcją wariancji dla drzew regresyjnych. Generuj y = sin(x) + szum dla 200 punktów i dopasuj swoje drzewo regresyjne. Wykreśl predykcje drzewa jako funkcję przedziałową względem prawdziwej krzywej.
 
-3. Build a random forest with 1, 5, 10, 50, and 200 trees. Plot training accuracy and test accuracy vs number of trees. Observe that test accuracy plateaus but does not decrease (forests resist overfitting).
+3. Zbuduj las losowy z 1, 5, 10, 50 i 200 drzewami. Wykreśl dokładność treningową i testową vs liczbę drzew. Zaobserwuj, że dokładność testowa się plateauje, ale nie maleje (lasy są odporne na nadmierne dopasowanie).
 
-4. Compare Gini impurity vs entropy as split criteria on 5 different datasets. Measure accuracy and tree depth. In most cases, they produce nearly identical results. Explain why.
+4. Porównaj domieszkę Gini vs entropię jako kryteria podziału na 5 różnych zbiorach danych. Zmierz dokładność i głębokość drzewa. W większości przypadków produkują niemal identyczne wyniki. Wyjaśnij dlaczego.
 
-5. Implement permutation importance. Compare it with MDI importance on a dataset where one feature is random noise but has high cardinality. MDI will rank the noise feature highly. Permutation importance will not.
+5. Zaimplementuj ważność permutacji. Porównaj ją z ważnością MDI na zbiorze danych, gdzie jedna cecha to losowy szum, ale ma wysoką kardynalność. MDI uszereguje cechę szumową wysoko. Ważność permutacji nie.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Decision tree | "A flowchart for predictions" | A model that partitions feature space into rectangular regions by learning a sequence of if/else splits |
-| Gini impurity | "How mixed the node is" | Probability of misclassifying a random sample at a node. 0 = pure, 0.5 = maximum impurity for binary |
-| Entropy | "The disorder in a node" | Information content at a node. 0 = pure, 1.0 = maximum uncertainty for binary. From information theory |
-| Information gain | "How good a split is" | Reduction in impurity after a split. The greedy criterion for choosing splits |
-| Pre-pruning | "Stop the tree early" | Stopping tree growth early by setting max depth, min samples, or min gain thresholds |
-| Post-pruning | "Trim the tree after" | Growing the full tree, then removing subtrees that do not improve validation performance |
-| Bagging | "Train on random subsets" | Bootstrap aggregating. Train each model on a different random sample with replacement |
-| Random forest | "A bunch of trees" | Ensemble of decision trees, each trained on a bootstrap sample with random feature subsets at each split |
-| Feature importance (MDI) | "Which features matter" | Total impurity decrease contributed by each feature, summed across all trees and nodes |
-| Permutation importance | "Shuffle and check" | Accuracy drop when a feature's values are randomly shuffled. More reliable than MDI for noisy features |
-| Variance reduction | "The regression version of info gain" | The regression tree analogue of information gain. Picks the split that reduces target variance the most |
-| Bootstrap sample | "Random sample with repeats" | A random sample drawn with replacement from the original dataset. Same size, but with duplicates |
+| Drzewo decyzyjne | "Schemat blokowy do predykcji" | Model dzielący przestrzeń cech na prostokątne regiony poprzez naukę sekwencji podziałów if/else |
+| Domieszka Gini | "Jak zmieszany jest węzeł" | Prawdopodobieństwo błędnej klasyfikacji losowej próbki w węźle. 0 = czysty, 0.5 = maksymalna domieszka dla binarnego |
+| Entropia | "Nieuporządkowanie w węźle" | Zawartość informacji w węźle. 0 = czysty, 1.0 = maksymalna niepewność dla binarnego. Z teorii informacji |
+| Zysk informacyjny | "Jak dobry jest podział" | Redukcja domieszki po podziale. Zachłanne kryterium wyboru podziałów |
+| Przycinanie wstępne | "Zatrzymaj drzewo wcześnie" | Wczesne zatrzymanie wzrostu drzewa przez ustawienie maksymalnej głębokości, minimalnej liczby próbek lub minimalnego progu zysku |
+| Przycinanie końcowe | "Przycinaj drzewo potem" | Wzrost pełnego drzewa, następnie usunięcie poddrzew, które nie poprawiają wydajności walidacji |
+| Bagging | "Trenuj na losowych podzbiorach" | Agregacja bootstrap. Trenuj każdy model na innym losowym podzbiorze z powtórzeniami |
+| Las losowy | "Bunch of trees" | Ansambl drzew decyzyjnych, każde trenowane na próbce bootstrap z losowymi podzbiorami cech w każdym podziale |
+| Ważność cech (MDI) | "Które cechy mają znaczenie" | Całkowity spadek domieszki wniesiony przez każdą cechę, sumowany po wszystkich drzewach i węzłach |
+| Ważność permutacji | "Tasuj i sprawdź" | Spadek dokładności, gdy wartości cechy są losowo tasowane. Bardziej wiarygodna niż MDI dla szumowych cech |
+| Redukcja wariancji | "Wersja regresyjna zysku informacyjnego" | Odpowiednik drzewa regresyjnego dla zysku informacyjnego. Wybiera podział redukujący wariancję zmiennej docelowej najbardziej |
+| Próbka bootstrap | "Losowa próbka z powtórzeniami" | Losowa próbka pobrana z powtórzeniami z oryginalnego zbioru danych. Ten sam rozmiar, ale z duplikatami |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Breiman: Random Forests (2001)](https://link.springer.com/article/10.1023/A:1010933404324) - the original random forest paper
-- [Grinsztajn et al.: Why do tree-based models still outperform deep learning on tabular data? (2022)](https://arxiv.org/abs/2207.08815) - rigorous comparison of trees vs neural networks on tabular tasks
-- [scikit-learn Decision Trees documentation](https://scikit-learn.org/stable/modules/tree.html) - practical guide with visualization tools
-- [XGBoost: A Scalable Tree Boosting System (Chen & Guestrin, 2016)](https://arxiv.org/abs/1603.02754) - the gradient boosting paper that dominates Kaggle
+- [Breiman: Random Forests (2001)](https://link.springer.com/article/10.1023/A:1010933404324) - oryginalny artykuł o lasach losowych
+- [Grinsztajn et al.: Why do tree-based models still outperform deep learning on tabular data? (2022)](https://arxiv.org/abs/2207.08815) - rygorystyczne porównanie drzew i sieci neuronowych na zadaniach tabelarycznych
+- [scikit-learn Decision Trees documentation](https://scikit-learn.org/stable/modules/tree.html) - praktyczny przewodnik z narzędziami wizualizacji
+- [XGBoost: A Scalable Tree Boosting System (Chen & Guestrin, 2016)](https://arxiv.org/abs/1603.02754) - artykuł o wzmacnianiu gradientowym, który dominuje na Kaggle

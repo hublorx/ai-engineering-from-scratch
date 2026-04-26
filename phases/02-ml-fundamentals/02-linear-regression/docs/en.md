@@ -1,65 +1,65 @@
-# Linear Regression
+# Regresja liniowa
 
-> Linear regression draws the best straight line through your data. It is the "hello world" of machine learning.
+> Regresja liniowa rysuje najlepszą prostą przez twoje dane. To jest "hello world" uczenia maszynowego.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 1 (Linear Algebra, Calculus, Optimization), Phase 2 Lesson 1
-**Time:** ~90 minutes
+**Typ:** Budowanie
+**Języki:** Python
+**Wymagania wstępne:** Faza 1 (Algebra liniowa, Rachunek różniczkowy, Optymalizacja), Lekcja Fazy 2 nr 1
+**Czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Derive the gradient descent update rules for mean squared error and implement linear regression from scratch
-- Compare gradient descent and the normal equation in terms of computational complexity and when to use each
-- Build a multiple linear regression model with feature standardization and interpret the learned weights
-- Explain how Ridge regression (L2 regularization) prevents overfitting by penalizing large weights
+- Odtwórz reguły aktualizacji spadku gradientu dla błędu średniokwadratowego i zaimplementuj regresję liniową od podstaw
+- Porównaj spadek gradientu z równaniem normalnym pod względem złożoności obliczeniowej i określ, kiedy stosować każde z nich
+- Zbuduj model wielokrotnej regresji liniowej ze standaryzacją cech i zinterpretuj nauczone wagi
+- Wyjaśnij, jak regresja grzbietowa (regularyzacja L2) zapobiega nadmiernemu dopasowaniu poprzez karanie dużych wag
 
-## The Problem
+## Problem
 
-You have data: house sizes and their sale prices. You want to predict the price of a new house given its size. You could eyeball it on a scatter plot, but you need a formula. You need a line that best fits the data so you can plug in any size and get a price prediction.
+Masz dane: wielkości domów i ich ceny sprzedaży. Chcesz przewidzieć cenę nowego domu na podstawie jego wielkości. Możesz to oszacować na oko na wykresie rozproszenia, ale potrzebujesz wzoru. Potrzebujesz linii, która najlepiej dopasuje się do danych, abyś mógł podstawić dowolną wielkość i uzyskać przewidywaną cenę.
 
-Linear regression gives you that line. More importantly, it introduces the entire ML training loop: define a model, define a cost function, optimize the parameters. Every ML algorithm follows this same pattern. Master it here with the simplest case, and you will recognize it everywhere.
+Regresja liniowa daje ci tę linię. Co ważniejsze, wprowadza całą pętlę treningową ML: zdefiniuj model, zdefiniuj funkcję kosztu, optymalizuj parametry. Każdy algorytm ML podąża za tym samym wzorem. Opanuj to tutaj w najprostszym przypadku, a rozpoznasz to wszędzie.
 
-This is not just for simple problems. Linear regression is used in production systems for demand forecasting, A/B test analysis, financial modeling, and as a baseline for every regression task.
+To nie jest tylko do prostych problemów. Regresja liniowa jest używana w systemach produkcyjnych do prognozowania popytu, analizy testów A/B, modelowania finansowego i jako punkt wyjścia dla każdego zadania regresji.
 
-## The Concept
+## Koncepcja
 
-### The Model
+### Model
 
-Linear regression assumes a linear relationship between input (x) and output (y):
+Regresja liniowa zakłada liniową zależność między wejściem (x) a wyjściem (y):
 
 ```
 y = wx + b
 ```
 
-- `w` (weight/slope): how much y changes when x increases by 1
-- `b` (bias/intercept): the value of y when x = 0
+- `w` (waga/nachylenie): o ile y zmienia się, gdy x wzrasta o 1
+- `b` (obciążenie/wyraz wolny): wartość y gdy x = 0
 
-For multiple inputs (features), this extends to:
+Dla wielu wejść (cech), rozszerza się to do:
 
 ```
 y = w1*x1 + w2*x2 + ... + wn*xn + b
 ```
 
-Or in vector form: `y = w^T * x + b`
+Albo w formie wektorowej: `y = w^T * x + b`
 
-The goal: find the values of w and b that make the predicted y as close as possible to the actual y across all training examples.
+Cel: znajdź wartości w i b, które sprawiają, że przewidywane y jest jak najbliższe rzeczywistemu y we wszystkich przykładach treningowych.
 
-### The Cost Function (Mean Squared Error)
+### Funkcja kosztu (Błąd średniokwadratowy)
 
-How do you measure "as close as possible"? You need a single number that captures how wrong your predictions are. The most common choice is Mean Squared Error (MSE):
+Jak mierzysz "jak najbliżej"? Potrzebujesz jednej liczby, która uchwyci, jak bardzo mylne są twoje przewidywania. Najczęstszym wyborem jest Błąd średniokwadratowy (MSE):
 
 ```
 MSE = (1/n) * sum((y_predicted - y_actual)^2)
 ```
 
-Why squared? Two reasons. First, it penalizes large errors more than small errors (an error of 10 is 100x worse than an error of 1, not 10x). Second, the squared function is smooth and differentiable everywhere, which makes optimization straightforward.
+Dlaczego kwadrat? Dwa powody. Po pierwsze, kara duże błędy bardziej niż małe (błąd 10 jest 100 razy gorszy niż błąd 1, nie 10 razy). Po drugie, funkcja kwadratowa jest gładka i różniczkowalna wszędzie, co sprawia, że optymalizacja jest prosta.
 
-The cost function creates a surface. For a single weight w and bias b, the MSE surface looks like a bowl (a convex paraboloid). The bottom of the bowl is where MSE is minimized. Training means finding that bottom.
+Funkcja kosztu tworzy powierzchnię. Dla pojedynczej wagi w i obciążenia b, powierzchnia MSE wygląda jak miska (wypukły paraboloid). Dno miski to miejsce, gdzie MSE jest minimalizowane. Trening oznacza znalezienie tego dna.
 
-### Gradient Descent
+### Spadek gradientu
 
-Gradient descent finds the bottom of the bowl by taking steps downhill.
+Spadek gradientu znajduje dno miski, robiąc kroki w dół.
 
 ```mermaid
 flowchart TD
@@ -72,84 +72,84 @@ flowchart TD
     F -->|Yes| G[Done: optimal w and b found]
 ```
 
-The gradients tell you two things: which direction to move each parameter, and how much to move.
+Gradienty mówią ci dwie rzeczy: w którym kierunku przesunąć każdy parametr i o ile.
 
-For MSE with y_hat = wx + b:
+Dla MSE z y_hat = wx + b:
 
 ```
 dMSE/dw = (2/n) * sum((y_hat - y) * x)
 dMSE/db = (2/n) * sum(y_hat - y)
 ```
 
-The update rule:
+Reguła aktualizacji:
 
 ```
 w = w - learning_rate * dMSE/dw
 b = b - learning_rate * dMSE/db
 ```
 
-The learning rate controls step size. Too large: you overshoot the minimum and diverge. Too small: training takes forever. Typical starting values: 0.01, 0.001, or 0.0001.
+Współczynnik uczenia się kontroluje rozmiar kroku. Zbyt duży: przekraczasz minimum i rozbiegasz się. Zbyt mały: trening trwa wiecznie. Typowe wartości początkowe: 0,01, 0,001 lub 0,0001.
 
-### The Normal Equation (Closed-Form Solution)
+### Równanie normalne (rozwiązanie w formie zamkniętej)
 
-For linear regression specifically, there is a direct formula that gives the optimal weights without any iteration:
+Dla regresji liniowej konkretnie, istnieje bezpośredni wzór, który daje optymalne wagi bez żadnej iteracji:
 
 ```
 w = (X^T * X)^(-1) * X^T * y
 ```
 
-This inverts a matrix to solve for w in one step. It works perfectly for small datasets. For large datasets (millions of rows or thousands of features), gradient descent is preferred because matrix inversion is O(n^3) in the number of features.
+To odwraca macierz, aby rozwiązać dla w w jednym kroku. Działa idealnie dla małych zbiorów danych. Dla dużych zbiorów danych (miliony wierszy lub tysiące cech), preferowany jest spadek gradientu, ponieważ odwracanie macierzy ma złożoność O(n^3) względem liczby cech.
 
-### Multiple Linear Regression
+### Wielokrotna regresja liniowa
 
-With multiple features, the model becomes:
+Z wieloma cechami, model staje się:
 
 ```
 y = w1*x1 + w2*x2 + ... + wn*xn + b
 ```
 
-Everything works the same: MSE is the cost function, gradient descent updates all weights simultaneously. The only difference is that you are fitting a hyperplane instead of a line.
+Wszystko działa tak samo: MSE jest funkcją kosztu, spadek gradientu aktualizuje wszystkie wagi jednocześnie. Jedyna różnica polega na tym, że dopasowujesz hiperpłaszczyznę zamiast linii.
 
-Feature scaling matters here. If one feature ranges from 0 to 1 and another ranges from 0 to 1,000,000, gradient descent will struggle because the cost surface becomes elongated. Standardize features (subtract mean, divide by standard deviation) before training.
+Skalowanie cech ma tutaj znaczenie. Jeśli jedna cecha mieści się w zakresie od 0 do 1, a inna od 0 do 1 000 000, spadek gradientu będzie zmagać się, bo powierzchnia kosztu staje się wydłużona. Standaryzuj cechy (odejmij średnią, podziel przez odchylenie standardowe) przed treningiem.
 
-### Polynomial Regression
+### Regresja wielomianowa
 
-What if the relationship is not linear? You can still use linear regression by creating polynomial features:
+Co jeśli zależność nie jest liniowa? Możesz nadal używać regresji liniowej, tworząc cechy wielomianowe:
 
 ```
 y = w1*x + w2*x^2 + w3*x^3 + b
 ```
 
-This is still "linear" regression because the model is linear in the weights (w1, w2, w3). You are just using nonlinear features of x.
+To nadal jest "liniowa" regresja, bo model jest liniowy względem wag (w1, w2, w3). Po prostu używasz nieliniowych cech x.
 
-Higher-degree polynomials can fit more complex curves but risk overfitting. A degree-10 polynomial will pass through every point in a 10-point dataset but predict poorly on new data.
+Wielomiany wyższego stopnia mogą dopasować bardziej złożone krzywe, ale ryzykują nadmierne dopasowanie. Wielomian stopnia 10 przejdzie przez każdy punkt w 10-punktowym zbiorze danych, ale będzie słabo przewidywać na nowych danych.
 
-### R-Squared Score
+### Współczynnik R-kwadrat
 
-MSE tells you how wrong you are, but the number depends on the scale of y. R-squared (R^2) gives a scale-independent measure:
+MSE mówi ci, jak bardzo się mylisz, ale liczba zależy od skali y. R-kwadrat (R^2) daje miarę niezależną od skali:
 
 ```
 R^2 = 1 - (sum of squared residuals) / (sum of squared deviations from mean)
     = 1 - SS_res / SS_tot
 ```
 
-- R^2 = 1.0: perfect predictions
-- R^2 = 0.0: the model is no better than predicting the mean every time
-- R^2 < 0.0: the model is worse than predicting the mean
+- R^2 = 1,0: doskonałe przewidywania
+- R^2 = 0,0: model nie jest lepszy niż przewidywanie średniej za każdym razem
+- R^2 < 0,0: model jest gorszy niż przewidywanie średniej
 
-### Regularization Preview (Ridge Regression)
+### Podgląd regularyzacji (Regresja grzbietowa)
 
-When you have many features, the model can overfit by assigning large weights. Ridge regression (L2 regularization) adds a penalty:
+Gdy masz wiele cech, model może nadmiernie dopasować się, przypisując duże wagi. Regresja grzbietowa (regularyzacja L2) dodaje karę:
 
 ```
 Cost = MSE + lambda * sum(w_i^2)
 ```
 
-The penalty term discourages large weights. The hyperparameter lambda controls the tradeoff: higher lambda means smaller weights and more regularization. This is covered in depth in a later lesson. For now, know that it exists and why it helps.
+Wyraz kary zniechęca do dużych wag. Hiperparametr lambda kontroluje kompromis: wyższa lambda oznacza mniejsze wagi i więcej regularyzacji. To jest omówione szczegółowo w późniejszej lekcji. Na razie wiedz, że istnieje i dlaczego pomaga.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Generate sample data
+### Krok 1: Generuj przykładowe dane
 
 ```python
 import random
@@ -169,7 +169,7 @@ print(f"True relationship: y = {TRUE_W}x + {TRUE_B} (+ noise)")
 print(f"First 5 points: {[(round(X[i], 2), round(y[i], 2)) for i in range(5)]}")
 ```
 
-### Step 2: Linear regression from scratch with gradient descent
+### Krok 2: Regresja liniowa od podstaw ze spadkiem gradientu
 
 ```python
 class LinearRegression:
@@ -222,7 +222,7 @@ print(f"True:    y = {TRUE_W}x + {TRUE_B}")
 print(f"R-squared: {model.r_squared(X, y):.4f}")
 ```
 
-### Step 3: Normal equation (closed-form solution)
+### Krok 3: Równanie normalne (rozwiązanie w formie zamkniętej)
 
 ```python
 class LinearRegressionNormal:
@@ -258,7 +258,7 @@ print(f"Learned: y = {model_normal.w:.4f}x + {model_normal.b:.4f}")
 print(f"R-squared: {model_normal.r_squared(X, y):.4f}")
 ```
 
-### Step 4: Multiple linear regression
+### Krok 4: Wielokrotna regresja liniowa
 
 ```python
 class MultipleLinearRegression:
@@ -347,7 +347,7 @@ print(f"Bias (standardized): {multi_model.bias:.4f}")
 print(f"R-squared: {multi_model.r_squared(X_scaled, y_scaled):.4f}")
 ```
 
-### Step 5: Polynomial regression
+### Krok 5: Regresja wielomianowa
 
 ```python
 class PolynomialRegression:
@@ -415,7 +415,7 @@ print("\nDegree 2 fits the true curve well. Degree 5 fits training data slightly
 print("but risks overfitting on new data.")
 ```
 
-### Step 6: Ridge regression (L2 regularization)
+### Krok 6: Regresja grzbietowa (regularyzacja L2)
 
 ```python
 class RidgeRegression:
@@ -460,9 +460,9 @@ print(f"Plain weights: {[round(w, 4) for w in multi_model.weights]}")
 print("Ridge weights are smaller (shrunk toward zero) due to the L2 penalty.")
 ```
 
-## Use It
+## Użyj tego
 
-Now the same thing with scikit-learn, which is what you will actually use in production.
+Teraz to samo z scikit-learn, który jest tym, czego będziesz faktycznie używać w produkcji.
 
 ```python
 from sklearn.linear_model import LinearRegression as SklearnLR
@@ -506,39 +506,41 @@ print(f"Ridge R-squared: {r2_score(y_test, ridge.predict(X_test_scaled)):.4f}")
 print(f"Ridge coefficient: {ridge.coef_[0]:.4f}")
 ```
 
-Your from-scratch implementation and scikit-learn produce the same results. The difference: scikit-learn handles edge cases, numerical stability, and performance optimizations. Use the library for production. Use the from-scratch version to understand what is happening.
+Twoja implementacja od podstaw i scikit-learn dają te same wyniki. Różnica: scikit-learn obsługuje przypadki brzegowe, stabilność numeryczną i optymalizacje wydajności. Używaj biblioteki w produkcji. Używaj wersji od podstaw, aby zrozumieć, co się dzieje.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/skill-regression.md` - a skill for choosing the right regression approach based on the problem
+Ta lekcja tworzy:
+- `outputs/skill-regression.md` - umiejętność wyboru odpowiedniego podejścia regresji na podstawie problemu
 
-## Exercises
+## Ćwiczenia
 
-1. Implement batch gradient descent, stochastic gradient descent (SGD), and mini-batch gradient descent. Compare convergence speed on the same dataset. Which converges fastest? Which has the smoothest cost curve?
-2. Generate data from a cubic function (y = ax^3 + bx^2 + cx + d + noise). Fit polynomials of degree 1, 3, and 10. Compare training R^2 and test R^2. At what degree does overfitting become obvious?
-3. Implement Lasso regression (L1 regularization: penalty = alpha * sum(|w_i|)). Train on the multi-feature housing data. Compare which weights go to zero vs Ridge. Why does L1 produce sparse solutions while L2 does not?
+1. Zaimplementuj wsadowy spadek gradientu, stochastyczny spadek gradientu (SGD) i mini-batch spadek gradientu. Porównaj szybkość konwergencji na tym samym zbiorze danych. Który zbiega najszybciej? Który ma najgładszą krzywą kosztu?
 
-## Key Terms
+2. Generuj dane z funkcji sześciennej (y = ax^3 + bx^2 + cx + d + szum). Dopasuj wielomiany stopnia 1, 3 i 10. Porównaj R^2 treningowy i testowy. Przy jakim stopniu nadmierne dopasowanie staje się oczywiste?
 
-| Term | What people say | What it actually means |
+3. Zaimplementuj regresję Lasso (regularyzacja L1: kara = alpha * sum(|w_i|)). Trenuj na danych mieszkaniowych z wieloma cechami. Porównaj, które wagi dążą do zera w porównaniu z Ridge. Dlaczego L1 produkuje rzadkie rozwiązania, a L2 nie?
+
+## Kluczowe terminy
+
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Linear regression | "Draw a line through data" | Find weight w and bias b that minimize the sum of squared differences between wx+b and actual y values |
-| Cost function | "How bad the model is" | A function that maps model parameters to a single number measuring prediction error, which optimization minimizes |
-| Mean squared error | "Average of squared errors" | (1/n) * sum of (predicted - actual)^2, penalizing large errors disproportionately |
-| Gradient descent | "Walk downhill" | Iteratively adjust parameters in the direction that reduces the cost function, using partial derivatives |
-| Learning rate | "Step size" | A scalar that controls how much parameters change per gradient descent step |
-| Normal equation | "Solve it directly" | The closed-form solution w = (X^T X)^-1 X^T y that gives optimal weights without iteration |
-| R-squared | "How good the fit is" | The fraction of variance in y explained by the model, ranging from negative infinity to 1.0 |
-| Feature scaling | "Make features comparable" | Transforming features to similar ranges (e.g., zero mean, unit variance) so gradient descent converges faster |
-| Regularization | "Penalize complexity" | Adding a term to the cost function that shrinks weights, preventing overfitting |
-| Ridge regression | "L2 regularization" | Linear regression with a penalty of lambda * sum(w_i^2) added to MSE |
-| Polynomial regression | "Fitting curves with linear math" | Linear regression on polynomial features (x, x^2, x^3, ...), still linear in the weights |
-| Overfitting | "Memorizing training data" | Using a model so complex that it fits noise in training data and fails on new data |
+| Regresja liniowa | "Narysuj linię przez dane" | Znajdź wagę w i obciążenie b, które minimalizują sumę kwadratów różnic między wx+b a rzeczywistymi wartościami y |
+| Funkcja kosztu | "Jak zły jest model" | Funkcja, która odwzorowuje parametry modelu na pojedynczą liczbę mierzącą błąd przewidywania, którą optymalizacja minimalizuje |
+| Błąd średniokwadratowy | "Średnia kwadratów błędów" | (1/n) * suma (przewidywane - rzeczywiste)^2, karająca duże błędy nieproporcjonalnie |
+| Spadek gradientu | "Idź w dół" | Iteracyjnie dostosowuj parametry w kierunku, który zmniejsza funkcję kosztu, używając pochodnych cząstkowych |
+| Współczynnik uczenia się | "Rozmiar kroku" | Skalar kontrolujący, ile parametry zmieniają się na każdym kroku spadku gradientu |
+| Równanie normalne | "Rozwiąż to bezpośrednio" | Rozwiązanie w formie zamkniętej w = (X^T X)^-1 X^T y, które daje optymalne wagi bez iteracji |
+| R-kwadrat | "Jak dobre jest dopasowanie" | Ułamek wariancji y wyjaśnionej przez model, od minus nieskończoności do 1,0 |
+| Skalowanie cech | "Spraw, żeby cechy były porównywalne" | Przekształcanie cech do podobnych zakresów (np. zero średnia, wariancja jednostkowa), żeby spadek gradientu szybciej zbiegał |
+| Regularyzacja | "Karaż złożoność" | Dodawanie wyrazu do funkcji kosztu, który zmniejsza wagi, zapobiegając nadmiernemu dopasowaniu |
+| Regresja grzbietowa | "Regularyzacja L2" | Regresja liniowa z karą lambda * sum(w_i^2) dodaną do MSE |
+| Regresja wielomianowa | "Dopasowywanie krzywych matematyką liniową" | Regresja liniowa na cechach wielomianowych (x, x^2, x^3, ...), nadal liniowa względem wag |
+| Nadmierne dopasowanie | "Zapamiętywanie danych treningowych" | Używanie modelu tak złożonego, że dopasowuje szum w danych treningowych i zawodzi na nowych danych |
 
-## Further Reading
+## Dalsze czytanie
 
-- [An Introduction to Statistical Learning (ISLR)](https://www.statlearning.com/) -- free PDF, chapters 3 and 6 cover linear regression and regularization with practical R examples
-- [The Elements of Statistical Learning (ESL)](https://hastie.su.domains/ElemStatLearn/) -- free PDF, the more mathematical companion to ISLR with deeper treatment of ridge and lasso
-- [Stanford CS229 Lecture Notes on Linear Regression](https://cs229.stanford.edu/main_notes.pdf) -- Andrew Ng's notes deriving the normal equation and gradient descent from first principles
-- [scikit-learn LinearRegression documentation](https://scikit-learn.org/stable/modules/linear_model.html) -- practical reference for LinearRegression, Ridge, Lasso, and ElasticNet with code examples
+- [An Introduction to Statistical Learning (ISLR)](https://www.statlearning.com/) -- darmowy PDF, rozdziały 3 i 6 obejmują regresję liniową i regularyzację z praktycznymi przykładami w R
+- [The Elements of Statistical Learning (ESL)](https://hastie.su.domains/ElemStatLearn/) -- darmowy PDF, bardziej matematyczny towarzysz ISLR z głębszym omówieniem ridge i lasso
+- [Stanford CS229 Lecture Notes on Linear Regression](https://cs229.stanford.edu/main_notes.pdf) -- notatki Andrew'ego Ng, które odtwarzają równanie normalne i spadek gradientu od podstaw
+- [scikit-learn LinearRegression documentation](https://scikit-learn.org/stable/modules/linear_model.html) -- praktyczne odniesienie dla LinearRegression, Ridge, Lasso i ElasticNet z przykładami kodu

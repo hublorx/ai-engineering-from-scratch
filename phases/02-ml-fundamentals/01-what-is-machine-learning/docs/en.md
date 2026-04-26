@@ -1,32 +1,32 @@
-# What Is Machine Learning
+# Czym jest uczenie maszynowe
 
-> Machine learning is teaching computers to find patterns in data instead of writing rules by hand.
+> Uczenie maszynowe to uczenie komputerów znajdowania wzorców w danych zamiast pisania reguł ręcznie.
 
-**Type:** Learn
-**Languages:** Python
-**Prerequisites:** Phase 1 (Math Foundations)
-**Time:** ~45 minutes
+**Typ:** Nauka
+**Języki:** Python
+**Wymagania wstępne:** Faza 1 (Podstawy matematyczne)
+**Czas:** ~45 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Explain the difference between supervised, unsupervised, and reinforcement learning and identify which type applies to a given problem
-- Implement a nearest centroid classifier from scratch and evaluate it against a random baseline
-- Distinguish between classification and regression tasks and select the appropriate loss function for each
-- Evaluate whether a given business problem is suitable for ML or better solved with deterministic rules
+- Wyjaśnić różnicę między uczeniem nadzorowanym, nienadzorowanym i przez wzmacnianie oraz zidentyfikować, który typ ma zastosowanie do danego problemu
+- Zaimplementować klasyfikator najbliższego centroidu od podstaw i ocenić go w porównaniu z losowym baseline'em
+- Rozróżnić zadania klasyfikacji i regresji oraz wybrać odpowiednią funkcję straty dla każdego z nich
+- Ocenić, czy dany problem biznesowy nadaje się do ML lub czy lepiej rozwiązać go za pomocą deterministycznych reguł
 
-## The Problem
+## Problem
 
-You want to build a spam filter. The traditional approach: sit down and write hundreds of rules. "If the email contains 'FREE MONEY', mark it spam. If it has more than 3 exclamation marks, mark it spam." You spend weeks writing rules. Then spammers change their wording. Your rules break. You write more rules. The cycle never ends.
+Chcesz zbudować filtr spamu. Tradycyjne podejście: siadasz i piszesz setki reguł. "Jeśli e-mail zawiera 'DARMOWE PIENIĄDZE', oznacz jako spam. Jeśli ma więcej niż 3 znaki wykrzyknika, oznacz jako spam." Spędzasz tygodnie pisząc reguły. Potem spamerzy zmieniają sformułowania. Twoje reguły się psują. Piszesz więcej reguł. Cykl nigdy się nie kończy.
 
-Machine learning flips this. Instead of writing rules, you give the computer thousands of labeled emails ("spam" or "not spam") and let it figure out the rules on its own. The computer finds patterns you never would have thought of. When spammers change tactics, you retrain on new data instead of rewriting code.
+Uczenie maszynowe odwraca to. Zamiast pisać reguły, dajesz komputerowi tysiące oznaczonych e-maili ("spam" lub "nie spam") i pozwalasz mu samodzielnie odkryć reguły. Komputer znajduje wzorce, o których nigdy byś nie pomyślał. Gdy spamerzy zmieniają taktykę, trenujesz na nowych danych zamiast przepisywać kod.
 
-This shift from "programming rules" to "learning from data" is the core of machine learning. Every recommendation engine, voice assistant, self-driving car, and language model works this way.
+Ta zmiana z "programowania reguł" na "uczenie się z danych" jest sednem uczenia maszynowego. Każdy system rekomendacyjny, asystent głosowy, samojezdny samochód i model językowy działa w ten sposób.
 
-## The Concept
+## Koncepcja
 
-### Learning From Data, Not Rules
+### Uczenie się z danych, nie z reguł
 
-Traditional programming and machine learning solve problems in opposite directions.
+Tradycyjne programowanie i uczenie maszynowe rozwiązują problemy w przeciwnych kierunkach.
 
 ```mermaid
 flowchart LR
@@ -45,13 +45,13 @@ flowchart LR
     end
 ```
 
-Traditional programming: you write the rules. The program applies them to data to produce output.
+Tradycyjne programowanie: piszesz reguły. Program stosuje je do danych, aby wygenerować wynik.
 
-Machine learning: you provide data and expected outputs. The algorithm discovers the rules.
+Uczenie maszynowe: dostarczasz dane i oczekiwane wyniki. Algorytm odkrywa reguły.
 
-The "model" that comes out of training IS the rules, encoded as numbers (weights, parameters). It generalizes from examples it has seen to make predictions on data it has never seen.
+"Model", który wynika z treningu, TO są reguły, zakodowane jako liczby (wagi, parametry). Uogólnia on na przykłady, które widział, aby prognozować na danych, których nigdy nie widział.
 
-### The Three Types of Machine Learning
+### Trzy typy uczenia maszynowego
 
 ```mermaid
 flowchart TD
@@ -69,57 +69,57 @@ flowchart TD
     RL --> VL[Value Learning]
 ```
 
-**Supervised Learning**: You have input-output pairs. The model learns to map inputs to outputs.
-- "Here are 10,000 photos labeled cat or dog. Learn to tell them apart."
-- "Here are house features and prices. Learn to predict the price."
+**Uczenie nadzorowane (Supervised Learning)**: Masz pary wejście-wyjście. Model uczy się odwzorowywać wejścia na wyjścia.
+- "Oto 10 000 zdjęć oznaczonych jako kot lub pies. Naucz się je rozróżniać."
+- "Oto cechy domów i ceny. Naucz się przewidywać cenę."
 
-**Unsupervised Learning**: You have inputs only. No labels. The model finds structure on its own.
-- "Here are 10,000 customer purchase histories. Find natural groupings."
-- "Here are 1,000 dimensional data points. Reduce to 2 dimensions while keeping structure."
+**Uczenie nienadzorowane (Unsupervised Learning)**: Masz tylko wejścia. Bez etykiet. Model znajduje strukturę samodzielnie.
+- "Oto 10 000 historii zakupów klientów. Znajdź naturalne grupowania."
+- "Oto 1 000 punktów danych o wysokiej wymiarowości. Zredukuj do 2 wymiarów, zachowując strukturę."
 
-**Reinforcement Learning**: An agent takes actions in an environment and receives rewards or penalties. It learns a strategy (policy) to maximize total reward.
-- "Play this game. +1 for winning, -1 for losing. Figure out a strategy."
-- "Control this robot arm. +1 for picking up the object, -0.01 for each second wasted."
+**Uczenie przez wzmacnianie (Reinforcement Learning)**: Agent podejmuje działania w środowisku i otrzymuje nagrody lub kary. Uczy się strategii (polityki), aby zmaksymalizować całkowitą nagrodę.
+- "Zagraj w tę grę. +1 za wygraną, -1 za przegraną. Wymyśl strategię."
+- "Kontroluj to ramię robota. +1 za podniesienie obiektu, -0.01 za każdą zmarnowaną sekundę."
 
-Most of what you will build in practice uses supervised learning. Unsupervised learning is common for preprocessing and exploration. Reinforcement learning powers game AI, robotics, and RLHF for language models.
+Większość tego, co będziesz budować w praktyce, wykorzystuje uczenie nadzorowane. Uczenie nienadzorowane jest powszechne w przetwarzaniu wstępnym i eksploracji. Uczenie przez wzmacnianie napędza AI gier, robotykę i RLHF dla modeli językowych.
 
-### Beyond the Big Three
+### Poza wielką trójką
 
-The three categories above are clean, but real-world ML often blurs the lines.
+Trzy powyższe kategorie są przejrzyste, ale rzeczywiste ML często zaciera granice.
 
-**Semi-supervised learning** uses a small set of labeled data and a large set of unlabeled data. You might have 100 labeled medical images and 100,000 unlabeled ones. Techniques include:
+**Uczenie półnadzorowane** wykorzystuje mały zbiór danych z etykietami i duży zbiór bez etykiet. Możesz mieć 100 oznaczonych obrazów medycznych i 100 000 nieoznaczonych. Techniki obejmują:
 
-- **Label propagation:** Build a graph connecting similar data points. Labels spread from labeled nodes to unlabeled neighbors through the graph.
-- **Pseudo-labeling:** Train a model on the labeled data, use it to predict labels for unlabeled data, then retrain on everything. The model bootstraps its own training set.
-- **Consistency regularization:** The model should give the same prediction for an input and a slightly perturbed version of that input. This works even without labels.
+- **Propagację etykiet:** Zbuduj graf łączący podobne punkty danych. Etykiety rozprzestrzeniają się od oznaczonych węzłów do nieoznaczonych sąsiadów przez graf.
+- **Pseudo-etykietowanie:** Trenuj model na danych z etykietami, użyj go do przewidywania etykiet dla danych bez etykiet, a następnie trenuj ponownie na wszystkim. Model sam buduje swój zbiór treningowy.
+- **Regularyzację spójności:** Model powinien dawać tę samą prognozę dla wejścia i lekko zaburzonej wersji tego wejścia. To działa nawet bez etykiet.
 
-**Self-supervised learning** creates supervision from the data itself. No human labels needed at all. The model creates its own prediction task from the structure of the data.
+**Uczenie samonadzorowane** tworzy nadzór z samych danych. Nie potrzeba żadnych etykiet od ludzi. Model tworzy własne zadanie predykcyjne z struktury danych.
 
-- **Masked language modeling (BERT):** Hide 15% of words in a sentence, train the model to predict the missing words. The "labels" come from the original text.
-- **Contrastive learning (SimCLR):** Take an image, create two augmented versions. Train the model to recognize they came from the same image while distinguishing them from augmented versions of other images.
-- **Next-token prediction (GPT):** Predict the next word given all previous words. Every text document becomes a training example.
+- **Masked language modeling (BERT):** Ukryj 15% słów w zdaniu, trenuj model do przewidywania brakujących słów. "Etykiety" pochodzą z oryginalnego tekstu.
+- **Contrastive learning (SimCLR):** Weź obraz, stwórz dwie wzmocnione wersje. Trenuj model, aby rozpoznawał, że pochodzą z tego samego obrazu, jednocześnie odróżniając je od wzmocnionych wersji innych obrazów.
+- **Next-token prediction (GPT):** Przewiduj następne słowo, mając wszystkie poprzednie słowa. Każdy dokument tekstowy staje się przykładem treningowym.
 
-These are not separate categories from the big three. They are strategies that combine supervised and unsupervised ideas. Self-supervised learning is technically supervised (the model predicts something), but the labels are generated automatically, not by humans.
+To nie są oddzielne kategorie od wielkiej trójki. To strategie łączące pomysły nadzorowane i nienadzorowane. Uczenie samonadzorowane jest technicznie nadzorowane (model coś przewiduje), ale etykiety są generowane automatycznie, nie przez ludzi.
 
-### Classification vs Regression
+### Klasyfikacja czy regresja
 
-These are the two main supervised learning tasks.
+To są dwa główne zadania uczenia nadzorowanego.
 
-| Aspect | Classification | Regression |
+| Aspekt | Klasyfikacja | Regresja |
 |--------|---------------|------------|
-| Output | Discrete categories | Continuous numbers |
-| Example | "Is this email spam?" | "What will the house price be?" |
-| Output space | {cat, dog, bird} | Any real number |
-| Loss function | Cross-entropy, accuracy | Mean squared error, MAE |
-| Decision | Boundaries between classes | A curve that fits the data |
+| Wynik | Dyskretne kategorie | Ciągłe liczby |
+| Przykład | "Czy ten e-mail jest spamem?" | "Jaka będzie cena domu?" |
+| Przestrzeń wyników | {kot, pies, ptak} | Dowolna liczba rzeczywista |
+| Funkcja straty | Cross-entropy, accuracy | Mean squared error, MAE |
+| Decyzja | Granice między klasami | Krzywa dopasowana do danych |
 
-Classification answers "which category?" Regression answers "how much?"
+Klasyfikacja odpowiada na pytanie "która kategoria?" Regresja odpowiada na pytanie "ile?"
 
-Some problems can be framed either way. Predicting if a stock goes up or down is classification. Predicting the exact price is regression.
+Niektóre problemy można sformułować w obu sposobach. Przewidywanie, czy akcja pójdzie w górę czy w dół, to klasyfikacja. Przewidywanie dokładnej ceny to regresja.
 
-### The ML Workflow
+### Workflow ML
 
-Every machine learning project follows the same pipeline, regardless of the algorithm.
+Każdy projekt uczenia maszynowego podąża tą samą ścieżką, niezależnie od algorytmu.
 
 ```mermaid
 flowchart LR
@@ -134,25 +134,25 @@ flowchart LR
     H -->|Performance drops| A
 ```
 
-**Collect Data**: Gather raw data. More data is almost always better, but quality matters more than quantity.
+**Zbieranie danych**: Zbierz surowe dane. Więcej danych jest prawie zawsze lepsze, ale jakość ma większe znaczenie niż ilość.
 
-**Clean & Explore**: Handle missing values, remove duplicates, visualize distributions, spot anomalies. This step often takes 60-80% of total project time.
+**Czyszczenie i eksploracja**: Obsłuż brakujące wartości, usuń duplikaty, wizualizuj rozkłady, wychwyć anomalie. Ten krok często zajmuje 60-80% całkowitego czasu projektu.
 
-**Feature Engineering**: Transform raw data into features the model can use. Turn dates into day-of-week. Normalize numerical columns. Encode categorical variables. Good features matter more than fancy algorithms.
+**Inżynieria cech**: Przekształć surowe dane na cechy, których model może używać. Zamień daty na dzień tygodnia. Normalizuj kolumny numeryczne. Koduj zmienne kategorialne. Dobre cechy mają większe znaczenie niż wyrafinowane algorytmy.
 
-**Split Data**: Divide into training, validation, and test sets. The model trains on training data, you tune hyperparameters on validation data, and you report final performance on test data.
+**Podział danych**: Podziel na zbiory treningowy, walidacyjny i testowy. Model trenuje na danych treningowych, dostrajasz hiperparametry na danych walidacyjnych, a końcową wydajność raportujesz na danych testowych.
 
-**Train Model**: Feed training data into an algorithm. The algorithm adjusts internal parameters to minimize a loss function.
+**Trenowanie modelu**: Wprowadź dane treningowe do algorytmu. Algorytm dostosowuje wewnętrzne parametry, aby zminimalizować funkcję straty.
 
-**Evaluate**: Measure performance on validation/test data. If performance is not acceptable, go back and try different features, algorithms, or hyperparameters.
+**Ocena**: Zmierz wydajność na danych walidacyjnych/testowych. Jeśli wydajność jest nieakceptowalna, wróć i wypróbuj różne cechy, algorytmy lub hiperparametry.
 
-**Deploy**: Put the model into production where it makes predictions on new data.
+**Wdrożenie**: Umieść model w produkcji, gdzie generuje prognozy na nowych danych.
 
-**Monitor**: Track performance over time. Data distributions change (data drift), and models degrade. When performance drops, retrain.
+**Monitorowanie**: Śledź wydajność w czasie. Rozkłady danych się zmieniają (data drift), a modele degradują. Gdy wydajność spada, przetrenuj.
 
-### Training, Validation, and Test Splits
+### Podziały treningowy, walidacyjny i testowy
 
-This is the most important concept beginners get wrong. You must evaluate your model on data it has never seen during training. Otherwise you are measuring memorization, not learning.
+To jest najważniejsza koncepcja, którą początkujący mylą. Musisz oceniać swój model na danych, których nigdy nie widział podczas treningu. W przeciwnym razie mierzysz zapamiętywanie, nie uczenie.
 
 ```mermaid
 flowchart LR
@@ -168,15 +168,15 @@ flowchart LR
     VA -->|Final evaluation| TE
 ```
 
-| Split | Purpose | When used | Typical size |
-|-------|---------|-----------|-------------|
-| Training | Model learns from this data | During training | 60-80% |
-| Validation | Tune hyperparameters, compare models | After each training run | 10-20% |
-| Test | Final unbiased performance estimate | Once, at the very end | 10-20% |
+| Podział | Cel | Kiedy używany | Typowy rozmiar |
+|---------|---------|-----------|-------------|
+| Treningowy | Model uczy się z tych danych | Podczas treningu | 60-80% |
+| Walidacyjny | Dostrajanie hiperparametrów, porównywanie modeli | Po każdym przebiegu treningowym | 10-20% |
+| Testowy | Końcowa nieobciążona ocena wydajności | Raz, na samym końcu | 10-20% |
 
-The test set is sacred. You look at it exactly once. If you keep adjusting your model based on test performance, you are effectively training on the test set and your reported numbers are meaningless.
+Zbiór testowy jest święty. Patrzysz na niego dokładnie raz. Jeśli ciągle dostosowujesz swój model na podstawie wyników testowych, efektywnie trenujesz na zbiorze testowym, a twoje raportowane liczby są bez znaczenia.
 
-For small datasets, use k-fold cross-validation: split data into k parts, train on k-1 parts, validate on the remaining part, rotate, and average results.
+W przypadku małych zbiorów danych używaj k-krotnej walidacji krzyżowej: podziel dane na k części, trenuj na k-1 częściach, waliduj na pozostałej części, rotuj i uśredniaj wyniki.
 
 ### Overfitting vs Underfitting
 
@@ -204,73 +204,73 @@ flowchart LR
     GF -->|Too much complexity| OF
 ```
 
-**Underfitting**: The model is too simple to capture the patterns in the data. A straight line trying to fit a curved relationship. Training error is high. Test error is high.
+**Underfitting**: Model jest zbyt prosty, aby uchwycić wzorce w danych. Prosta linia próbująca dopasować krzywą zależność. Błąd treningowy jest wysoki. Błąd testowy jest wysoki.
 
-**Overfitting**: The model is too complex and memorizes the training data, including its noise. A wiggly curve that passes through every training point but fails on new data. Training error is low. Test error is high.
+**Overfitting**: Model jest zbyt złożony i zapamiętuje dane treningowe, włącznie z szumem. Kręta krzywa przechodząca przez każdy punkt treningowy, ale zawodząca na nowych danych. Błąd treningowy jest niski. Błąd testowy jest wysoki.
 
-**Good fit**: The model captures real patterns without memorizing noise. Training error and test error are both reasonably low.
+**Dobre dopasowanie**: Model uchwyca prawdziwe wzorce bez zapamiętywania szumu. Błąd treningowy i testowy są oba dość niskie.
 
-Signs of overfitting:
-- Training accuracy is much higher than validation accuracy
-- The model performs well on training data but poorly on new data
-- Adding more training data improves performance (the model was memorizing, not learning)
+Oznaki overfittingu:
+- Dokładność treningowa jest znacznie wyższa niż walidacyjna
+- Model dobrze działa na danych treningowych, ale słabo na nowych danych
+- Dodanie większej ilości danych treningowych poprawia wydajność (model zapamiętywał, nie uczył się)
 
-Fixes for overfitting:
-- Get more training data
-- Reduce model complexity (fewer parameters, simpler architecture)
-- Regularization (add a penalty for large weights)
-- Dropout (randomly zero out neurons during training)
-- Early stopping (stop training when validation error starts increasing)
+Naprawy overfittingu:
+- Zdobądź więcej danych treningowych
+- Zmniejsz złożoność modelu (mniej parametrów, prostsza architektura)
+- Regularyzacja (dodaj karę za duże wagi)
+- Dropout (losowo zeruj neurony podczas treningu)
+- Early stopping (przestań trenować, gdy błąd walidacyjny zaczyna rosnąć)
 
-Fixes for underfitting:
-- Use a more complex model
-- Add more features
-- Reduce regularization
-- Train longer
+Naprawy underfittingu:
+- Użyj bardziej złożonego modelu
+- Dodaj więcej cech
+- Zmniejsz regularyzację
+- Trenuj dłużej
 
-### The Bias-Variance Tradeoff
+### Kompromis między bias a wariancją
 
-This is the mathematical framework behind overfitting and underfitting.
+To jest matematyczne ramy stojące za overfittingiem i underfittingiem.
 
-**Bias**: Error from wrong assumptions in the model. A linear model has high bias when the true relationship is nonlinear. High bias leads to underfitting.
+**Bias**: Błąd wynikający z błędnych założeń w modelu. Model liniowy ma wysoki bias, gdy prawdziwa zależność jest nieliniowa. Wysoki bias prowadzi do underfittingu.
 
-**Variance**: Error from sensitivity to small fluctuations in the training data. A model with high variance gives very different predictions when trained on different subsets of data. High variance leads to overfitting.
+**Wariancja**: Błąd wynikający z wrażliwości na małe wahania w danych treningowych. Model z wysoką wariancją daje bardzo różne prognozy, gdy jest trenowany na różnych podzbiorach danych. Wysoka wariancja prowadzi do overfittingu.
 
-| Model complexity | Bias | Variance | Result |
+| Złożoność modelu | Bias | Wariancja | Rezultat |
 |-----------------|------|----------|--------|
-| Too low (linear model for curved data) | High | Low | Underfitting |
-| Just right | Medium | Medium | Good generalization |
-| Too high (degree-20 polynomial for 10 points) | Low | High | Overfitting |
+| Zbyt niska (model liniowy dla krzywych danych) | Wysoki | Niska | Underfitting |
+| W sam raz | Średni | Średni | Dobre uogólnienie |
+| Zbyt wysoka (wielomian stopnia 20 dla 10 punktów) | Niski | Wysoki | Overfitting |
 
-Total error = Bias^2 + Variance + Irreducible noise
+Całkowity błąd = Bias^2 + Wariancja + Niepodzielny szum
 
-You cannot reduce irreducible noise (it is randomness in the data itself). You want to find the sweet spot where bias^2 + variance is minimized.
+Nie możesz zmniejszyć niepodzielnego szumu (to losowość w samych danych). Chcesz znaleźć optymalny punkt, gdzie bias^2 + wariancja jest zminimalizowane.
 
-### No Free Lunch Theorem
+### Twierdzenie o braku darmowego lunchu
 
-There is no single algorithm that works best for every problem. An algorithm that performs well on one class of problems will perform poorly on another. This is why data scientists try multiple algorithms and compare results.
+Nie istnieje pojedynczy algorytm, który działa najlepiej dla każdego problemu. Algorytm, który dobrze radzi sobie z jedną klasą problemów, będzie słabo działał z inną. Dlatego naukowcy danych wypróbowują wiele algorytmów i porównują wyniki.
 
-In practice, the choice depends on:
-- How much data you have
-- How many features there are
-- Whether the relationship is linear or nonlinear
-- Whether you need interpretability
-- How much compute you can afford
+W praktyce wybór zależy od:
+- Ile masz danych
+- Ile jest cech
+- Czy zależność jest liniowa czy nieliniowa
+- Czy potrzebujesz interpretowalności
+- Ile mocy obliczeniowej możesz sobie pozwolić
 
-### When NOT to Use Machine Learning
+### Kiedy NIE używać uczenia maszynowego
 
-ML is powerful but not always the right tool. Before reaching for a model, ask whether you actually need one.
+ML jest potężne, ale nie zawsze jest właściwym narzędziem. Zanim sięgniesz po model, zapytaj, czy naprawdę go potrzebujesz.
 
-**Do not use ML when:**
+**Nie używaj ML, gdy:**
 
-- **Rules are simple and well-defined.** Tax calculation, sorting algorithms, unit conversions. If you can write the logic in a few if-statements, a model adds complexity for no benefit.
-- **You have no data or very little data.** ML needs examples to learn from. With 10 data points, you cannot train anything meaningful. Collect data first.
-- **The cost of being wrong is catastrophic and you need guaranteed correctness.** Medical dosage calculation, nuclear reactor control, cryptographic verification. ML models are probabilistic. They will sometimes be wrong. If "sometimes wrong" is unacceptable, use deterministic methods.
-- **A lookup table or heuristic solves the problem.** If a simple threshold or table covers 99% of cases, adding ML increases maintenance cost without meaningful improvement.
-- **You cannot explain the decision and explainability is required.** Regulated industries (lending, insurance, criminal justice) sometimes require that every decision be fully explainable. Some ML models are interpretable (linear regression, small decision trees). Most are not.
-- **The problem changes faster than you can retrain.** If the rules change daily and retraining takes a week, the model is always stale.
+- **Reguły są proste i dobrze zdefiniowane.** Obliczenia podatkowe, algorytmy sortowania, konwersje jednostek. Jeśli możesz zapisać logikę w kilku instrukcjach if, model dodaje złożoność bez korzyści.
+- **Nie masz danych lub masz bardzo mało danych.** ML potrzebuje przykładów do nauki. Z 10 punktami danych nie możesz wytrenować niczego sensownego. Najpierw zbierz dane.
+- **Koszt pomyłki jest katastrofalny i potrzebujesz gwarantowanej poprawności.** Obliczanie dawek leków, kontrola reaktora jądrowego, weryfikacja kryptograficzna. Modele ML są probabilistyczne. Czasem będą się mylić. Jeśli "czasem się mylić" jest nieakceptowalne, używaj metod deterministycznych.
+- **Tabela wyszukiwania lub heurystyka rozwiązuje problem.** Jeśli prosty próg lub tabela pokrywa 99% przypadków, dodanie ML zwiększa koszt utrzymania bez znaczącej poprawy.
+- **Nie możesz wyjaśnić decyzji, a wymagana jest wyjaśnialność.** Regulowane branże (kredyty, ubezpieczenia, wymiar sprawiedliwości) czasem wymagają, aby każda decyzja była w pełni wyjaśnialna. Niektóre modele ML są interpretowalne (regresja liniowa, małe drzewa decyzyjne). Większość nie jest.
+- **Problem zmienia się szybciej niż możesz przetrenować.** Jeśli reguły zmieniają się codziennie, a przetrenowanie trwa tydzień, model jest zawsze nieaktualny.
 
-Use this decision flowchart:
+Użyj tego schematu decyzyjnego:
 
 ```mermaid
 flowchart TD
@@ -288,13 +288,13 @@ flowchart TD
     J -->|"No labels"| M["Unsupervised or self-supervised"]
 ```
 
-## Build It
+## Zbuduj to
 
-The code in `code/ml_intro.py` implements a nearest centroid classifier from scratch, the simplest possible ML algorithm. It demonstrates the core idea: learn from data, then predict on new data.
+Kod w `code/ml_intro.py` implementuje klasyfikator najbliższego centroidu od podstaw, najprostszy możliwy algorytm ML. Demonstruje podstawową ideę: ucz się z danych, a potem prognozuj na nowych danych.
 
-### Step 1: Nearest Centroid Classifier from Scratch
+### Krok 1: Klasyfikator najbliższego centroidu od podstaw
 
-The nearest centroid classifier computes the center (mean) of each class in the training data. To predict, it assigns each new point to the class whose center is closest.
+Klasyfikator najbliższego centroidu oblicza środek (średnią) każdej klasy w danych treningowych. Aby prognozować, przypisuje każdy nowy punkt do klasy, której środek jest najbliższy.
 
 ```python
 class NearestCentroid:
@@ -312,11 +312,11 @@ class NearestCentroid:
         return self.classes[distances.argmin(axis=0)]
 ```
 
-That is the entire algorithm. Fit computes two means. Predict computes distances. No gradient descent, no iteration, no hyperparameters.
+To jest cały algorytm. Fit oblicza dwie średnie. Predict oblicza odległości. Bez gradient descent, bez iteracji, bez hiperparametrów.
 
-### Step 2: Train on Synthetic Data
+### Krok 2: Trenuj na syntetycznych danych
 
-We generate a 2D classification dataset with two classes that overlap slightly. The centroid classifier draws a linear decision boundary between the class centers.
+Generujemy 2D zbiór danych klasyfikacyjny z dwiema klasami, które lekko się nakładają. Klasyfikator centroidu rysuje liniową granicę decyzyjną między środkami klas.
 
 ```python
 rng = np.random.RandomState(42)
@@ -326,40 +326,40 @@ X = np.vstack([X_class0, X_class1])
 y = np.array([0] * 100 + [1] * 100)
 ```
 
-### Step 3: Compare Against a Baseline
+### Krok 3: Porównaj z baseline'em
 
-Every ML model should be compared against a trivial baseline. Here, the baseline predicts a random class. If your ML model does not beat random guessing, something is wrong.
+Każdy model ML powinien być porównany z trywialnym baseline'em. Tutaj baseline prognozuje losową klasę. Jeśli twój model ML nie pokonuje losowego zgadywania, coś jest nie tak.
 
 ```python
 baseline_preds = rng.choice([0, 1], size=len(y_test))
 baseline_acc = np.mean(baseline_preds == y_test)
 ```
 
-The centroid classifier should get around 90%+ accuracy on this clean dataset. Random baseline gets around 50%.
+Klasyfikator centroidu powinien uzyskać około 90%+ dokładności na tym czystym zbiorze danych. Losowy baseline uzyskuje około 50%.
 
-### Why This Matters
+### Dlaczego to ma znaczenie
 
-The nearest centroid classifier is trivially simple. It has no hyperparameters, no iteration, no gradient descent. Yet it captures the fundamental ML pattern:
+Klasyfikator najbliższego centroidu jest trywialnie prosty. Nie ma hiperparametrów, nie ma iteracji, nie ma gradient descent. A jednak uchwyca fundamentalny wzorzec ML:
 
-1. **Learn** a representation from training data (the centroids)
-2. **Predict** on new data using that representation (nearest distance)
-3. **Evaluate** against a baseline (random guessing)
+1. **Uczenie się** reprezentacji z danych treningowych (centroidy)
+2. **Prognozowanie** na nowych danych używając tej reprezentacji (najbliższa odległość)
+3. **Ocena** w porównaniu z baseline'em (losowe zgadywanie)
 
-Every ML algorithm, from logistic regression to transformers, follows this same three-step pattern. The representation gets more complex, but the workflow stays the same.
+Każdy algorytm ML, od regresji logistycznej po transformatory, podąża tym samym wzorcem trzech kroków. Reprezentacja staje się bardziej złożona, ale workflow pozostaje taki sam.
 
-### Step 4: What the Centroid Classifier Cannot Do
+### Krok 4: Czego klasyfikator centroidu nie potrafi
 
-The nearest centroid classifier assumes each class forms a single blob. It draws linear decision boundaries. It fails when:
+Klasyfikator najbliższego centroidu zakłada, że każda klasa tworzy pojedynczą grupę. Rysuje liniowe granice decyzyjne. Zawodzi, gdy:
 
-- Classes have multiple clusters (e.g., the digit "1" can be written in several different ways)
-- The decision boundary is nonlinear (e.g., one class wraps around another)
-- Features have very different scales (distance is dominated by the largest-scale feature)
+- Klasy mają wiele klastrów (np. cyfra "1" może być napisana na kilka różnych sposobów)
+- Granica decyzyjna jest nieliniowa (np. jedna klasa owija się wokół drugiej)
+- Cechy mają bardzo różne skale (odległość jest zdominowana przez cechę o największej skali)
 
-These limitations motivate every other algorithm you will learn. K-nearest neighbors handles multiple clusters. Decision trees handle nonlinear boundaries. Feature scaling fixes the scale problem. Each lesson builds on the limitations of the previous one.
+Te ograniczenia motywują każdy inny algorytm, który poznasz. K-najbliżssi sąsiedzi radzą sobie z wieloma klastrami. Drzewa decyzyjne radzą sobie z nieliniowymi granicami. Skalowanie cech naprawia problem skali. Każda lekcja buduje na ograniczeniach poprzedniej.
 
-## Use It
+## Użyj tego
 
-sklearn provides `NearestCentroid` and synthetic data generators:
+sklearn dostarcza `NearestCentroid` i generatory syntetycznych danych:
 
 ```python
 from sklearn.neighbors import NearestCentroid
@@ -377,35 +377,35 @@ clf.fit(X_train, y_train)
 print(f"Accuracy: {clf.score(X_test, y_test):.3f}")
 ```
 
-## Ship It
+## Wyślij to
 
-This lesson produces `outputs/prompt-ml-problem-framer.md` -- a prompt that turns vague business problems into concrete ML tasks. Give it a problem description ("we want to reduce churn" or "predict demand for next quarter") and it identifies the learning type, defines the prediction target, lists candidate features, picks a success metric, establishes a baseline, and flags pitfalls like data leakage or class imbalance. Use it at the start of any ML project to avoid building the wrong thing.
+Ta lekcja tworzy `outputs/prompt-ml-problem-framer.md` -- prompt, który zamienia mętne problemy biznesowe w konkretne zadania ML. Podaj opis problemu ("chcemy zmniejszyć odpływ klientów" lub "przewidzieć popyt na następny kwartał"), a zidentyfikuje typ uczenia, zdefiniuje cel predykcji, wymieni kandydackie cechy, wybierze metrykę sukcesu, ustali baseline i wskaże pułapki, takie jak wyciek danych lub nierównowaga klas. Użyj tego na początku każdego projektu ML, aby uniknąć budowania niewłaściwej rzeczy.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Model | "The AI" | A mathematical function with learnable parameters that maps inputs to outputs |
-| Training | "Teaching the AI" | Running an optimization algorithm to adjust model parameters so predictions match known outputs |
-| Feature | "An input column" | A measurable property of the data that the model uses to make predictions |
-| Label | "The answer" | The known output for a training example, used to compute the error signal |
-| Hyperparameter | "A setting you tweak" | A parameter set before training that controls the learning process (learning rate, number of layers) |
-| Loss function | "How wrong the model is" | A function that measures the gap between predicted and actual outputs, which training tries to minimize |
-| Overfitting | "It memorized the test" | The model learned training-specific noise instead of general patterns, so it fails on new data |
-| Underfitting | "It didn't learn anything" | The model is too simple to capture the real patterns in the data |
-| Generalization | "It works on new data" | The model's ability to make accurate predictions on data it was not trained on |
-| Cross-validation | "Testing on different chunks" | Repeatedly splitting data into train/test folds and averaging results, giving a more robust performance estimate |
-| Regularization | "Keeping weights small" | Adding a penalty term to the loss function that discourages overly complex models |
-| Data drift | "The world changed" | The statistical distribution of incoming data shifts over time, degrading model performance |
+| Model | "Sztuczna inteligencja" | Funkcja matematyczna z parametrami do nauczenia, która odwzorowuje wejścia na wyjścia |
+| Trening | "Uczyć AI" | Uruchamianie algorytmu optymalizacji w celu dostosowania parametrów modelu, aby prognozy odpowiadały znanym wynikom |
+| Cecha (Feature) | "Kolumna wejściowa" | Mierzalna właściwość danych, którą model wykorzystuje do prognozowania |
+| Etykieta (Label) | "Odpowiedź" | Znany wynik dla przykładu treningowego, używany do obliczenia sygnału błędu |
+| Hiperparametr | "Ustawienie, które dostosowujesz" | Parametr ustawiany przed treningiem, który kontroluje proces uczenia (learning rate, liczba warstw) |
+| Funkcja straty | "Jak bardzo model się myli" | Funkcja mierząca lukę między prognozowanymi a rzeczywistymi wynikami, którą trening stara się zminimalizować |
+| Overfitting | "Zapamiętał test" | Model nauczył się szumu specyficznego dla treningu zamiast ogólnych wzorców, więc zawodzi na nowych danych |
+| Underfitting | "Nic się nie nauczył" | Model jest zbyt prosty, aby uchwycić prawdziwe wzorce w danych |
+| Uogólnienie | "Działa na nowych danych" | Zdolność modelu do dokładnych prognoz na danych, na których nie był trenowany |
+| Walidacja krzyżowa | "Testowanie na różnych fragmentach" | Wielokrotne dzielenie danych na foldery train/test i uśrednianie wyników, dające bardziej robustną ocenę wydajności |
+| Regularyzacja | "Utrzymywanie wag małymi" | Dodawanie terminu kary do funkcji straty, który zniechęca do nadmiernie złożonych modeli |
+| Data drift | "Świat się zmienił" | Statystyczny rozkład napływających danych przesuwa się w czasie, pogarszając wydajność modelu |
 
-## Exercises
+## Ćwiczenia
 
-1. Take any dataset (e.g., Iris, Titanic). Split it 70/15/15 into train/validation/test. Explain why you should not tune hyperparameters on the test set.
-2. List three real-world problems. For each one, identify whether it is classification, regression, or clustering, and whether it is supervised or unsupervised.
-3. A model gets 99% accuracy on training data but 60% on test data. Diagnose the problem and list three things you would try to fix it.
+1. Weź dowolny zbiór danych (np. Iris, Titanic). Podziel go 70/15/15 na train/validation/test. Wyjaśnij, dlaczego nie powinieneś dostrajać hiperparametrów na zbiorze testowym.
+2. Wymień trzy rzeczywiste problemy. Dla każdego z nich zidentyfikuj, czy jest to klasyfikacja, regresja czy klasteryzacja, oraz czy jest nadzorowane czy nienadzorowane.
+3. Model uzyskuje 99% dokładności na danych treningowych, ale 60% na danych testowych. Zdiagnozuj problem i wymień trzy rzeczy, które spróbowałbyś zrobić, aby to naprawić.
 
-## Further Reading
+## Dalsza lektura
 
-- [An Introduction to Statistical Learning](https://www.statlearning.com/) - free textbook covering all classical ML methods with practical examples
-- [Google's Machine Learning Crash Course](https://developers.google.com/machine-learning/crash-course) - concise visual introduction to ML concepts
-- [Scikit-learn User Guide](https://scikit-learn.org/stable/user_guide.html) - the practical reference for implementing ML in Python
+- [An Introduction to Statistical Learning](https://www.statlearning.com/) - darmowy podręcznik obejmujący wszystkie klasyczne metody ML z praktycznymi przykładami
+- [Google's Machine Learning Crash Course](https://developers.google.com/machine-learning/crash-course) - zwięzłe wizualne wprowadzenie do koncepcji ML
+- [Scikit-learn User Guide](https://scikit-learn.org/stable/user_guide.html) - praktyczne odniesienie do implementacji ML w Pythonie

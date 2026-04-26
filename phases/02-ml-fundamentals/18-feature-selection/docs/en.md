@@ -1,210 +1,127 @@
-# Feature Selection
+# Selekcja cech
 
-> More features is not better. The right features is better.
+> Więcej cech nie znaczy lepiej. Właściwe cechy znaczy lepiej.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 2, Lessons 01-09, 08 (feature engineering)
-**Time:** ~75 minutes
+**Typ:** Zbuduj
+**Język:** Python
+**Wymagania wstępne:** Faza 2, Lekcje 01-09, 08 (inżynieria cech)
+**Czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement filter methods (variance threshold, mutual information, chi-squared) and wrapper methods (RFE, forward selection) from scratch
-- Explain why mutual information captures nonlinear feature-target relationships that correlation misses
-- Compare L1 regularization (embedded selection) with RFE (wrapper selection) and evaluate their computational tradeoffs
-- Build a feature selection pipeline that combines multiple methods and demonstrate improved generalization on held-out data
+- Zaimplementuj metody filtrujące (próg wariancji, informacja wzajemna, chi-kwadrat) i metody opakowaniowe (RFE, selekcja postępowa) od zera
+- Wyjaśnij, dlaczego informacja wzajemna przechwytuje nieliniowe relacje cecha-cechadocelowa, których korelacja nie wykrywa
+- Porównaj regularyzację L1 (selekcja osadzona) z RFE (selekcja opakowaniowa) oraz oceń ich kompromisy obliczeniowe
+- Zbuduj potok selekcji cech łączący wiele metod i wykaż poprawę uogólniania na danych wstrzymanych
 
-## The Problem
+## Problem
 
-You have 500 features. Your model trains slowly, overfits constantly, and nobody can explain what it learned. You add more features hoping to improve performance. It gets worse.
+Masz 500 cech. Twój model uczy się powoli, przeucza się ciągle i nikt nie potrafi wyjaśnić, czego się nauczył. Dodajesz więcej cech, mając nadzieję na poprawę wyników. Robi się gorzej.
 
-This is the curse of dimensionality in action. As the number of features grows, the volume of the feature space explodes. Data points become sparse. Distances between points converge. The model needs exponentially more data to find real patterns. Noise features drown out signal features. Overfitting becomes the default.
+To jest przekleństwo wymiarowości w działaniu. Wraz ze wzrostem liczby cech, objętość przestrzeni cech eksploduje. Punkty danych stają się rozrzedzone. Odległości między punktami zbiegają do siebie. Model potrzebuje wykładniczo więcej danych, aby znaleźć prawdziwe wzorce. Cechy szumowe zagłuszają sygnałowe. Przeuczanie staje się domyślne.
 
-Feature selection is the antidote. Strip away the noise. Remove the redundancy. Keep the features that carry actual information about the target. The result: faster training, better generalization, and models you can actually explain.
+Selekcja cech jest antidotum. Odrzuć szum. Usuń redundancję. Zachowaj cechy, które faktycznie niosą informację o celu. Rezultat: szybsze uczenie, lepsze uogólnianie i modele, które naprawdę możesz wyjaśnić.
 
-The goal is not to use all available information. It is to use the right information.
+Celem nie jest użycie wszystkich dostępnych informacji. Chodzi o użycie właściwych informacji.
 
-## The Concept
+## Koncepcja
 
-### Three Categories of Feature Selection
+### Trzy kategorie selekcji cech
 
-Every feature selection method falls into one of three categories:
+Każda metoda selekcji cech należy do jednej z trzech kategorii:
 
-```mermaid
-flowchart TD
-    A[Feature Selection Methods] --> B[Filter Methods]
-    A --> C[Wrapper Methods]
-    A --> D[Embedded Methods]
+**Metody filtrujące** oceniają każdą cechę niezależnie za pomocą miary statystycznej. Nie używają modelu. Szybkie, ale pomijają interakcje między cechami.
 
-    B --> B1["Variance Threshold"]
-    B --> B2["Mutual Information"]
-    B --> B3["Chi-squared Test"]
-    B --> B4["Correlation Filtering"]
+**Metody opakowaniowe** trenują model do oceny podzbiorów cech. Używają wydajności modelu jako wyniku. Lepsze rezultaty, ale kosztowne, ponieważ wymagają wielokrotnego ponownego uczenia modelu.
 
-    C --> C1["Recursive Feature Elimination"]
-    C --> C2["Forward Selection"]
-    C --> C3["Backward Elimination"]
+**Metody osadzone** wybierają cechy jako część uczenia modelu. Regularyzacja L1 redukuje wagi do zera. Drzewa decyzyjne dzielą na najbardziej użytecznych cechach. Selekcja odbywa się podczas dopasowywania, nie jako osobny krok.
 
-    D --> D1["L1 / Lasso Regularization"]
-    D --> D2["Tree-based Importance"]
-    D --> D3["Elastic Net"]
-```
+### Próg wariancji
 
-**Filter methods** score each feature independently using a statistical measure. They do not use a model. Fast, but they miss feature interactions.
+Najprostszy filtr. Jeśli cecha prawie nie zmienia się między próbkami, niesie prawie żadnej informacji.
 
-**Wrapper methods** train a model to evaluate feature subsets. They use model performance as the score. Better results, but expensive because they retrain the model many times.
+Rozważ cechę, która wynosi 0.0 dla 999 z 1000 próbek. Jej wariancja jest bliska zeru. Żaden model nie może użyć jej do rozróżniania klas. Usuń ją.
 
-**Embedded methods** select features as part of model training. L1 regularization drives weights to zero. Decision trees split on the most useful features. Selection happens during fitting, not as a separate step.
+Ustaw próg (np. 0.01). Upuść każdą cechę z wariancją poniżej progu. To usuwa stałe lub prawie stałe cechy bez patrzenia na zmienną docelową.
 
-### Variance Threshold
+Kiedy używać: jako krok wstępnego przetwarzania przed innymi metodami. Wyłapuje oczywiście bezużyteczne cechy za niemal zerowy koszt.
 
-The simplest filter. If a feature barely varies across samples, it carries almost no information.
+Ograniczenie: cecha może mieć wysoką wariancję i wciąż być czystym szumem. Próg wariancji jest konieczny, ale niewystarczający.
 
-Consider a feature that is 0.0 for 999 out of 1000 samples. Its variance is near zero. No model can use it to distinguish between classes. Remove it.
+### Informacja wzajemna
 
-```
-variance(x) = mean((x - mean(x))^2)
-```
+Informacja wzajemna mierzy, ile wiedzy o wartości cechy X zmniejsza niepewność o celu Y.
 
-Set a threshold (e.g., 0.01). Drop every feature with variance below it. This removes constant or near-constant features without looking at the target variable at all.
+Jeśli X i Y są niezależne, p(x, y) = p(x) * p(y), więc wyraz logarytmiczny wynosi zero i I(X; Y) = 0. Im więcej X mówi ci o Y, tym wyższa informacja wzajemna.
 
-When to use it: as a preprocessing step before other methods. It catches obviously useless features at near-zero cost.
+Kluczowa zaleta nad korelacją: informacja wzajemna przechwytuje nieliniowe relacje. Cechy mogą mieć zerową korelację z celem, ale wysoką informację wzajemną, ponieważ relacja jest kwadratowa lub okresowa.
 
-Limitation: a feature can have high variance and still be pure noise. Variance threshold is necessary but not sufficient.
+Dla ciągłych cech, najpierw zdyskretyzuj do przedziałów (estymacja oparta na histogramie). Liczba przedziałów wpływa na oszacowanie -- zbyt mało przedziałów traci informację, zbyt wiele dodaje szum. Częsty wybór: sqrt(n) przedziałów lub reguła Sturgesa (1 + log2(n)).
 
-### Mutual Information
+### Rekursywna eliminacja cech (RFE)
 
-Mutual information measures how much knowing the value of feature X reduces uncertainty about target Y.
+RFE to metoda opakowaniowa. Używa ważności cech samego modelu do iteracyjnego przycinania:
 
-```
-I(X; Y) = sum_x sum_y p(x, y) * log(p(x, y) / (p(x) * p(y)))
-```
+1. Trenuj model ze wszystkimi cechami
+2. Ranguj cechy według ważności (współczynniki dla modeli liniowych, redukcja zanieczyszczeń dla drzew)
+3. Usuń najmniej ważną cechę(y)
+4. Powtarzaj, aż pozostanie pożądana liczba cech
 
-If X and Y are independent, p(x, y) = p(x) * p(y), so the log term is zero and I(X; Y) = 0. The more X tells you about Y, the higher the mutual information.
+RFE uwzględnia interakcje między cechami, ponieważ model widzi wszystkie pozostałe cechy razem. Usunięcie jednej cechy zmienia ważność innych. To czyni ją bardziej dokładną niż metody filtrujące.
 
-Key advantage over correlation: mutual information captures nonlinear relationships. A feature might have zero correlation with the target but high mutual information because the relationship is quadratic or periodic.
+Koszt: trenujesz model N - razy. Z 500 cechami i celem 10, to 490 przebiegów treningowych. Dla kosztownych modeli, to wolne. Możesz przyspieszyć usuwając wiele cech na krok (np. usuń dolne 10% każdej rundy).
 
-For continuous features, discretize into bins first (histogram-based estimation). The number of bins affects the estimate -- too few bins lose information, too many bins add noise. A common choice: sqrt(n) bins or Sturges' rule (1 + log2(n)).
+### Regularyzacja L1 (Lasso)
 
-```mermaid
-flowchart LR
-    A[Feature X] --> B[Discretize into Bins]
-    B --> C["Compute Joint Distribution p(x,y)"]
-    C --> D["Compute MI = sum p(x,y) * log(p(x,y) / p(x)p(y))"]
-    D --> E["Rank Features by MI Score"]
-    E --> F[Select Top K]
-```
+Regularyzacja L1 dodaje wartość bezwzględną wag do funkcji straty:
 
-### Recursive Feature Elimination (RFE)
+Parametr alpha kontroluje, jak agresywnie cechy są przycinane. Wyższy alpha oznacza więcej wag dokładnie na zero.
 
-RFE is a wrapper method. It uses a model's own feature importance to iteratively prune:
+Dlaczego dokładnie zero? Kara L1 tworzy diamentowy region ograniczeń w przestrzeni wag. Optymalne rozwiązanie dąży do trafienia w róg diamentu, gdzie jedna lub więcej wag jest zero. Regularyzacja L2 (grzbiet) tworzy okrągły region ograniczeń, gdzie wagi się zmniejszają, ale rzadko osiągają dokładnie zero.
 
-1. Train the model with all features
-2. Rank features by importance (coefficients for linear models, impurity reduction for trees)
-3. Remove the least important feature(s)
-4. Repeat until the desired number of features remains
+To jest osadzona selekcja cech: model uczy się podczas treningu, które cechy zignorować. Cechy z zerową wagą są efektywnie usunięte.
 
-```mermaid
-flowchart TD
-    A["Start: All N Features"] --> B["Train Model"]
-    B --> C["Rank Feature Importances"]
-    C --> D["Remove Least Important"]
-    D --> E{"Features == Target Count?"}
-    E -->|No| B
-    E -->|Yes| F["Return Selected Features"]
-```
+Zalety: pojedynczy przebieg treningowy, obsługuje skorelowane cechy (wybiera jedną i zeruje inne), wbudowane w większość implementacji modeli liniowych.
 
-RFE considers feature interactions because the model sees all remaining features together. Removing one feature changes the importance of others. This makes it more thorough than filter methods.
+Ograniczenie: działa tylko dla modeli liniowych. Nie może przechwycić nieliniowej ważności cech.
 
-The cost: you train the model N - target times. With 500 features and a target of 10, that is 490 training runs. For expensive models, this is slow. You can speed it up by removing multiple features per step (e.g., remove the bottom 10% each round).
+### Ważność cech oparta na drzewach
 
-### L1 (Lasso) Regularization
+Drzewa decyzyjne i ich zespoły (losowe lasy, gradient boosting) naturalnie rankują cechy. Każde rozgałęzienie redukuje zanieczyszczenie (Gini lub entropia dla klasyfikacji, wariancja dla regresji). Cechy produkujące większe redukcje zanieczyszczeń są ważniejsze.
 
-L1 regularization adds the absolute value of weights to the loss function:
+To daje znormalizowany wynik ważności dla każdej cechy. Automatycznie obsługuje nieliniowe relacje i interakcje między cechami.
 
-```
-loss = prediction_error + alpha * sum(|w_i|)
-```
+Ostrożność: ważność oparta na drzewach jest stronnicza w stronę cech o wielu unikalnych wartościach (wysoka kardynalność). Losowa kolumna ID będzie wyglądać na ważną, ponieważ idealnie dzieli każdą próbkę. Użyj ważności permutacyjnej jako sprawdzenia.
 
-The alpha parameter controls how aggressively features are pruned. Higher alpha means more weights go to exactly zero.
+### Ważność permutacyjna
 
-Why exactly zero? The L1 penalty creates a diamond-shaped constraint region in weight space. The optimal solution tends to land at a corner of this diamond, where one or more weights are zero. L2 regularization (ridge) creates a circular constraint where weights shrink but rarely hit zero.
+Metoda niezależna od modelu:
 
-This is embedded feature selection: the model learns during training which features to ignore. Features with zero weight are effectively removed.
+1. Trenuj model i zapisz bazową wydajność na danych walidacyjnych
+2. Dla każdej cechy: losowo przetasuj jej wartości, zmierz spadek wydajności
+3. Im większy spadek, tym ważniejsza cecha
 
-Advantages: single training run, handles correlated features (picks one and zeros the others), built into most linear model implementations.
+Jeśli tasowanie cechy nie szkodzi wydajności, model od niej nie zależy. Jeśli wydajność się załamuje, ta cecha jest krytyczna.
 
-Limitation: only works for linear models. Cannot capture nonlinear feature importance.
+Ważność permutacyjna unika stronniczości kardynalności ważności opartej na drzewach. Ale jest wolna: jedna pełna ewaluacja na cechę, powtórzona wiele razy dla stabilności.
 
-### Tree-Based Feature Importance
+### Tabela porównawcza
 
-Decision trees and their ensembles (random forests, gradient boosting) naturally rank features. Every split reduces impurity (Gini or entropy for classification, variance for regression). Features that produce larger impurity reductions are more important.
+| Metoda | Typ | Szybkość | Nieliniowa | Interakcje cech |
+|--------|------|---------|------------|-----------------|
+| Próg wariancji | Filtr | Bardzo szybka | Nie | Nie |
+| Informacja wzajemna | Filtr | Szybka | Tak | Nie |
+| Filtr korelacji | Filtr | Szybka | Nie | Nie |
+| RFE | Opakowaniowa | Wolna | Zależy od modelu | Tak |
+| L1 / Lasso | Osadzona | Szybka | Nie (liniowa) | Nie |
+| Ważność drzew | Osadzona | Średnia | Tak | Tak |
+| Ważność permutacyjna | Niezależna od modelu | Wolna | Tak | Tak |
 
-For a random forest with T trees:
+### Schemat decyzyjny
 
-```
-importance(feature_j) = (1/T) * sum over all trees of
-    sum over all nodes splitting on feature_j of
-        (n_samples * impurity_decrease)
-```
+## Zbuduj to
 
-This gives a normalized importance score for each feature. It handles nonlinear relationships and feature interactions automatically.
-
-Caution: tree-based importance is biased toward features with many unique values (high cardinality). A random ID column will appear important because it perfectly splits every sample. Use permutation importance as a sanity check.
-
-### Permutation Importance
-
-A model-agnostic method:
-
-1. Train the model and record baseline performance on validation data
-2. For each feature: shuffle its values randomly, measure the drop in performance
-3. The bigger the drop, the more important the feature
-
-If shuffling a feature does not hurt performance, the model does not depend on it. If performance collapses, that feature is critical.
-
-Permutation importance avoids the cardinality bias of tree-based importance. But it is slow: one full evaluation per feature, repeated multiple times for stability.
-
-### Comparison Table
-
-| Method | Type | Speed | Nonlinear | Feature Interactions |
-|--------|------|-------|-----------|---------------------|
-| Variance threshold | Filter | Very fast | No | No |
-| Mutual information | Filter | Fast | Yes | No |
-| Correlation filter | Filter | Fast | No | No |
-| RFE | Wrapper | Slow | Depends on model | Yes |
-| L1 / Lasso | Embedded | Fast | No (linear) | No |
-| Tree importance | Embedded | Medium | Yes | Yes |
-| Permutation importance | Model-agnostic | Slow | Yes | Yes |
-
-### Decision Flowchart
-
-```mermaid
-flowchart TD
-    A[Start: Feature Selection] --> B{How many features?}
-    B -->|"< 50"| C["Start with variance threshold + mutual information"]
-    B -->|"50-500"| D["Variance threshold, then L1 or tree importance"]
-    B -->|"> 500"| E["Variance threshold, then mutual info filter, then RFE on survivors"]
-
-    C --> F{Using linear model?}
-    D --> F
-    E --> F
-
-    F -->|Yes| G["L1 regularization for final selection"]
-    F -->|No - trees| H["Tree importance + permutation importance"]
-    F -->|No - other| I["RFE with your model"]
-
-    G --> J[Validate: compare selected vs all features]
-    H --> J
-    I --> J
-
-    J --> K{Performance improved?}
-    K -->|Yes| L["Ship with selected features"]
-    K -->|No| M["Try different method or keep all features"]
-```
-
-## Build It
-
-### Step 1: Generate synthetic data with known feature structure
+### Krok 1: Generuj syntetyczne dane ze znaną strukturą cech
 
 ```python
 import numpy as np
@@ -243,9 +160,9 @@ def make_feature_selection_data(n_samples=500, seed=42):
     return X, y, feature_names
 ```
 
-We know the ground truth: features 0-4 are informative (plus 3 and 4 are correlated copies of 0 and 1), features 5-9 are correlated with informative features, features 10-19 are pure noise. A good selection method should rank 0-4 highest and 10-19 lowest.
+Znamy prawdę podstawową: cechy 0-4 są informatywne (plus 3 i 4 są skorelowanymi kopiami 0 i 1), cechy 5-9 są skorelowane z cechami informatywnymi, cechy 10-19 to czysty szum. Dobra metoda selekcji powinna rangować 0-4 najwyżej i 10-19 najniżej.
 
-### Step 2: Variance threshold
+### Krok 2: Próg wariancji
 
 ```python
 def variance_threshold(X, threshold=0.01):
@@ -254,7 +171,7 @@ def variance_threshold(X, threshold=0.01):
     return mask, variances
 ```
 
-### Step 3: Mutual information (discrete)
+### Krok 3: Informacja wzajemna (dyskretna)
 
 ```python
 def discretize(x, n_bins=10):
@@ -290,7 +207,7 @@ def mutual_information(X, y, n_bins=10):
     return mi_scores
 ```
 
-### Step 4: Recursive Feature Elimination
+### Krok 4: Rekursywna eliminacja cech
 
 ```python
 def simple_logistic_importance(X, y, lr=0.1, epochs=100):
@@ -332,7 +249,7 @@ def rfe(X, y, n_features_to_select=5, lr=0.1, epochs=100):
     return selected_mask, rankings
 ```
 
-### Step 5: L1 feature selection
+### Krok 5: Selekcja cech L1
 
 ```python
 def soft_threshold(w, alpha):
@@ -360,7 +277,7 @@ def l1_feature_selection(X, y, alpha=0.1, lr=0.01, epochs=500):
     return selected_mask, w
 ```
 
-### Step 6: Tree-based importance (simple decision tree)
+### Krok 6: Ważność oparta na drzewach (proste drzewo decyzyjne)
 
 ```python
 def gini_impurity(y):
@@ -455,13 +372,13 @@ def _build_tree_importance(X, y, feature_subset, max_depth, depth=0):
     return importances
 ```
 
-### Step 7: Run all methods and compare
+### Krok 7: Uruchom wszystkie metody i porównaj
 
-The code file runs all five methods on the same synthetic dataset and prints a comparison table showing which features each method selects.
+Plik z kodem uruchamia wszystkie pięć metod na tym samym syntetycznym zbiorze danych i drukuje tabelę porównawczą pokazującą, które cechy każda metoda wybiera.
 
-## Use It
+## Użyj tego
 
-With scikit-learn, feature selection is built into the pipeline:
+Z scikit-learn, selekcja cech jest wbudowana w potok:
 
 ```python
 from sklearn.feature_selection import (
@@ -492,45 +409,45 @@ rf.fit(X, y)
 importances = rf.feature_importances_
 ```
 
-The from-scratch implementations show exactly what happens inside each method. Variance threshold is just computing `var(X, axis=0)` and applying a mask. Mutual information is counting joint and marginal frequencies in a contingency table. RFE is a loop that trains, ranks, and prunes. L1 is gradient descent with a soft-thresholding step. Tree importance accumulates impurity reductions across splits. No magic -- just statistics and loops.
+Implementacje od zera pokazują dokładnie, co dzieje się wewnątrz każdej metody. Próg wariancji to just computing `var(X, axis=0)` and applying a mask. Informacja wzajemna to counting joint and marginal frequencies in a contingency table. RFE to a loop that trains, ranks, and prunes. L1 to gradient descent with a soft-thresholding step. Ważność drzew accumulates impurity reductions across splits. No magic -- just statistics and loops.
 
-The sklearn versions add robustness (e.g., mutual_info_classif uses k-NN density estimation instead of binning), speed (C implementations), and pipeline integration.
+Wersje sklearn dodają odporność (np. mutual_info_classif używa estymacji gęstości k-NN zamiast binning), szybkość (implementacje C) i integrację potokową.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/skill-feature-selector.md` -- a quick reference decision tree for choosing the right feature selection method
+Ta lekcja produkuje:
+- `outputs/skill-feature-selector.md` -- szybka referencja schematu decyzyjnego dla wyboru właściwej metody selekcji cech
 
-## Exercises
+## Ćwiczenia
 
-1. **Forward selection**: implement the opposite of RFE. Start with zero features. At each step, add the feature that improves model performance the most. Stop when adding features no longer helps. Compare the selected features against RFE results. Which is faster? Which gives better results?
+1. **Selekcja postępowa**: zaimplementuj przeciwieństwo RFE. Zacznij od zero cech. W każdym kroku dodaj cechę, która najbardziej poprawia wydajność modelu. Zatrzymaj się, gdy dodawanie cech już nie pomaga. Porównaj wybrane cechy z wynikami RFE. Która jest szybsza? Która daje lepsze rezultaty?
 
-2. **Stability selection**: run L1 feature selection 50 times, each time on a random 80% subsample of the data, with slightly different alpha values. Count how often each feature is selected. Features selected in > 80% of runs are "stable." Compare stable features against single-run L1 selection. Which is more reliable?
+2. **Selekcja stabilnościowa**: uruchom selekcję cech L1 50 razy, każdorazowo na losowym podzbiorze 80% danych, z nieznacznie różnymi wartościami alpha. Policz, jak często każda cecha jest wybierana. Cechy wybrane w > 80% przebiegów są "stabilne." Porównaj stabilne cechy z selekcją L1 jednorazową. Która jest bardziej niezawodna?
 
-3. **Multicollinearity detection**: compute the correlation matrix for all features. Implement a function that, given a correlation threshold (e.g., 0.9), removes one feature from each highly-correlated pair (keeping the one with higher mutual information with the target). Test on the synthetic dataset and verify it removes the redundant correlated features.
+3. **Wykrywanie wielokolinearności**: oblicz macierz korelacji dla wszystkich cech. Zaimplementuj funkcję, która przy danym progu korelacji (np. 0.9), usuwa jedną cechę z każdej silnie skorelowanej pary (zachowując tę z wyższą informacją wzajemną z celem). Przetestuj na syntetycznym zbiorze danych i sprawdź, czy usuwa redundantne skorelowane cechy.
 
-4. **Feature selection pipeline**: chain variance threshold, mutual information filter, and RFE into a single pipeline. First remove near-zero-variance features, then keep the top 50% by mutual information, then run RFE on the survivors. Compare this pipeline against running RFE alone on all features. Is the pipeline faster? Is it equally accurate?
+4. **Potok selekcji cech**: połącz próg wariancji, filtr informacji wzajemnej i RFE w jeden potok. Najpierw usuń cechy o wariancji bliskiej zeru, następnie zachowaj górne 50% według informacji wzajemnej, potem uruchom RFE na pozostałych. Porównaj ten potok z samym RFE na wszystkich cechach. Czy potok jest szybszy? Czy jest równie dokładny?
 
-5. **Permutation importance from scratch**: implement permutation importance. For each feature, shuffle its values 10 times, measure the average drop in F1 score. Compare the ranking against tree-based importance. Find cases where they disagree and explain why (hint: correlated features).
+5. **Ważność permutacyjna od zera**: zaimplementuj ważność permutacyjną. Dla każdej cechy przetasuj jej wartości 10 razy, zmierz średni spadek wyniku F1. Porównaj ranking z ważnością opartą na drzewach. Znajdź przypadki, gdzie się różnią i wyjaśnij dlaczego (wskazówka: skorelowane cechy).
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Filter method | "Score features independently" | A feature selection approach that ranks features using a statistical measure without training a model, evaluating each feature in isolation |
-| Wrapper method | "Use the model to pick features" | A feature selection approach that evaluates feature subsets by training a model and using its performance as the selection criterion |
-| Embedded method | "The model selects features during training" | Feature selection that happens as part of model fitting, such as L1 regularization driving weights to zero |
-| Mutual information | "How much one variable tells you about another" | A measure of the reduction in uncertainty about Y given knowledge of X, capturing both linear and nonlinear dependencies |
-| Recursive Feature Elimination | "Train, rank, prune, repeat" | An iterative wrapper method that trains a model, removes the least important feature(s), and repeats until a target count is reached |
-| L1 / Lasso regularization | "Penalty that kills features" | Adding the sum of absolute weight values to the loss function, which drives unimportant feature weights to exactly zero |
-| Variance threshold | "Remove constant features" | Dropping features whose variance across samples falls below a specified threshold, filtering out features that carry no information |
-| Feature importance | "Which features matter most" | A score indicating how much each feature contributes to model predictions, computed from split gains (trees) or coefficient magnitudes (linear) |
-| Permutation importance | "Shuffle and measure the damage" | Evaluating feature importance by randomly shuffling each feature's values and measuring the resulting drop in model performance |
-| Curse of dimensionality | "Too many features, not enough data" | The phenomenon where adding features increases the volume of the feature space exponentially, making data sparse and distances meaningless |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|----------------------|
+| Metoda filtrująca | "Oceniaj cechy niezależnie" | Podejście do selekcji cech, które rankuje cechy używając miary statystycznej bez uczenia modelu, oceniając każdą cechę izolowanie |
+| Metoda opakowaniowa | "Użyj modelu do wyboru cech" | Podejście do selekcji cech, które ocenia podzbiory cech trenując model i używając jego wydajności jako kryterium selekcji |
+| Metoda osadzona | "Model wybiera cechy podczas uczenia" | Selekcja cech zachodząca jako część dopasowywania modelu, taka jak regularyzacja L1 redukująca wagi do zera |
+| Informacja wzajemna | "Ile jedna zmienna mówi ci o drugiej" | Miara redukcji niepewności o Y przy znajomości X, przechwytująca zarówno liniowe jak i nieliniowe zależności |
+| Rekursywna eliminacja cech | "Trenuj, ranguj, przycinaj, powtarzaj" | Iteracyjna metoda opakowaniowa, która trenuję model, usuwa najmniej ważną cechę(y) i powtarza aż do osiągnięcia docelowej liczby |
+| Regularyzacja L1 / Lasso | "Kara, która zabija cechy" | Dodawanie sumy bezwzględnych wartości wag do funkcji straty, co redukuje wagi nieistotnych cech dokładnie do zera |
+| Próg wariancji | "Usuń stałe cechy" | Upuszczanie cech, których wariancja między próbkami spada poniżej określonego progu, filtrując cechy niosące żadnej informacji |
+| Ważność cech | "Które cechy mają największe znaczenie" | Wynik wskazujący, ile każda cecha przyczynia się do predykcji modelu, obliczany z zysków rozgałęzień (drzewa) lub wielkości współczynników (liniowe) |
+| Ważność permutacyjna | "Tasuj i mierz szkody" | Ewaluowanie ważności cech przez losowe tasowanie wartości każdej cechy i mierzenie wynikowego spadku wydajności modelu |
+| Przekleństwo wymiarowości | "Za dużo cech, za mało danych" | Zjawisko, gdzie dodawanie cech zwiększa objętość przestrzeni cech wykładniczo, czyniąc dane rozrzedzonymi i odległości bez znaczenia |
 
-## Further Reading
+## Dalsza lektura
 
-- [An Introduction to Variable and Feature Selection (Guyon & Elisseeff, 2003)](https://jmlr.org/papers/v3/guyon03a.html) -- the foundational survey on feature selection methods, still widely referenced
+- [An Introduction to Variable and Feature Selection (Guyon & Elisseeff, 2003)](https://jmlr.org/papers/v3/guyon03a.html) -- foundational survey on feature selection methods, still widely referenced
 - [scikit-learn Feature Selection Guide](https://scikit-learn.org/stable/modules/feature_selection.html) -- practical reference for filter, wrapper, and embedded methods with code examples
 - [Stability Selection (Meinshausen & Buhlmann, 2010)](https://arxiv.org/abs/0809.2932) -- combines subsampling with feature selection for robust, reproducible results
 - [Beware Default Random Forest Importances (Strobl et al., 2007)](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-8-25) -- demonstrates the cardinality bias in tree-based importance and proposes conditional importance as an alternative

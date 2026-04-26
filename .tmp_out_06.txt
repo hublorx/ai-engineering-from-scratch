@@ -1,0 +1,2 @@
+=== TRANSLATING 06-python-environments ===
+SAVED: C:/VisualStudioCodeRepo/AIWorkspace/ai-engineering-from-scratch/.tmp_06-python-environments_translated.md (8479 chars)

@@ -1,57 +1,57 @@
-# GPU Setup & Cloud
+# Konfiguracja GPU i chmura
 
-> Training on CPU is fine for learning. Training for real needs a GPU.
+> Trenowanie na CPU jest OK dla nauki. Trenowanie na poważnie wymaga GPU.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 0, Lesson 01
-**Time:** ~45 minutes
+**Typ:** Budowa
+**Języki:** Python
+**Wymagania wstępne:** Phase 0, Lesson 01
+**Czas:** ~45 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Verify local GPU availability using `nvidia-smi` and PyTorch's CUDA API
-- Configure Google Colab with a T4 GPU for free cloud-based experiments
-- Benchmark matrix multiplication on CPU vs GPU and measure the speedup
-- Estimate the largest model that fits in your VRAM using the fp16 rule of thumb
+- Zweryfikuj dostępność lokalnego GPU używając `nvidia-smi` i CUDA API PyTorcha
+- Skonfiguruj Google Colab z GPU T4 dla darmowych eksperymentów w chmurze
+- Porównaj mnożenie macierzy na CPU vs GPU i zmierz przyspieszenie
+- Oszacuj największy model który zmieści się w VRAM używając reguły fp16
 
-## The Problem
+## Problem
 
-Most lessons in phases 1-3 run fine on CPU. But once you start training CNNs, transformers, or LLMs (phases 4+), you need GPU acceleration. A training run that takes 8 hours on CPU takes 10 minutes on GPU.
+Większość lekcji w fazach 1-3 działa na CPU. Ale gdy zaczynasz trenować CNN, transformery lub LLM (fazy 4+), potrzebujesz przyspieszenia GPU. Trening który na CPU trwa 8 godzin, na GPU trwa 10 minut.
 
-You have three options: local GPU, cloud GPU, or Google Colab (free).
+Masz trzy opcje: lokalne GPU, chmurowe GPU lub Google Colab (darmowe).
 
-## The Concept
+## Koncepcja
 
 ```
-Your options:
+Twoje opcje:
 
-1. Local NVIDIA GPU
-   Cost: $0 (you already have it)
-   Setup: Install CUDA + cuDNN
-   Best for: Regular use, large datasets
+1. Lokalne GPU NVIDIA
+   Koszt: $0 (już je masz)
+   Konfiguracja: Zainstaluj CUDA + cuDNN
+   Najlepsze dla: Regularnego użytku, dużych zbiorów danych
 
-2. Google Colab (free tier)
-   Cost: $0
-   Setup: None
-   Best for: Quick experiments, no GPU at home
+2. Google Colab (darmowy tier)
+   Koszt: $0
+   Konfiguracja: Żadna
+   Najlepsze dla: Szybkich eksperymentów, brak GPU w domu
 
-3. Cloud GPU (Lambda, RunPod, Vast.ai)
-   Cost: $0.20-2.00/hr
-   Setup: SSH + install
-   Best for: Serious training, large models
+3. Chmurowe GPU (Lambda, RunPod, Vast.ai)
+   Koszt: $0.20-2.00/godz
+   Konfiguracja: SSH + instalacja
+   Najlepsze dla: Poważnego treningu, dużych modeli
 ```
 
-## Build It
+## Zbuduj to
 
-### Option 1: Local NVIDIA GPU
+### Opcja 1: Lokalne GPU NVIDIA
 
-Check if you have one:
+Sprawdź czy je masz:
 
 ```bash
 nvidia-smi
 ```
 
-Install PyTorch with CUDA:
+Zainstaluj PyTorch z CUDA:
 
 ```python
 import torch
@@ -63,35 +63,35 @@ if torch.cuda.is_available():
     print(f"Memory: {torch.cuda.get_device_properties(0).total_mem / 1e9:.1f} GB")
 ```
 
-### Option 2: Google Colab
+### Opcja 2: Google Colab
 
-1. Go to [colab.research.google.com](https://colab.research.google.com)
+1. Przejdź do [colab.research.google.com](https://colab.research.google.com)
 2. Runtime > Change runtime type > T4 GPU
-3. Run `!nvidia-smi` to verify
+3. Uruchom `!nvidia-smi` żeby zweryfikować
 
-Upload notebooks from this course directly to Colab.
+Wgraj notatniki z tego kursu bezpośrednio do Colab.
 
-### Option 3: Cloud GPU
+### Opcja 3: Chmurowe GPU
 
-For Lambda Labs, RunPod, or Vast.ai:
+Dla Lambda Labs, RunPod lub Vast.ai:
 
 ```bash
-ssh user@your-gpu-instance
+ssh user@twoja-gpu-instancja
 
 pip install torch torchvision torchaudio
 python -c "import torch; print(torch.cuda.get_device_name(0))"
 ```
 
-### No GPU? No problem.
+### Bez GPU? To nie problem.
 
-Most lessons work on CPU. The ones that need GPU will say so and include Colab links.
+Większość lekcji działa na CPU. Te które wymagają GPU to powiedzą i dołączą linki do Colab.
 
 ```python
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using: {device}")
 ```
 
-## Build It: GPU vs CPU benchmark
+## Zbuduj: Benchmark GPU vs CPU
 
 ```python
 import torch
@@ -120,17 +120,17 @@ if torch.cuda.is_available():
     print(f"Speedup: {cpu_time / gpu_time:.0f}x")
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. Run the benchmark above and compare CPU vs GPU times
-2. If you don't have a GPU, run it on Google Colab and compare
-3. Check how much GPU memory you have and estimate the largest model you can fit (rule of thumb: 2 bytes per parameter for fp16)
+1. Uruchom benchmark powyżej i porównaj czasy CPU vs GPU
+2. Jeśli nie masz GPU, uruchom w Google Colab i porównaj
+3. Sprawdź ile masz pamięci GPU i oszacuj największy model który możesz załadować (reguła: 2 bajty na parametr dla fp16)
 
-## Key Terms
+## Kluczowe pojęcia
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| CUDA | "GPU programming" | NVIDIA's parallel computing platform that lets you run code on the GPU |
-| VRAM | "GPU memory" | Video RAM on the GPU, separate from system RAM. Limits model size. |
-| fp16 | "Half precision" | 16-bit floating point, uses half the memory of fp32 with minimal accuracy loss |
-| Tensor Core | "Fast matrix hardware" | Specialized GPU cores for matrix multiplication, 4-8x faster than regular cores |
+| Termin | Co ludzie mówią | Co to naprawdę oznacza |
+|--------|-----------------|----------------------|
+| CUDA | "Programowanie na GPU" | Platforma obliczeń równoległych NVIDIA która pozwala uruchamiać kod na GPU |
+| VRAM | "Pamięć GPU" | Pamięć wideo na GPU, oddzielna od RAM systemu. Ogranicza rozmiar modelu. |
+| fp16 | "Pół precyzji" | 16-bitowy floating point, zużywa połowę pamięci fp32 przy minimalnej stracie dokładności |
+| Tensor Core | "Szybki sprzęt macierzowy" | Wyspecjalizowane rdzenie GPU do mnożenia macierzy, 4-8x szybsze od zwykłych rdzeni |

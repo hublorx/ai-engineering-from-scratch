@@ -1,47 +1,47 @@
-# Linear Algebra Intuition
+# Intuicja algebry liniowej
 
-> Every AI model is just matrix math wearing a fancy hat.
+> Każdy model AI to po prostu matematyka macierzy w modnym kapeluszu.
 
 **Type:** Learn
 **Languages:** Python, Julia
 **Prerequisites:** Phase 0
 **Time:** ~60 minutes
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement vector and matrix operations (addition, dot product, matrix multiply) from scratch in Python
-- Explain geometrically what the dot product, projection, and Gram-Schmidt process do
-- Determine linear independence, rank, and basis of a set of vectors using row reduction
-- Connect linear algebra concepts to their AI applications: embeddings, attention scores, and LoRA
+- Implementuj operacje na wektorach i macierzach (dodawanie, iloczyn skalarny, mnożenie macierzy) od zera w Pythonie
+- Wyjaśnij geometrycznie, co robi iloczyn skalarny, projekcja i proces Grama-Schmidta
+- Określaj liniową niezależność, rząd i bazę zbioru wektorów za pomocą redukcji wierszowej
+- Połącz koncepcje algebry liniowej z ich zastosowaniami w AI: embeddings, wyniki attention i LoRA
 
-## The Problem
+## Problem
 
-Open any ML paper. Within the first page, you'll see vectors, matrices, dot products, and transformations. Without linear algebra intuition, these are just symbols. With it, you can see what a neural network is actually doing -- moving points around in space.
+Otwórz dowolny artykuł ML. W pierwszej stronie zobaczysz wektory, macierze, iloczyny skalarne i transformacje. Bez intuicji algebraicznej są to tylko symbole. Dzięki niej widzisz, co sieć neuronowa faktycznie robi -- przesuwa punkty w przestrzeni.
 
-You don't need to be a mathematician. You need to see what these operations mean geometrically, then code them yourself.
+Nie musisz być matematykiem. Musisz zobaczyć, co te operacje oznaczają geometrycznie, a potem zakodować je samodzielnie.
 
-## The Concept
+## Koncepcja
 
-### Vectors Are Points (and Directions)
+### Wektory to punkty (i kierunki)
 
-A vector is just a list of numbers. But those numbers mean something -- they're coordinates in space.
+Wektor to po prostu lista liczb. Ale te liczby coś oznaczają -- to współrzędne w przestrzeni.
 
-**2D vector [3, 2]:**
+**Wektor 2D [3, 2]:**
 
-| x | y | Point |
+| x | y | Punkt |
 |---|---|-------|
-| 3 | 2 | The vector points from origin (0,0) to (3, 2) on the plane |
+| 3 | 2 | Wektor wskazuje z początku (0,0) do (3, 2) na płaszczyźnie |
 
-The vector has magnitude sqrt(3^2 + 2^2) = sqrt(13) and points up and to the right.
+Wektor ma długość sqrt(3^2 + 2^2) = sqrt(13) i wskazuje w górę i w prawo.
 
-In AI, vectors represent everything:
-- A word → a vector of 768 numbers (its "meaning" in embedding space)
-- An image → a vector of millions of pixel values
-- A user → a vector of preferences
+W AI wektory reprezentują wszystko:
+- Słowo → wektor 768 liczb (jego "znaczenie" w przestrzeni embeddingów)
+- Obraz → wektor milionów wartości pikseli
+- Użytkownik → wektor preferencji
 
-### Matrices Are Transformations
+### Macierze to transformacje
 
-A matrix transforms one vector into another. It can rotate, scale, stretch, or project.
+Macierz przekształca jeden wektor w drugi. Może obracać, skalować, rozciągać lub projektować.
 
 ```mermaid
 graph LR
@@ -62,32 +62,32 @@ graph LR
     M --> B2
 ```
 
-In AI, matrices ARE the model:
-- Neural network weights → matrices that transform input into output
-- Attention scores → matrices that decide what to focus on
-- Embeddings → matrices that map words to vectors
+W AI macierze SĄ modelem:
+- Wagi sieci neuronowej → macierze przekształcające dane wejściowe w wyjściowe
+- Wyniki attention → macierze decydujące, na czym się skupić
+- Embeddings → macierze mapujące słowa na wektory
 
-### The Dot Product Measures Similarity
+### Iloczyn skalarny mierzy podobieństwo
 
-The dot product of two vectors tells you how similar they are.
+Iloczyn skalarny dwóch wektorów mówi, jak bardzo są podobne.
 
 ```
 a · b = a₁×b₁ + a₂×b₂ + ... + aₙ×bₙ
 
-Same direction:      a · b > 0  (similar)
-Perpendicular:       a · b = 0  (unrelated)
-Opposite direction:  a · b < 0  (dissimilar)
+Ten sam kierunek:   a · b > 0  (podobne)
+Prostopadłe:       a · b = 0  (niepowiązane)
+Przeciwny kierunek: a · b < 0  (niepodobne)
 ```
 
-This is literally how search engines, recommendation systems, and RAG work -- find vectors with high dot products.
+To dosłownie jak działają wyszukiwarki, systemy rekomendacji i RAG -- znajdują wektory o wysokim iloczynie skalarnym.
 
-### Linear Independence
+### Liniowa niezależność
 
-Vectors are linearly independent if no vector in the set can be written as a combination of the others. If v1, v2, v3 are independent, they span a 3D space. If one is a combination of the others, they only span a plane.
+Wektory są liniowo niezależne, gdy żaden wektor ze zbioru nie może być zapisany jako kombinacja pozostałych. Jeśli v1, v2, v3 są niezależne, rozpinają przestrzeń 3D. Jeśli jeden jest kombinacją pozostałych, rozpinają tylko płaszczyznę.
 
-Why it matters for AI: your feature matrix should have linearly independent columns. If two features are perfectly correlated (linearly dependent), the model cannot distinguish their effects. This causes multicollinearity in regression -- the weight matrix becomes unstable, and small input changes produce wild output swings.
+Dlaczego to ma znaczenie w AI: macierz cech powinna mieć liniowo niezależne kolumny. Jeśli dwie cechy są idealnie skorelowane (liniowo zależne), model nie może rozróżnić ich wpływów. To powoduje multicollinearity w regresji -- macierz wag staje się niestabilna, a małe zmiany danych wejściowych powodują duże wahania wyjść.
 
-**Concrete example:**
+**Konkretny przykład:**
 
 ```
 v1 = [1, 0, 0]
@@ -95,42 +95,42 @@ v2 = [0, 1, 0]
 v3 = [2, 1, 0]   # v3 = 2*v1 + v2
 ```
 
-v1 and v2 are independent -- neither is a scalar multiple or combination of the other. But v3 = 2*v1 + v2, so {v1, v2, v3} is a dependent set. These three vectors all lie in the xy-plane. No matter how you combine them, you cannot reach [0, 0, 1]. You have three vectors but only two dimensions of freedom.
+v1 i v2 są niezależne -- żaden nie jest wielokrotnością ani kombinacją drugiego. Ale v3 = 2*v1 + v2, więc {v1, v2, v3} jest zbiorem zależnym. Te trzy wektory leżą w płaszczyźnie xy. Jakiekolwiek ich połączenie nie da ci dotrzeć do [0, 0, 1]. Masz trzy wektory, ale tylko dwa wymiary swobody.
 
-In a dataset: if feature_3 = 2*feature_1 + feature_2, adding feature_3 gives the model zero new information. Worse, it makes the normal equations singular -- there is no unique solution for the weights.
+W zbiorze danych: jeśli feature_3 = 2*feature_1 + feature_2, dodanie feature_3 daje modelowi zero nowej informacji. Co gorsza, powoduje, że równania normalne stają się osobliwe -- nie ma unikalnego rozwiązania dla wag.
 
-### Basis and Rank
+### Baza i rząd
 
-A basis is a minimal set of linearly independent vectors that span the entire space. The number of basis vectors is the dimension of the space.
+Baza to minimalny zbiór liniowo niezależnych wektorów, które rozpinają całą przestrzeń. Liczba wektorów bazowych to wymiar przestrzeni.
 
-The standard basis for 3D space is {[1,0,0], [0,1,0], [0,0,1]}. But any three independent vectors in 3D form a valid basis. The choice of basis is a choice of coordinate system.
+Standardowa baza przestrzeni 3D to {[1,0,0], [0,1,0], [0,0,1]}. Ale każde trzy niezależne wektory w 3D tworzą prawidłową bazę. Wybór bazy to wybór układu współrzędnych.
 
-Rank of a matrix = number of linearly independent columns = number of linearly independent rows. If rank < min(rows, cols), the matrix is rank-deficient. This means:
-- The system has infinitely many solutions (or none)
-- Information is lost in the transformation
-- The matrix cannot be inverted
+Rząd macierzy = liczba liniowo niezależnych kolumn = liczba liniowo niezależnych wierszy. Jeśli rząd < min(wiersze, kolumny), macierz ma rząd niewystarczający. To oznacza:
+- Układ ma nieskończenie wiele rozwiązań (lub brak)
+- Informacja jest tracona w transformacji
+- Macierzy nie można odwrócić
 
-| Situation | Rank | What it means for ML |
+| Sytuacja | Rząd | Co to oznacza dla ML |
 |-----------|------|---------------------|
-| Full rank (rank = min(m, n)) | Maximum possible | Unique least-squares solution exists. Model is well-conditioned. |
-| Rank deficient (rank < min(m, n)) | Below maximum | Features are redundant. Infinitely many weight solutions. Regularization needed. |
-| Rank 1 | 1 | Every column is a scaled copy of one vector. All data lies on a line. |
-| Near rank-deficient (small singular values) | Numerically low | Matrix is ill-conditioned. Tiny input noise causes large output changes. Use SVD truncation or ridge regression. |
+| Pełny rząd (rząd = min(m, n)) | Maksymalny możliwy | Istnieje unikalne rozwiązanie najmniejszych kwadratów. Model jest dobrze uwarunkowany. |
+| Rząd niewystarczający (rząd < min(m, n)) | Poniżej maksimum | Cechy są redundantne. Nieskończenie wiele rozwiązań wag. Wymagana regularizacja. |
+| Rząd 1 | 1 | Każda kolumna to skalowana kopia jednego wektora. Wszystkie dane leżą na prostej. |
+| Bliski niewystarczającego rzędu (małe wartości osobliwe) | Numerycznie niski | Macierz jest źle uwarunkowana. Mały szum wejściowy powoduje duże zmiany wyjściowe. Użyj obcięcia SVD lub regresji grzbietowej. |
 
-### Projection
+### Projekcja
 
-Projecting vector **a** onto vector **b** gives the component of **a** in the direction of **b**:
+Projekcja wektora **a** na wektor **b** daje składową **a** w kierunku **b**:
 
 ```
 proj_b(a) = (a dot b / b dot b) * b
 ```
 
-The residual (a - proj_b(a)) is perpendicular to b. This orthogonal decomposition is the foundation of least-squares fitting.
+Reszta (a - proj_b(a)) jest prostopadła do b. Ta ortogonalna dekompozycja jest fundamentem metody najmniejszych kwadratów.
 
-Projection is everywhere in ML:
-- Linear regression minimizes the distance from observations to the column space -- the solution IS a projection
-- PCA projects data onto the directions of maximum variance
-- Attention in transformers computes projections of queries onto keys
+Projekcja jest wszędzie w ML:
+- Regresja liniowa minimalizuje odległość od obserwacji do przestrzeni kolumnowej -- rozwiązanie TO projekcja
+- PCA projektuje dane na kierunki maksymalnej wariancji
+- Attention w transformerach oblicza projekcje queries na klucze
 
 ```mermaid
 graph LR
@@ -143,21 +143,21 @@ graph LR
     end
 ```
 
-**Example:** a = [3, 4], b = [1, 0]
+**Przykład:** a = [3, 4], b = [1, 0]
 
 proj_b(a) = (3*1 + 4*0) / (1*1 + 0*0) * [1, 0] = 3 * [1, 0] = [3, 0]
 
-The projection drops the y-component. This is dimensionality reduction in its simplest form -- throw away the directions you don't care about.
+Projekcja upuszcza składową y. To redukcja wymiaru w najprostszej formie -- odrzucasz kierunki, na których ci nie zależy.
 
-### Gram-Schmidt Process
+### Proces Grama-Schmidta
 
-Converting any set of independent vectors into an orthonormal basis. Orthonormal means every vector has length 1 and every pair is perpendicular.
+Konwersja dowolnego zbioru niezależnych wektorów na bazę ortonormalną. Ortonormalny oznacza, że każdy wektor ma długość 1 i każda para jest prostopadła.
 
-The algorithm:
-1. Take the first vector, normalize it
-2. Take the second vector, subtract its projection onto the first, normalize
-3. Take the third vector, subtract its projections onto all previous vectors, normalize
-4. Repeat for remaining vectors
+Algorytm:
+1. Weź pierwszy wektor, znormalizuj go
+2. Weź drugi wektor, odejmij jego projekcję na pierwszy, znormalizuj
+3. Weź trzeci wektor, odejmij jego projekcje na wszystkie poprzednie, znormalizuj
+4. Powtórz dla pozostałych wektorów
 
 ```
 Input:  v1, v2, v3, ... (linearly independent)
@@ -173,14 +173,14 @@ u3 = w3 / |w3|
 Output: u1, u2, u3, ... (orthonormal basis)
 ```
 
-This is how QR decomposition works internally. Q is the orthonormal basis, R captures the projection coefficients. QR decomposition is used in:
-- Solving linear systems (more stable than Gaussian elimination)
-- Computing eigenvalues (QR algorithm)
-- Least-squares regression (the standard numerical method)
+Tak działa dekompozycja QR wewnętrznie. Q to baza ortonormalna, R przechowuje współczynniki projekcji. Dekompozycja QR jest używana w:
+- Rozwiązywaniu układów liniowych (stabilniejsza niż eliminacja Gaussa)
+- Obliczaniu wartości własnych (algorytm QR)
+- Regresji metodą najmniejszych kwadratów (standardowa metoda numeryczna)
 
-## Build It
+## Buduj to
 
-### Step 1: Vectors from scratch (Python)
+### Krok 1: Wektory od zera (Python)
 
 ```python
 class Vector:
@@ -220,7 +220,7 @@ print(f"|a| = {a.magnitude():.4f}")
 print(f"cosine similarity = {a.cosine_similarity(b):.4f}")
 ```
 
-### Step 2: Matrices from scratch (Python)
+### Krok 2: Macierze od zera (Python)
 
 ```python
 class Matrix:
@@ -263,7 +263,7 @@ print(f"Original: {point}")
 print(f"Rotated 90°: {rotated}")
 ```
 
-### Step 3: Why this matters for AI
+### Krok 3: Dlaczego to ma znaczenie dla AI
 
 ```python
 import random
@@ -278,7 +278,7 @@ print(f"Output (2D): {output}")
 print("This is what a neural network layer does -- matrix multiplication.")
 ```
 
-### Step 4: Julia version
+### Krok 4: Wersja Julia
 
 ```julia
 a = [1.0, 2.0, 3.0]
@@ -296,7 +296,7 @@ println("Wx = ", W * x)
 println("This is a neural network layer.")
 ```
 
-### Step 5: Linear independence and projection from scratch (Python)
+### Krok 5: Liniowa niezależność i projekcja od zera (Python)
 
 ```python
 def is_linearly_independent(vectors):
@@ -355,9 +355,9 @@ print(f"u1 · u3 = {basis[0].dot(basis[2]):.6f}")
 print(f"u2 · u3 = {basis[1].dot(basis[2]):.6f}")
 ```
 
-## Use It
+## Użyj tego
 
-Now the same thing with NumPy -- what you'll actually use in practice:
+Teraz to samo z NumPy -- co faktycznie będziesz używać w praktyce:
 
 ```python
 import numpy as np
@@ -375,7 +375,7 @@ x = np.array([1.0, 0.5, -0.3])
 print(f"Wx = {W @ x}")
 ```
 
-### Rank, Projection, and QR with NumPy
+### Rząd, projekcja i QR z NumPy
 
 ```python
 import numpy as np
@@ -393,7 +393,7 @@ print(f"Q is orthogonal: {np.allclose(Q @ Q.T, np.eye(3))}")
 print(f"R is upper triangular: {np.allclose(R, np.triu(R))}")
 ```
 
-### PyTorch -- Tensors Are Vectors with Autodiff
+### PyTorch -- Tensory to wektory z autodiff
 
 ```python
 import torch
@@ -410,50 +410,50 @@ print(f"dot product = {similarity.item():.4f}")
 print(f"d(dot)/dx = {x.grad}")
 ```
 
-The gradient of the dot product with respect to x is just y. PyTorch computed this automatically. Every operation in a neural network is built from operations like this -- matrix multiplies, dot products, projections -- and autodiff tracks gradients through all of them.
+Gradient iloczynu skalarnego względem x to po prostu y. PyTorch obliczył to automatycznie. Każda operacja w sieci neuronowej jest zbudowana z takich operacji -- mnożenia macierzy, iloczyny skalarne, projekcje -- a autodiff śledzi gradienty przez nie wszystkie.
 
-You just built from scratch what NumPy does in one line. Now you know what's happening under the hood.
+Właśnie zbudowałeś od zera to, co NumPy robi w jednej linii. Teraz wiesz, co dzieje się pod maską.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/prompt-linear-algebra-tutor.md` -- a prompt for AI assistants to teach linear algebra through geometric intuition
+Ta lekcja tworzy:
+- `outputs/prompt-linear-algebra-tutor.md` -- prompt dla AI assistants do nauczania algebry liniowej przez geometryczną intuicję
 
-## Connections
+## Połączenia
 
-Everything in this lesson connects to specific parts of modern AI:
+Wszystko w tej lekcji łączy się z konkretnymi częściami nowoczesnego AI:
 
-| Concept | Where it shows up |
+| Koncepcja | Gdzie się pojawia |
 |---------|------------------|
-| Dot product | Attention scores in transformers, cosine similarity in RAG |
-| Matrix multiply | Every neural network layer, every linear transformation |
-| Linear independence | Feature selection, avoiding multicollinearity |
-| Rank | Determining if a system is solvable, LoRA (low-rank adaptation) |
-| Projection | Linear regression (projecting onto column space), PCA |
-| Gram-Schmidt / QR | Numerical solvers, eigenvalue computation |
-| Orthonormal basis | Stable numerical computation, whitening transforms |
+| Iloczyn skalarny | Wyniki attention w transformerach, cosine similarity w RAG |
+| Mnożenie macierzy | Każda warstwa sieci neuronowej, każda transformacja liniowa |
+| Liniowa niezależność | Selekcja cech, unikanie multicollinearity |
+| Rząd | Określanie czy układ jest rozwiązywalny, LoRA (low-rank adaptation) |
+| Projekcja | Regresja liniowa (projekcja na przestrzeń kolumnową), PCA |
+| Gram-Schmidt / QR | Solwery numeryczne, obliczanie wartości własnych |
+| Baza ortonormalna | Stabilne obliczenia numeryczne, transformacje whitening |
 
-LoRA deserves special mention. It fine-tunes large language models by decomposing weight updates into low-rank matrices. Instead of updating a 4096x4096 weight matrix (16M parameters), LoRA updates two matrices of size 4096x16 and 16x4096 (131K parameters). The rank-16 constraint means LoRA assumes the weight update lives in a 16-dimensional subspace of the full 4096-dimensional space. That is linear algebra doing real work.
+LoRA zasługuje na szczególną uwagę. Fine-tunuje duże modele językowe poprzez dekompozycję aktualizacji wag na macierze niskiego rzędu. Zamiast aktualizować macierz wag 4096x4096 (16M parametrów), LoRA aktualizuje dwie macierze 4096x16 i 16x4096 (131K parametrów). Ograniczenie rzędu 16 oznacza, że LoRA zakłada, że aktualizacja wag żyje w podprzestrzeni 16-wymiarowej pełnej przestrzeni 4096-wymiarowej. To algebra liniowa robi realną pracę.
 
-## Exercises
+## Ćwiczenia
 
-1. Implement `Vector.angle_between(other)` that returns the angle in degrees between two vectors
-2. Create a 2D scaling matrix that doubles the x-coordinate and triples the y-coordinate, then apply it to the vector [1, 1]
-3. Given 5 random word-like vectors (dimension 50), find the two most similar using cosine similarity
-4. Verify that the Gram-Schmidt output is truly orthonormal: check that every pair has dot product 0 and every vector has magnitude 1
-5. Create a 3x3 matrix with rank 2. Verify using the `rank()` method. Then explain what geometric object the columns span.
-6. Project the vector [1, 2, 3] onto [1, 1, 1]. What does the result represent geometrically?
+1. Zaimplementuj `Vector.angle_between(other)` która zwraca kąt w stopniach między dwoma wektorami
+2. Stwórz macierz skalowania 2D która podwaja współrzędną x i potraja współrzędną y, a następnie applyuj ją do wektora [1, 1]
+3. Mając 5 losowych wektorów podobnych do słów (wymiar 50), znajdź dwa najbardziej podobne używając cosine similarity
+4. Zweryfikuj że output Grama-Schmidta jest prawdziwie ortonormalny: sprawdź że każda para ma iloczyn skalarny 0 i każdy wektor ma magnitudę 1
+5. Stwórz macierz 3x3 z rzędem 2. Zweryfikuj używając metody `rank()`. Następnie wyjaśnij, jaką figurę geometryczną rozpinają kolumny.
+6. Projektuj wektor [1, 2, 3] na [1, 1, 1]. Co wynik reprezentuje geometrycznie?
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Vector | "An arrow" | A list of numbers representing a point or direction in n-dimensional space |
-| Matrix | "A table of numbers" | A transformation that maps vectors from one space to another |
-| Dot product | "Multiply and sum" | A measure of how aligned two vectors are -- the core of similarity search |
-| Embedding | "Some AI magic" | A vector that represents the meaning of something (word, image, user) |
-| Linear independence | "They don't overlap" | No vector in the set can be written as a combination of the others |
-| Rank | "How many dimensions" | The number of linearly independent columns (or rows) in a matrix |
-| Projection | "The shadow" | The component of one vector in the direction of another |
-| Basis | "The coordinate axes" | A minimal set of independent vectors that span the space |
-| Orthonormal | "Perpendicular unit vectors" | Vectors that are mutually perpendicular and each have length 1 |
+| Wektor | "Strzałka" | Lista liczb reprezentująca punkt lub kierunek w przestrzeni n-wymiarowej |
+| Macierz | "Tabela liczb" | Transformacja liniowa mapująca wektory z jednej przestrzeni w drugą |
+| Iloczyn skalarny | "Pomnóż i zsumuj" | Miara tego, jak wyrównane są dwa wektory -- rdzeń wyszukiwania podobieństw |
+| Embedding | "Jakaś magia AI" | Wektor reprezentujący znaczenie czegoś (słowo, obraz, użytkownik) |
+| Liniowa niezależność | "Nie nakładają się" | Żaden wektor ze zbioru nie może być zapisany jako kombinacja pozostałych |
+| Rząd | "Ile wymiarów" | Liczba liniowo niezależnych kolumn (lub wierszy) w macierzy |
+| Projekcja | "Cień" | Składowa jednego wektora w kierunku drugiego |
+| Baza | "Osie współrzędnych" | Minimalny zbiór niezależnych wektorów rozpinających przestrzeń |
+| Ortonormalny | "Prostopadłe wektory jednostkowe" | Wektory wzajemnie prostopadłe, każdy o długości 1 |

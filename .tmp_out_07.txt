@@ -1,0 +1,2 @@
+=== TRANSLATING 07-docker-for-ai ===
+SAVED: C:/VisualStudioCodeRepo/AIWorkspace/ai-engineering-from-scratch/.tmp_07-docker-for-ai_translated.md (12021 chars)

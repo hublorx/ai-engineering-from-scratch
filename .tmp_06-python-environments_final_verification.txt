@@ -1,0 +1,15 @@
+BŁĘDY: 5
+
+**ANGLICYZMY poza listą dozwolonych:**
+1. "fine-tuning" — linia 17 (Instalujesz PyTorch 2.4 do projektu fine-tuning)
+2. "fine-tuning" — linia 19 (Ulepszasz globalnie i pierwszy projekt się psuje. Ulepszasz i drugi projekt się psuje)
+3. "fine-tuning" — linia 20 (To jest piekło zależności. Zdarza się ciągle w pracy AI/ML, bo:)
+4. "setup" — linia 206 (Uruchom skrypt setup, aby utworzyć środowisko kursu)
+5. "checkout" — linia 251 (`git checkout -b my-branch  # should show .venv/bin/python, not /usr/bin/python`)
+
+**Pozostałe sprawdzenia — OK:**
+- DIAKRYTYKI: ✓ poprawne
+- NIEPOLSKIE ZNAKI: ✓ brak
+- BRAK PRZECINKA: ✓ miejsca z "bo", "że", "a" — przecinki są na miejscu
+- KOD W TŁUMACZENIU: ✓ brak bloku kodu z tlumaczonąprozą
+- ANGIELSKIE SEKCJE: ✓ wszystkie przetłumaczone (np. "Ćwiczenia", "Kluczowe Pojęcia")

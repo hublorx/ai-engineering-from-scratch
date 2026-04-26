@@ -1,516 +1,541 @@
-# Statistics for Machine Learning
+<think>The user wants me to translate this English text about Statistics for Machine Learning into Polish, following specific rules. Let me go through the text carefully and translate it while following all the rules:
 
-> Statistics is how you know if your model actually works or just got lucky.
+1. Minimal intervention - translate faithfully, don't improve, shorten, or change tone
+2. Keep technical terms in English as specified
+3. Translate section headers according to the rules provided
+4. Don't translate code blocks
+5. Use Polish commas before specific words
+6. Use proper Polish diacritics
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 1, Lessons 06 (Probability and Distributions), 07 (Bayes' Theorem)
-**Time:** ~120 minutes
+Let me translate this section by section.
 
-## Learning Objectives
+Key translations:
+- "Learning Objectives" -> "Cele uczenia sie"
+- "The Problem" -> "Problem"
+- "The Concept" -> "Koncepcja"
+- "Build It" -> "Zbuduj to"
+- "Use It" -> "Uzyj tego"
+- "Ship It" -> "Dostarcz to"
+- "Exercises" -> "Cwiczenia"
+- "Key Terms" -> "Kluczowe pojecia"
+- "Further Reading" -> "Dalsza lektura"
 
-- Compute descriptive statistics, Pearson/Spearman correlation, and covariance matrices from scratch
-- Perform hypothesis tests (t-test, chi-squared) and interpret p-values and confidence intervals correctly
-- Use bootstrap resampling to construct confidence intervals for any metric without distributional assumptions
-- Distinguish statistical significance from practical significance using effect size measures
+Let me translate each section carefully, maintaining all formatting.</think>
 
-## The Problem
+# Statystyka dla uczenia maszynowego
 
-You trained two models. Model A scores 0.87 on your test set. Model B scores 0.89. You deploy Model B. Three weeks later, production metrics are worse than before. What happened?
+> Statystyka to sposób, zeby dowiedziec sie, czy twoj model faktycznie dziala, czy po prostu mial szczescie.
 
-Model B did not actually outperform Model A. The 0.02 difference was noise. Your test set was too small, or the variance too high, or both. You shipped randomness dressed up as improvement.
+**Typ:** Zbuduj
+**Jezyk:** Python
+**Wymagania wstepne:** Faza 1, Lekcje 06 (Prawdopodobienstwo i rozklady), 07 (Twierdzenie Bayesa)
+**Czas:** ~120 minut
 
-This happens constantly. Kaggle leaderboard shakeups. Papers that fail to reproduce. A/B tests that declare winners based on a few hundred samples. The root cause is always the same: someone skipped the statistics.
+## Cele uczenia sie
 
-Statistics gives you the tools to distinguish signal from noise. It tells you when a difference is real, how confident you should be, and how much data you need before you can trust a result. Every ML pipeline, every model comparison, every experiment needs statistics. Without it, you are guessing.
+- Obliczac statystyki opisowe, korelacje Pearsona/Spearmana i macierze kowariancji od zera
+- Przeprowadzac testy hipotez (test t, chi-kwadrat) i poprawnie interpretowac wartosci p oraz przedzialy ufnosci
+- Uzywac bootstrap resamplingu do konstruowania przedzialow ufnosci dla dowolnej metryki bez zalozen dystrybucyjnych
+- Rozrozniac istotnosc statystyczna od istotnosci praktycznej za pomoca miar wielkosci efektu
 
-## The Concept
+## Problem
 
-### Descriptive Statistics: Summarizing Your Data
+Wyszkoliles dwa modele. Model A uzyskuje 0.87 na twoim zbiorze testowym. Model B uzyskuje 0.89. Wdrazasz Model B. Trzy tygodnie pozniej metryki produkcyjne sa gorsze niz wczesniej. Co sie stalo?
 
-Before you model anything, you need to know what your data looks like. Descriptive statistics compress a dataset into a few numbers that capture its shape.
+Model B w rzeczywistosci nie okazal sie lepszy niz Model A. Roznica 0.02 to byl szum. Twoj zbior testowy byl zbyt maly, albo wariancja zbyt wysoka, albo jedno i drugie. Wdrozyles losowosc przebrana za poprawe.
 
-**Measures of central tendency** answer "where is the middle?"
+To sie dzieje stale. Przetasowania na tablicach wynikow Kaggle. Artykuly, ktore nie udaje sie odtworzyc. Testy A/B, ktore oglaszaja zwyciezcow na podstawie kilkuset prob. Przyczyna jest zawsze ta sama: ktos pominąl statystyke.
 
-```
-Mean:   sum of all values / count
-        mu = (1/n) * sum(x_i)
+Statystyka daje ci narzedzia do rozroznienia sygnalu od szumu. Mowi ci, kiedy roznica jest rzeczywista, jak pewien powinienes byc i ile danych potrzebujesz, zanim mozesz zaufac wynikowi. Kazdy potok ML, kazde porownanie modeli, kazdy eksperyment potrzebuje statystyki. Bez niej zgadujesz.
 
-Median: middle value when sorted
-        Robust to outliers. If you have [1, 2, 3, 4, 1000], the mean is 202
-        but the median is 3.
+## Koncepcja
 
-Mode:   most frequent value
-        Useful for categorical data. For continuous data, rarely informative.
-```
+### Statystyki opisowe: podsumowanie danych
 
-The mean is the balance point. The median is the halfway mark. When they diverge, your distribution is skewed. Income distributions have mean >> median (right skew from billionaires). Loss distributions during training often have mean << median (left skew from easy samples).
+Zanim cokolwiek zamodelujesz, musisz wiedziec, jak twoje dane wygladaja. Statystyki opisowe kompresuja zbior danych do kilku liczb, ktore oddaja jego ksztalt.
 
-**Measures of spread** answer "how dispersed is the data?"
-
-```
-Variance:   average squared deviation from the mean
-            sigma^2 = (1/n) * sum((x_i - mu)^2)
-
-Standard deviation:  square root of variance
-                     sigma = sqrt(sigma^2)
-                     Same units as the data, so more interpretable.
-
-Range:      max - min
-            Sensitive to outliers. Almost never useful alone.
-
-IQR:        Q3 - Q1 (interquartile range)
-            The range of the middle 50% of the data.
-            Robust to outliers. Used for box plots and outlier detection.
-```
-
-**Percentiles** divide sorted data into 100 equal parts. The 25th percentile (Q1) means 25% of values fall below this point. The 50th percentile is the median. The 75th percentile is Q3.
+**Miary tendencji centralnej** odpowiadaja na pytanie "gdzie jest srodek?"
 
 ```
-For latency monitoring:
-  P50 = median latency        (typical user experience)
-  P95 = 95th percentile       (bad but not worst case)
-  P99 = 99th percentile       (tail latency, often 10x the median)
+Srednia:   suma wszystkich wartosci / liczba
+           mu = (1/n) * sum(x_i)
+
+Mediana:   srodkowa wartosc po posortowaniu
+           Odporna na wartosci odstajace. Jesli masz [1, 2, 3, 4, 1000],
+           srednia to 202, ale mediana to 3.
+
+Moda:      najczestsza wartosc
+           Przydatna dla danych kategorycznych. Dla danych ciaglych,
+           rzadko jest informacyjna.
 ```
 
-In ML, you care about percentiles for inference latency, prediction confidence distributions, and understanding error distributions. A model with low average error but terrible P99 error might be useless for safety-critical applications.
+Srednia to punkt rownowagi. Mediana to polowa drogi. Kiedy sie roznia, twoj rozklad jest skosny. Rozkłady dochodow maja srednia >> mediana (prawe skoszenie od miliarderow). Rozkłady strat podczas treningu czesto maja srednia << mediana (lewe skoszenie od latwych probek).
 
-**Sample vs population statistics.** When computing variance from a sample, divide by (n-1) instead of n. This is Bessel's correction. It compensates for the fact that your sample mean is not the true population mean. With n in the denominator, you systematically underestimate the true variance. With (n-1), the estimate is unbiased.
+**Miary rozproszenia** odpowiadaja na pytanie "jak bardzo dane sa rozproszone?"
 
 ```
-Population variance: sigma^2 = (1/N) * sum((x_i - mu)^2)
-Sample variance:     s^2     = (1/(n-1)) * sum((x_i - x_bar)^2)
+Wariancja:   srednie kwadratowe odchylenie od sredniej
+             sigma^2 = (1/n) * sum((x_i - mu)^2)
+
+Odchylenie standardowe: pierwiastek kwadratowy z wariancji
+                        sigma = sqrt(sigma^2)
+                        W tych samych jednostkach co dane, wiec bardziej interpretowalne.
+
+Zakres:      max - min
+             Wrazliwy na wartosci odstajace. Prawie nigdy nie uzytczny sam.
+
+IQR:         Q3 - Q1 (rozstep miedzykwartylowy)
+             Zakres srodkowych 50% danych.
+             Odporny na wartosci odstajace. Uzywany do wykresow pudelkowych i wykrywania odstajacych.
 ```
 
-In practice: if n is large (thousands of samples), the difference is negligible. If n is small (dozens of samples), it matters.
+**Percentyle** dziela posortowane dane na 100 rownych czesci. 25. percentyl (Q1) oznacza, ze 25% wartosci znajduje sie ponizej tego punktu. 50. percentyl to mediana. 75. percentyl to Q3.
 
-### Correlation: How Variables Move Together
+```
+Dla monitorowania opoznien:
+  P50 = mediana opoznienia        (typowe doswiadczenie uzytkownika)
+  P95 = 95. percentyl             (zle, ale nie najgorszy przypadek)
+  P99 = 99. percentyl             (opoznienie ogonowe, czesto 10x mediana)
+```
 
-Correlation measures the strength and direction of a linear relationship between two variables.
+W ML, interesuja cie percentyle dla opoznien wnioskowania, rozkladow pewosci predykcji i zrozumienia rozkladow bledow. Model z niskim srednim bledem, ale terriblem P99 moze byc bezużyteczny dla zastosowan krytycznych dla bezpieczenstwa.
 
-**Pearson correlation coefficient** measures linear association:
+**Statystyki probki a populacji.** Przy obliczaniu wariancji z probki, dziel przez (n-1) zamiast n. To jest korekta Bessela. Kompensuje fakt, ze srednia z probki nie jest prawdziwa srednia populacji. Z n w mianowniku systematycznie niedoszacowujesz prawdziwa wariancje. Z (n-1), oszacowanie jest nieobciazone.
+
+```
+Wariancja populacji: sigma^2 = (1/N) * sum((x_i - mu)^2)
+Wariancja probki:     s^2     = (1/(n-1)) * sum((x_i - x_bar)^2)
+```
+
+W praktyce: jesli n jest duze (tysiecy probek), roznica jest znikoma. Jesli n jest male (dziesiatki probek), ma to znaczenie.
+
+### Korelacja: jak zmienne poruszaja sie razem
+
+Korelacja mierzy sile i kierunek liniowego zwiazku miedzy dwiema zmiennymi.
+
+**Wspolczynnik korelacji Pearsona** mierzy asocjacje linowa:
 
 ```
 r = sum((x_i - x_bar)(y_i - y_bar)) / (n * s_x * s_y)
 
-r = +1:  perfect positive linear relationship
-r = -1:  perfect negative linear relationship
-r =  0:  no linear relationship (but there might be a nonlinear one!)
+r = +1:  doskonale dodatni zwiazek linowy
+r = -1:  doskonale ujemny zwiazek linowy
+r =  0:  brak zwiazku linowego (ale moze byc nieliniowy!)
 
-Range: [-1, 1]
+Zakres: [-1, 1]
 ```
 
-Pearson assumes the relationship is linear and both variables are roughly normally distributed. It is sensitive to outliers. A single extreme point can drag r from 0.1 to 0.9.
+Pearson zaklada, ze zwiazek jest linowy i obie zmienne sa w przyblizeniu normalnie rozlozone. Jest wrazliwy na wartosci odstajace. Jeden skrajny punkt moze przeciagnac r z 0.1 do 0.9.
 
-**Spearman rank correlation** measures monotonic association:
-
-```
-1. Replace each value with its rank (1, 2, 3, ...)
-2. Compute Pearson correlation on the ranks
-
-Spearman catches any monotonic relationship, not just linear.
-If y = x^3, Pearson gives r < 1 but Spearman gives rho = 1.
-```
-
-**When to use each:**
+**Korelacja rangowa Spearmana** mierzy asocjacje monotoniczna:
 
 ```
-Pearson:    Both variables are continuous and roughly normal.
-            You care about the linear relationship specifically.
-            No extreme outliers.
+1. Zastap kazda wartosc jej ranga (1, 2, 3, ...)
+2. Oblicz korelacje Pearsona na rangach
 
-Spearman:   Ordinal data (rankings, ratings).
-            Data is not normally distributed.
-            You suspect a monotonic but not linear relationship.
-            Outliers are present.
+Spearman wychwytuje dowolny zwiazek monotoniczny, nie tylko linowy.
+Jesli y = x^3, Pearson daje r < 1 ale Spearman daje rho = 1.
 ```
 
-**The golden rule:** correlation does not imply causation. Ice cream sales and drowning deaths are correlated because both increase in summer. Your model's accuracy and the number of parameters are correlated, but adding parameters does not automatically improve accuracy (see: overfitting).
+**Kiedy uzywac ktoregos:**
 
-### Covariance Matrix
+```
+Pearson:    Obie zmienne sa ciagle i w przyblizeniu normalne.
+            Zalezy ci na zwiazku linowym konkretnie.
+            Brak skrajnych wartosci odstajacych.
 
-The covariance between two variables measures how they vary together:
+Spearman:   Dane porzadkowe ( rankingi, oceny).
+            Dane nie sa normalnie rozlozone.
+            Podejrzewasz zwiazek monotoniczny, ale nie linowy.
+            Obecne sa wartosci odstajace.
+```
+
+**Złota zasada:** korelacja nie oznacza przyczynowosci. Sprzedaz lodow i zgony przez utonięcia sa skorelowane, bo obie rosna latem. Dokladnosc twojego modelu i liczba parametrow sa skorelowane, ale dodawanie parametrow automatycznie nie poprawia dokladnosci (patrz: nadmierne dopasowanie).
+
+### Macierz kowariancji
+
+Kowariancja miedzy dwiema zmiennymi mierzy, jak razem sie zmieniaja:
 
 ```
 Cov(X, Y) = (1/n) * sum((x_i - x_bar)(y_i - y_bar))
 
-Cov(X, Y) > 0:  X and Y tend to increase together
-Cov(X, Y) < 0:  when X increases, Y tends to decrease
-Cov(X, Y) = 0:  no linear co-movement
+Cov(X, Y) > 0:  X i Y maja tendencje do wzrostu razem
+Cov(X, Y) < 0:  gdy X rośnie, Y ma tendencje do spadku
+Cov(X, Y) = 0:  brak wspolruchu linowego
 ```
 
-For d features, the covariance matrix C is a d x d matrix where C[i][j] = Cov(feature_i, feature_j). The diagonal entries C[i][i] are the variances of each feature.
+Dla d cech, macierz kowariancji C to macierz d x d, gdzie C[i][j] = Cov(feature_i, feature_j). Elementy diagonalne C[i][i] to wariancje kazdej cechy.
 
 ```
 C = | Var(x1)      Cov(x1,x2)  Cov(x1,x3) |
     | Cov(x2,x1)  Var(x2)      Cov(x2,x3) |
     | Cov(x3,x1)  Cov(x3,x2)  Var(x3)     |
 
-Properties:
-  - Symmetric: C[i][j] = C[j][i]
-  - Positive semi-definite: all eigenvalues >= 0
-  - Diagonal = variances
-  - Off-diagonal = covariances
+Wlasciwosci:
+  - Symetryczna: C[i][j] = C[j][i]
+  - Polododatnio okreslona: wszystkie wartosci wlasne >= 0
+  - Przekatna = wariancje
+  - Poza przekatna = kowariancje
 ```
 
-**Connection to PCA.** PCA eigendecomposes the covariance matrix. The eigenvectors are the principal components (directions of maximum variance). The eigenvalues tell you how much variance each component captures. This is exactly what Lesson 10 covered, but now you see why the covariance matrix is the right thing to decompose: it encodes all pairwise linear relationships in your data.
+**Polaczenie z PCA.** PCA rozkłada macierz kowariancji. Wektory wlasne to glowny składowe (kierunki maksymalnej wariancji). Wartosci wlasne mowia ci, ile wariancji kazdy składowa przechwytuje. To jest dokladnie to, co omowila Lekcja 10, ale teraz widzisz, dlaczego macierz kowariancji to wlasciwa rzecz do rozkładu: koduje wszystkie parami linowe zwiazki w twoich danych.
 
-**Connection to correlation.** The correlation matrix is the covariance matrix of standardized variables (each divided by its standard deviation). Correlation normalizes covariance so all values fall in [-1, 1].
+**Polaczenie z korelacja.** Macierz korelacji to macierz kowariancji standaryzowanych zmiennych (kazda podzielona przez jej odchylenie standardowe). Korelacja normalizuje kowariancje, wiec wszystkie wartosci mieszcza sie w [-1, 1].
 
-### Hypothesis Testing
+### Testowanie hipotez
 
-Hypothesis testing is a framework for making decisions under uncertainty. You start with a claim, collect data, and determine if the data is consistent with the claim.
+Testowanie hipotez to framework do podejmowania decyzji w warunkach niepewnosci. Zaczynasz od twierdzenia, zbierasz dane i okreslasz, czy dane sa zgodne z twierdzeniem.
 
-**The setup:**
+**Ustalenia:**
 
 ```
-Null hypothesis (H0):        the default assumption, usually "no effect"
-Alternative hypothesis (H1): what you are trying to show
+Hipoteza zerowa (H0):        domyslne zalozenie, zazwyczaj "brak efektu"
+Hipoteza alternatywna (H1):  to, co probujesz wykazac
 
-Example:
-  H0: Model A and Model B have the same accuracy
-  H1: Model B has higher accuracy than Model A
+Przyklad:
+  H0: Model A i Model B maja ta sama dokladnosc
+  H1: Model B ma wyzsza dokladnosc niz Model A
 ```
 
-**The p-value** is the probability of seeing data as extreme as what you observed, assuming H0 is true. It is NOT the probability that H0 is true. This is the single most common misunderstanding in statistics.
+**Wartosc p** to prawdopodobienstwo zobaczenia danych tak ekstremalnych jak zaobserwowane, zakladajac, ze H0 jest prawdziwe. To NIE jest prawdopodobienstwo, ze H0 jest prawdziwe. To jest najczestsze nieporozumienie w statystyce.
 
 ```
 p-value = P(data this extreme | H0 is true)
 
-If p-value < alpha (typically 0.05):
-    Reject H0. The result is "statistically significant."
-If p-value >= alpha:
-    Fail to reject H0. You do not have enough evidence.
-    This does NOT mean H0 is true.
+Jezeli p-value < alpha (zazwyczaj 0.05):
+    Odrzuc H0. Wynik jest "istotny statystycznie."
+Jezeli p-value >= alpha:
+    Nie mozna odrzucic H0. Nie masz wystarczajaco duzo dowodow.
+    To NIE oznacza, ze H0 jest prawdziwe.
 ```
 
-**Confidence intervals** give a range of plausible values for a parameter:
+**Przedzialy ufnosci** daja zakres plauzybilnych wartosci dla parametru:
 
 ```
-95% confidence interval for the mean:
+95% przedzial ufnosci dla sredniej:
     x_bar +/- z * (s / sqrt(n))
 
-where z = 1.96 for 95% confidence
+gdzie z = 1.96 dla 95% ufnosci
 
-Interpretation: if you repeated this experiment many times, 95% of the
-computed intervals would contain the true mean. It does NOT mean there
-is a 95% probability the true mean is in this specific interval.
+Interpretacja: jesli powtorzylbys ten eksperyment wiele razy,
+95% obliczonych przedzialow zawieraloby prawdziwa srednia.
+To NIE oznacza, ze jest 95% prawdopodobienstwo, ze prawdziwa srednia
+jest w tym konkretnym przedziale.
 ```
 
-The width of the confidence interval tells you about precision. Wide intervals mean high uncertainty. Narrow intervals mean your estimate is precise (but not necessarily accurate, if your data is biased).
+Szerokosc przedzialu ufnosci mowi ci o precyzji. Szerokie przedzialy oznaczaja wysoka niepewnosc. Waskie przedzialy oznaczaja, ze twoje oszacowanie jest precyzyjne (ale niekoniecznie dokladne, jesli twoje dane sa obciazone).
 
-### The t-test
+### Test t
 
-The t-test compares means. There are several flavors.
+Test t porownuje srednie. Jest kilka odmian.
 
-**One-sample t-test:** is the population mean different from a hypothesized value?
+**Test t dla jednej probki:** czy srednia populacji rozni sie od hipotezowanej wartosci?
 
 ```
 t = (x_bar - mu_0) / (s / sqrt(n))
 
-degrees of freedom = n - 1
+stopnie swobody = n - 1
 ```
 
-**Two-sample t-test (independent):** are two group means different?
+**Test t dla dwoch probek (niezalezne):** czy srednie dwoch grup sie roznia?
 
 ```
 t = (x_bar_1 - x_bar_2) / sqrt(s1^2/n1 + s2^2/n2)
 
-This is Welch's t-test, which does not assume equal variances.
-Always use Welch's unless you have a specific reason for equal variances.
+To jest test t Welcha, ktory nie zaklada rownych wariancji.
+Zawsze uzywaj testu Welcha, chyba ze masz konkretny powod do rownych wariancji.
 ```
 
-**Paired t-test:** when measurements come in pairs (same model evaluated on same data splits):
+**Test t dla par:** gdy pomiary sa parami (ten sam model oceniany na tych samych podzialach danych):
 
 ```
-Compute d_i = x_i - y_i for each pair
-Then run a one-sample t-test on the d_i values against mu_0 = 0
+Oblicz d_i = x_i - y_i dla kazdej pary
+Nastepnie przeprowadz test t dla jednej probki na wartosciach d_i przeciwko mu_0 = 0
 ```
 
-In ML, the paired t-test is common: you run both models on the same 10 cross-validation folds and compare their scores pairwise.
+W ML, test t dla par jest powszechny: uruchamiasz oba modele na tych samych 10 podzialach walidacji krzyzowej i porownujesz ich wyniki parami.
 
-### Chi-squared Test
+### Test chi-kwadrat
 
-The chi-squared test checks if observed frequencies match expected frequencies. Useful for categorical data.
+Test chi-kwadrat sprawdza, czy zaobserwowane czestosci odpowiadaja oczekiwanym czestosciom. Uzyteczny dla danych kategorycznych.
 
 ```
 chi^2 = sum((observed - expected)^2 / expected)
 
-Example: does a language model's output distribution match the
-training distribution across categories?
+Przyklad: czy rozklad wyjsciowy modelu jezykowego odpowiada rozkladowi
+treningowemu w kategoriach?
 
-Category    Observed   Expected
-Positive       120        100
-Negative        80        100
+Kategoria    Zaobserwowane   Oczekiwane
+Pozytywne        120            100
+Negatywne         80            100
 chi^2 = (120-100)^2/100 + (80-100)^2/100 = 4 + 4 = 8
 
-With 1 degree of freedom, chi^2 = 8 gives p < 0.005.
-The difference is significant.
+Z 1 stopniem swobody, chi^2 = 8 daje p < 0.005.
+Roznica jest istotna.
 ```
 
-### A/B Testing for ML Models
+### Testowanie A/B dla modeli ML
 
-A/B testing in ML is not the same as web A/B testing. Model comparison has specific challenges:
-
-```
-1. Same test set:    Both models must be evaluated on identical data.
-                     Different test sets make comparison meaningless.
-
-2. Multiple metrics: Accuracy alone is not enough. You need precision,
-                     recall, F1, latency, and fairness metrics.
-
-3. Variance:         Use cross-validation or bootstrap to estimate
-                     the variance of each metric, not just point estimates.
-
-4. Data leakage:     If the test set was used during model selection,
-                     your comparison is biased. Hold out a final test set.
-```
-
-**The procedure:**
+Testowanie A/B w ML to nie to samo co webowe testowanie A/B. Porownanie modeli ma specyficzne wyzwania:
 
 ```
-1. Define your metric and significance level (alpha = 0.05)
-2. Run both models on the same k-fold cross-validation splits
-3. Collect paired scores: [(a1, b1), (a2, b2), ..., (ak, bk)]
-4. Compute differences: d_i = b_i - a_i
-5. Run a paired t-test on the differences
-6. Check: is the mean difference significantly different from 0?
-7. Compute a confidence interval for the mean difference
-8. Compute effect size (Cohen's d) to judge practical significance
+1. Ten sam zbior testowy:   Oba modele musza byc oceniane na identycznych danych.
+                              Rózne zbiory testowe czynia porownanie bezuzytecznym.
+
+2. Wiele metryk:            Sama dokladnosc to za malo. Potrzebujesz precyzji,
+                              kompletnosci, F1, opoznienia i metryk sprawiedliwosci.
+
+3. Wariancja:               Uzyj walidacji krzyzowej lub bootstrap,
+                              aby oszacowac wariancje kazdej metryki, nie tylko oszacowania punktowe.
+
+4. Wyciek danych:           Jesli zbior testowy byl uzywany podczas wyboru modelu,
+                              twoje porownanie jest obciazone. Odłoz ostateczny zbior testowy.
 ```
 
-### Statistical Significance vs Practical Significance
-
-A result can be statistically significant but practically meaningless. With enough data, even a trivial difference becomes statistically significant.
+**Procedura:**
 
 ```
-Example:
-  Model A accuracy: 0.9234
-  Model B accuracy: 0.9237
-  n = 1,000,000 test samples
+1. Zdefiniuj swoja metryke i poziom istotnosci (alpha = 0.05)
+2. Uruchom oba modele na tych samych podzialach walidacji krzyzowej
+3. Zbierz parami wyniki: [(a1, b1), (a2, b2), ..., (ak, bk)]
+4. Oblicz roznice: d_i = b_i - a_i
+5. Przeprowadz test t dla par na roznicyach
+6. Sprawdz: czy srednia roznica jest istotnie rozna od 0?
+7. Oblicz przedzial ufnosci dla sredniej roznicy
+8. Oblicz wielkosc efektu (Cohen's d), aby ocenic praktyczna istotnosc
+```
+
+### Istotnosc statystyczna a istotnosc praktyczna
+
+Wynik moze byc istotny statystycznie, ale praktycznie bezuzyteczny. Przy wystarczajaco duzych danych, nawet trywialna roznica staje sie istotna statystycznie.
+
+```
+Przyklad:
+  Dokladnosc Modelu A: 0.9234
+  Dokladnosc Modelu B: 0.9237
+  n = 1,000,000 probek testowych
   p-value = 0.001
 
-Statistically significant? Yes.
-Practically significant? A 0.03% improvement is not worth the
-engineering cost of deploying a new model.
+Istotne statystycznie? Tak.
+Istotne praktycznie? Poprawa o 0.03% nie jest warta
+kosztow inżynieryjnych wdrozenia nowego modelu.
 ```
 
-**Effect size** quantifies how big the difference is, independent of sample size:
+**Wielkosc efektu** kwantyfikuje, jak duza jest roznica, niezaleznie od wielkosci probki:
 
 ```
 Cohen's d = (mean_1 - mean_2) / pooled_std
 
-d = 0.2:  small effect
-d = 0.5:  medium effect
-d = 0.8:  large effect
+d = 0.2:  maly efekt
+d = 0.5:  sredni efekt
+d = 0.8:  duzy efekt
 ```
 
-Always report both the p-value and the effect size. The p-value tells you if the difference is real. The effect size tells you if it matters.
+Zawsze podawaj zarowno wartosc p, jak i wielkosc efektu. Wartosc p mowi ci, czy roznica jest rzeczywista. Wielkosc efektu mowi ci, czy ma znaczenie.
 
-### Multiple Comparison Problem
+### Problem wielokrotnych porownan
 
-When you test many hypotheses, some will be "significant" by chance. If you test 20 things at alpha = 0.05, you expect 1 false positive even when nothing is real.
-
-```
-P(at least one false positive) = 1 - (1 - alpha)^m
-
-m = 20 tests, alpha = 0.05:
-P(false positive) = 1 - 0.95^20 = 0.64
-
-You have a 64% chance of at least one false positive.
-```
-
-**Bonferroni correction:** divide alpha by the number of tests.
+Gdy testujesz wiele hipotez, niektore beda "istotne" przez przypadek. Jesli testujesz 20 rzeczy przy alpha = 0.05, spodziewasz sie 1 falszywie dodatniego nawet gdy nic nie jest rzeczywiste.
 
 ```
-Adjusted alpha = alpha / m = 0.05 / 20 = 0.0025
+P(co najmniej jeden falszywie dodatni) = 1 - (1 - alpha)^m
 
-Only reject H0 if p-value < 0.0025.
-Conservative but simple. Works when tests are independent.
+m = 20 testow, alpha = 0.05:
+P(falszywie dodatni) = 1 - 0.95^20 = 0.64
+
+Masz 64% szans na co najmniej jeden falszywie dodatni wynik.
 ```
 
-In ML, this matters when you compare a model across multiple metrics, test many hyperparameter configurations, or evaluate on multiple datasets.
-
-### Bootstrap Methods
-
-Bootstrapping estimates the sampling distribution of a statistic by resampling your data with replacement. No assumptions about the underlying distribution required.
-
-**The algorithm:**
+**Korekta Bonferroniego:** dziel alpha przez liczbe testow.
 
 ```
-1. You have n data points
-2. Draw n samples WITH replacement (some points appear multiple times,
-   some not at all)
-3. Compute your statistic on this bootstrap sample
-4. Repeat B times (typically B = 1000 to 10000)
-5. The distribution of bootstrap statistics approximates the
-   sampling distribution
+Skorygowane alpha = alpha / m = 0.05 / 20 = 0.0025
+
+Odrzucaj H0 tylko jesli p-value < 0.0025.
+Konserwatywne, ale proste. Dziala, gdy testy sa niezalezne.
 ```
 
-**Bootstrap confidence interval (percentile method):**
+W ML, to ma znaczenie, gdy porownujesz model w wielu metrykach, testujesz wiele konfiguracji hiperparametrow lub ewaluujesz na wielu zbiorach danych.
+
+### Metody bootstrap
+
+Bootstrapping szacuje rozklad probkowy statystyki poprzez resampling danych z zamiana. Zadne zalozenia o podstawowym rozkladzie nie sa wymagane.
+
+**Algorytm:**
 
 ```
-Sort the B bootstrap statistics
-95% CI = [2.5th percentile, 97.5th percentile]
+1. Masz n punktow danych
+2. Losuj n probek Z ZAMIA (niektore punkty pojawiaja sie wielokrotnie,
+   niektore w ogole nie)
+3. Oblicz swoja statystyke na tej probce bootstrap
+4. Powtorz B razy (zazwyczaj B = 1000 do 10000)
+5. Rozklad statystyk bootstrap przybliza rozklad probkowy
 ```
 
-**Why bootstrap matters for ML:**
+**Przedzial ufnosci bootstrap (metoda percentylowa):**
 
 ```
-- Test set accuracy is a point estimate. Bootstrap gives you
-  confidence intervals.
-- You cannot assume metric distributions are normal (especially
-  for AUC, F1, precision at k).
-- Bootstrap works for ANY statistic: median, ratio of two means,
-  difference in AUC between two models.
-- No closed-form formula needed.
+Posortuj B statystyk bootstrap
+95% CI = [2.5. percentyl, 97.5. percentyl]
 ```
 
-**Bootstrap for model comparison:**
+**Dlaczego bootstrap ma znaczenie dla ML:**
 
 ```
-1. You have predictions from Model A and Model B on the same test set
-2. For each bootstrap iteration:
-   a. Resample test indices with replacement
-   b. Compute metric_A and metric_B on the resampled set
-   c. Store diff = metric_B - metric_A
-3. 95% CI for the difference:
-   [2.5th percentile of diffs, 97.5th percentile of diffs]
-4. If the CI does not contain 0, the difference is significant
+- Dokladnosc zbioru testowego to oszacowanie punktowe. Bootstrap daje ci
+  przedzialy ufnosci.
+- Nie mozesz zakladac, ze rozklady metryk sa normalne (szczegolnie
+  dla AUC, F1, precyzji przy k).
+- Bootstrap dziala dla DOWOLNEJ statystyki: mediany, ilorazu dwoch srednich,
+  roznicy w AUC miedzy dwoma modelami.
+- Nie potrzebujesz wzoru w formie zamknietej.
 ```
 
-This is more robust than the paired t-test because it makes no distributional assumptions.
-
-### Parametric vs Non-parametric Tests
-
-**Parametric tests** assume a specific distribution (usually normal):
+**Bootstrap dla porownania modeli:**
 
 ```
-t-test:         assumes normally distributed data (or large n by CLT)
-ANOVA:          assumes normality and equal variances
-Pearson r:      assumes bivariate normality
+1. Masz predykcje Modelu A i Modelu B na tym samym zbiorze testowym
+2. Dla kazdej iteracji bootstrap:
+   a. Resampluj indeksy testowe z zamiana
+   b. Oblicz metric_A i metric_B na resamplowanym zbiorze
+   c. Zapisz diff = metric_B - metric_A
+3. 95% CI dla roznicy:
+   [2.5. percentyl roznicy, 97.5. percentyl roznicy]
+4. Jesli CI nie zawiera 0, roznica jest istotna
 ```
 
-**Non-parametric tests** make no distributional assumptions:
+To jest bardziej odporne niz test t dla par, bo nie robi zadnych zalozen dystrybucyjnych.
+
+### Testy parametryczne a nieparametryczne
+
+**Testy parametryczne** zakladaja konkretny rozklad (zazwyczaj normalny):
 
 ```
-Mann-Whitney U:     compares two groups (replaces independent t-test)
-Wilcoxon signed-rank: compares paired data (replaces paired t-test)
-Spearman rho:       correlation on ranks (replaces Pearson)
-Kruskal-Wallis:     compares multiple groups (replaces ANOVA)
+test t:         zaklada normalnie rozlozone dane (lub duze n dzieki CLT)
+ANOVA:          zaklada normalnosc i rownosc wariancji
+Pearson r:      zaklada dwuzmiennowa normalnosc
 ```
 
-**When to use non-parametric:**
+**Testy nieparametryczne** nie robia zalozen dystrybucyjnych:
 
 ```
-- Small sample size (n < 30) and data is clearly non-normal
-- Ordinal data (ratings, rankings)
-- Heavy outliers you cannot remove
-- Skewed distributions
+Mann-Whitney U:           porownuje dwie grupy (zastepuje niezalezny test t)
+Wilcoxon signed-rank:     porownuje dane parami (zastepuje test t dla par)
+Spearman rho:             korelacja na rangach (zastepuje Pearson)
+Kruskal-Wallis:           porownuje wiele grup (zastepuje ANOVA)
 ```
 
-**When to use parametric:**
+**Kiedy uzywac nieparametrycznych:**
 
 ```
-- Large sample size (CLT makes the test statistic approximately normal)
-- Data is roughly symmetric without extreme outliers
-- More statistical power (better at detecting real differences)
+- Mala wielkosc probki (n < 30) i dane sa wyraznie nienormalne
+- Dane porzadkowe (oceny, rankingi)
+- Skrajne wartosci odstajace, ktorych nie mozesz usunac
+- Skosne rozklady
 ```
 
-In ML experiments, you typically have small n (5 or 10 cross-validation folds), so non-parametric tests like Wilcoxon signed-rank are often more appropriate than t-tests.
-
-### Central Limit Theorem: Practical Implications
-
-The CLT says the distribution of sample means approaches a normal distribution as n grows, regardless of the underlying population distribution.
+**Kiedy uzywac parametrycznych:**
 
 ```
-If X_1, X_2, ..., X_n are iid with mean mu and variance sigma^2:
+- Duza wielkosc probki (CLT czyni statystyke testowa w przyblizeniu normalna)
+- Dane sa w przyblizeniu symetryczne bez skrajnych odstajacych
+- Wieksza moc statystyczna (lepsza w wykrywaniu prawdziwych roznicy)
+```
+
+W eksperymentach ML zazwyczaj masz male n (5 lub 10 podzialow walidacji krzyzowej), wiec testy nieparametryczne jak Wilcoxon signed-rank sa czesto bardziej odpowiednie niz testy t.
+
+### Centralne twierdzenie graniczne: praktyczne implikacje
+
+CLT mowi, ze rozklad srednich probek dązy do rozkladu normalnego wraz ze wzrostem n, niezaleznie od podstawowego rozkladu populacji.
+
+```
+Jezeli X_1, X_2, ..., X_n sa iid ze srednia mu i wariancja sigma^2:
 
     X_bar ~ Normal(mu, sigma^2 / n)    as n -> infinity
 
-Works for n >= 30 in most cases.
-For highly skewed distributions, you might need n >= 100.
+Dziala dla n >= 30 w wiekszosci przypadkow.
+Dla silnie skosnych rozkladow mozesz potrzebowac n >= 100.
 ```
 
-**Why this matters for ML:**
+**Dlaczego to ma znaczenie dla ML:**
 
 ```
-1. Justifies confidence intervals and t-tests on aggregated metrics
-2. Explains why averaging over cross-validation folds gives stable
-   estimates even when individual folds vary wildly
-3. Mini-batch gradient descent works because the average gradient
-   over a batch approximates the true gradient (CLT in action)
-4. Ensemble methods: averaging predictions from many models gives
-   more stable output than any single model
+1. Uzasadnia przedzialy ufnosci i testy t na zagregowanych metrykach
+2. Wyjasnia, dlaczego uśrednianie przez podzialy walidacji krzyzowej daje
+   stabilne oszacowania, nawet gdy poszczegolne podzialy bardzo sie roznia
+3. Mini-batch gradient descent dziala, bo sredni gradient
+   przez batch przybliza prawdziwy gradient (CLT w akcji)
+4. Metody zespolowe: uśrednianie predykcji z wielu modeli daje
+   bardziej stabilny wynik niz kazdy pojedynczy model
 ```
 
-**What CLT does NOT do:**
+**Co CLT NIE robi:**
 
 ```
-- Does NOT make your data normal. It makes the MEAN of samples normal.
-- Does NOT work for heavy-tailed distributions with infinite variance
-  (Cauchy distribution).
-- Does NOT apply to dependent data (time series without correction).
+- NIE czyni twoich danych normalnymi. Czyni normalnym SREDNIA probek.
+- NIE dziala dla rozkladow o grubych ogonach z nieskonczona wariancja
+  (rozkład Cauchy'ego).
+- NIE ma zastosowania do danych zaleznych (szeregi czasowe bez korekty).
 ```
 
-### Common Statistical Mistakes in ML Papers
+### Czeste bledy statystyczne w artykulach ML
 
-1. **Testing on the training set.** Guarantees overfitting. Always hold out data the model never sees during training.
+1. **Testowanie na zbiorze treningowym.** Gwarantuje nadmierne dopasowanie. Zawsze odłóż dane, ktorych model nigdy nie widzial podczas treningu.
 
-2. **No confidence intervals.** Reporting a single accuracy number without uncertainty makes results unreproducible and unverifiable.
+2. **Brak przedzialow ufnosci.** Podawanie pojedynczej liczby dokladnosci bez niepewnosci czyni wyniki niepowtarzalnymi i nieweryfikowalnymi.
 
-3. **Ignoring multiple comparisons.** Testing 50 configurations and reporting the best one without correction inflates false positive rates.
+3. **Ignorowanie wielokrotnych porownan.** Testowanie 50 konfiguracji i podawanie najlepszej bez korekty zawyzca wspolczynnik falszywie dodatnich.
 
-4. **Confusing statistical and practical significance.** A p-value of 0.001 on a 0.01% accuracy improvement is not meaningful.
+4. **Mylenie istotnosci statystycznej i praktycznej.** Wartosc p 0.001 przy poprawie dokladnosci o 0.01% nie jest znaczaca.
 
-5. **Using accuracy on imbalanced data.** 99% accuracy on a dataset with 99% negative class means the model learned nothing. Use precision, recall, F1, or AUC.
+5. **Uzywanie dokladnosci na niezbalansowanych danych.** 99% dokladnosci na zbiorze z 99% klasy ujemnej oznacza, ze model niczego sie nie nauczyl. Uzywaj precyzji, kompletnosci, F1 lub AUC.
 
-6. **Cherry-picking metrics.** Reporting only the metric where your model wins. Honest evaluation reports all relevant metrics.
+6. **Selektywne podawanie metryk.** Podawanie tylko metryki, w ktorej twój model wygrywa. Rzetelna ewaluacja podaje wszystkie istotne metryki.
 
-7. **Leaking information across train/test splits.** Normalizing before splitting, or using future data to predict the past.
+7. **Wyciek informacji przez podzialy train/test.** Normalizacja przed podzialem lub uzywanie przyszlych danych do przewidywania przeszlosci.
 
-8. **Small test sets with no variance estimates.** Evaluating on 100 samples and claiming 2% improvement is noise, not signal.
+8. **Male zbiory testowe bez oszacowan wariancji.** Ewaluacja na 100 probkach i twierdzenie o 2% poprawie to szum, nie sygnal.
 
-9. **Assuming independence when data is not independent.** Medical images from the same patient, multiple sentences from the same document. Observations within a group are correlated.
+9. **Zakladanie niezaleznosci, gdy dane nie sa niezalezne.** Obrazy medyczne od tego samego pacjenta, wiele zdan z tego samego dokumentu. Obserwacje w grupie sa skorelowane.
 
-10. **P-hacking.** Trying different tests, subsets, or exclusion criteria until you get p < 0.05. The result is an artifact of the search.
+10. **P-hacking.** Probowanie roznych testow, podzbiorow lub kryteriow wykluczenia, az uzyskasz p < 0.05. Wynik to artifact poszukiwania.
 
-## Building It
+## Zbuduj to
 
-You will implement:
+Zaimplementujesz:
 
-1. **Descriptive statistics from scratch** (mean, median, mode, standard deviation, percentiles, IQR)
-2. **Correlation functions** (Pearson and Spearman, with the covariance matrix)
-3. **Hypothesis tests** (one-sample t-test, two-sample t-test, chi-squared test)
-4. **Bootstrap confidence intervals** (for any statistic, no assumptions needed)
-5. **A/B test simulator** (generate data, test, check for Type I and Type II errors)
-6. **Statistical vs practical significance demo** (showing that large n makes everything "significant")
+1. **Statystyki opisowe od zera** (srednia, mediana, moda, odchylenie standardowe, percentyle, IQR)
+2. **Funkcje korelacji** (Pearson i Spearman, z macierza kowariancji)
+3. **Testy hipotez** (test t dla jednej probki, test t dla dwoch probek, test chi-kwadrat)
+4. **Przedzialy ufnosci bootstrap** (dla dowolnej statystyki, bez zalozen)
+5. **Symulator testu A/B** (generuj dane, testuj, sprawdzaj bledy typu I i II)
+6. **Demo istotnosci statystycznej vs praktycznej** (pokazujace, ze duze n czyni wszystko "istotnym")
 
-All from scratch, using only `math` and `random`. No numpy, no scipy.
+Wszystko od zera, uzywajac tylko `math` i `random`. Bez numpy, bez scipy.
 
-## Key Terms
+## Kluczowe pojecia
 
-| Term | Definition |
+| Termin | Definicja |
 |---|---|
-| Mean | Sum of values divided by count. Sensitive to outliers. |
-| Median | Middle value of sorted data. Robust to outliers. |
-| Standard deviation | Square root of variance. Measures spread in original units. |
-| Percentile | Value below which a given percentage of data falls. |
-| IQR | Interquartile range. Q3 minus Q1. The spread of the middle 50%. |
-| Pearson correlation | Measures linear association between two variables. Range [-1, 1]. |
-| Spearman correlation | Measures monotonic association using ranks. |
-| Covariance matrix | Matrix of pairwise covariances between all features. |
-| Null hypothesis | Default assumption of no effect or no difference. |
-| p-value | Probability of data this extreme given the null hypothesis is true. |
-| Confidence interval | Range of plausible values for a parameter at a given confidence level. |
-| t-test | Tests whether means differ significantly. Uses the t-distribution. |
-| Chi-squared test | Tests whether observed frequencies differ from expected frequencies. |
-| Effect size | Magnitude of a difference, independent of sample size. Cohen's d is common. |
-| Bonferroni correction | Divides significance threshold by number of tests to control false positives. |
-| Bootstrap | Resampling with replacement to estimate sampling distributions. |
-| Type I error | False positive. Rejecting H0 when it is true. |
-| Type II error | False negative. Failing to reject H0 when it is false. |
-| Statistical power | Probability of correctly rejecting a false H0. Power = 1 minus Type II error rate. |
-| Central limit theorem | Sample means converge to a normal distribution as sample size grows. |
-| Parametric test | Assumes a specific distribution for the data (usually normal). |
-| Non-parametric test | Makes no distributional assumptions. Works on ranks or signs. |
+| Srednia | Suma wartosci podzielona przez liczbe. Wrazliwa na wartosci odstajace. |
+| Mediana | Srodkowa wartosc posortowanych danych. Odporna na wartosci odstajace. |
+| Odchylenie standardowe | Pierwiastek kwadratowy z wariancji. Mierzy rozproszenie w oryginalnych jednostkach. |
+| Percentyl | Wartosc, ponizej ktorej spada dany procent danych. |
+| IQR | Rozstep miedzykwartylowy. Q3 minus Q1. Rozproszenie srodkowych 50%. |
+| Korelacja Pearsona | Mierzy asocjacje linowa miedzy dwiema zmiennymi. Zakres [-1, 1]. |
+| Korelacja Spearmana | Mierzy asocjacje monotoniczna za pomoca rang. |
+| Macierz kowariancji | Macierz parami kowariancji miedzy wszystkimi cechami. |
+| Hipoteza zerowa | Domyslne zalozenie braku efektu lub roznicy. |
+| Wartosc p | Prawdopodobienstwo danych tak ekstremalnych przy prawdziwej hipotezie zerowej. |
+| Przedzial ufnosci | Zakres plauzybilnych wartosci dla parametru przy danym poziomie ufnosci. |
+| Test t | Sprawdza, czy srednie roznia sie istotnie. Uzywa rozkladu t. |
+| Test chi-kwadrat | Sprawdza, czy zaobserwowane czestosci roznia sie od oczekiwanych. |
+| Wielkosc efektu | Wielkosc roznicy, niezaleznie od wielkosci probki. Cohen's d jest powszechny. |
+| Korekta Bonferroniego | Dzieli próg istotnosci przez liczbe testow, aby kontrolowac falszywie dodatnie. |
+| Bootstrap | Resampling z zamiana do szacowania rozkladow probkowych. |
+| Blad typu I | Falszywie dodatni. Odrzucenie H0, gdy jest prawdziwa. |
+| Blad typu II | Falszywie ujemny. Niezdolnosc do odrzucenia H0, gdy jest falszywa. |
+| Moc statystyczna | Prawdopodobienstwo poprawnego odrzucenia falszywego H0. Moc = 1 minus wspolczynnik bledu typu II. |
+| Centralne twierdzenie graniczne | Srednie probek daza do rozkladu normalnego wraz ze wzrostem wielkosci probki. |
+| Test parametryczny | Zaklada konkretny rozklad danych (zazwyczaj normalny). |
+| Test nieparametryczny | Nie robi zalozen dystrybucyjnych. Dziala na rangach lub znakach. |

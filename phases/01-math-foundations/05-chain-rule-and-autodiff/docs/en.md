@@ -1,42 +1,42 @@
-# Chain Rule & Automatic Differentiation
+# Reguła łańcuchowa i automatyczna dyferencjacja
 
-> The chain rule is the engine behind every neural network that learns.
+> Reguła łańcuchowa to silnik stojący za każdą siecią neuronową, która się uczy.
 
 **Type:** Build
 **Language:** Python
-**Prerequisites:** Phase 1, Lesson 04 (Derivatives & Gradients)
+**Prerequisites:** Phase 1, Lesson 04 (Pochodne i gradienty)
 **Time:** ~90 minutes
 
-## Learning Objectives
+## Cele uczenia się
 
-- Build a minimal autograd engine (Value class) that records operations and computes gradients via reverse-mode autodiff
-- Implement forward and backward passes through a computation graph using topological sort
-- Construct and train a multi-layer perceptron on XOR using only the from-scratch autograd engine
-- Verify autodiff correctness using gradient checking against numerical finite differences
+- Zbuduj minimalny silnik autograd (klasa Value) który rejestruje operacje i oblicza gradienty przez reverse-mode autodiff
+- Implementuj forward i backward pass przez graf obliczeniowy używając sortowania topologicznego
+- Skonstruuj i trenuj multi-layer perceptron na XOR używając tylko silnika autograd od zera
+- Zweryfikuj poprawność autodiff używając gradient checking przeciwko numerycznym różnicom skończonym
 
-## The Problem
+## Problem
 
-You can compute derivatives of simple functions. But a neural network is not a simple function. It is hundreds of functions composed together: matrix multiply, add bias, apply activation, matrix multiply again, softmax, cross-entropy loss. The output is a function of a function of a function.
+Możesz obliczać pochodne prostych funkcji. Ale sieć neuronowa to nie prosta funkcja. To setki funkcji złożonych razem: mnożenie macierzy, dodawanie biasu, applyowanie aktywacji, mnożenie macierzy again, softmax, cross-entropy loss. Wyjście to funkcja funkcji funkcji.
 
-To train the network, you need the gradient of the loss with respect to every single weight. Doing this by hand is impossible for millions of parameters. Doing it numerically (finite differences) is too slow.
+Żeby trenować sieć, potrzebujesz gradientu straty względem każdej pojedynczej wagi. Robienie tego ręcznie jest niemożliwe dla milionów parametrów. Robienie tego numerycznie (różnice skończone) jest za wolne.
 
-The chain rule gives you the math. Automatic differentiation gives you the algorithm. Together they let you compute exact gradients through arbitrary compositions of functions in time proportional to a single forward pass.
+Reguła łańcuchowa daje ci matematykę. Automatyczna dyferencjacja daje ci algorytm. Razem pozwalają obliczać dokładne gradienty przez dowolne kompozycje funkcji w czasie proporcjonalnym do pojedynczego forward passa.
 
-This is how PyTorch, TensorFlow, and JAX work. You will build a miniature version from scratch.
+Tak działają PyTorch, TensorFlow i JAX. Zbudujesz miniaturową wersję od zera.
 
-## The Concept
+## Koncepcja
 
-### The Chain Rule
+### Reguła łańcuchowa
 
-If `y = f(g(x))`, the derivative of `y` with respect to `x` is:
+Jeśli `y = f(g(x))`, pochodna `y` względem `x` to:
 
 ```
 dy/dx = dy/dg * dg/dx = f'(g(x)) * g'(x)
 ```
 
-Multiply the derivatives along the chain. Each link contributes its local derivative.
+Pomnóż pochodne wzdłuż łańcucha. Każde ogniwo przyczynia się swoją lokalną pochodną.
 
-Example: `y = sin(x^2)`
+Przykład: `y = sin(x^2)`
 
 ```
 g(x) = x^2       g'(x) = 2x
@@ -45,7 +45,7 @@ f(g) = sin(g)     f'(g) = cos(g)
 dy/dx = cos(x^2) * 2x
 ```
 
-For deeper compositions, the chain extends:
+Dla głębszych kompozycji, łańcuch się wydłuża:
 
 ```
 y = f(g(h(x)))
@@ -53,13 +53,13 @@ y = f(g(h(x)))
 dy/dx = f'(g(h(x))) * g'(h(x)) * h'(x)
 ```
 
-Every layer in a neural network is one link in this chain.
+Każda warstwa w sieci neuronowej to jedno ogniwo w tym łańcuchu.
 
-### Computational Graphs
+### Grafy obliczeniowe
 
-A computational graph makes the chain rule visual. Every operation becomes a node. Data flows forward through the graph. Gradients flow backward.
+Graf obliczeniowy czyni regułę łańcuchową wizualną. Każda operacja staje się węzłem. Dane przepływają forward przez graf. Gradienty przepływają backward.
 
-**Forward pass (compute values):**
+**Forward pass (oblicz wartości):**
 
 ```mermaid
 graph TD
@@ -71,7 +71,7 @@ graph TD
     relu -->|"y = 7"| y["output y"]
 ```
 
-**Backward pass (compute gradients):**
+**Backward pass (oblicz gradienty):**
 
 ```mermaid
 graph TD
@@ -82,13 +82,13 @@ graph TD
     da -->|"da/dx2 = x1 = 2"| dx2["dy/dx2 = 2"]
 ```
 
-The backward pass applies the chain rule at every node, propagating gradients from output to inputs.
+Backward pass stosuje regułę łańcuchową w każdym węźle, propagując gradienty od wyjścia do wejść.
 
-### Forward Mode vs Reverse Mode
+### Forward mode vs Reverse mode
 
-There are two ways to apply the chain rule through a graph.
+Istnieją dwa sposoby stosowania reguły łańcuchowej przez graf.
 
-**Forward mode** starts at the inputs and pushes derivatives forward. It computes `dx/dx = 1` and propagates through each operation. Good when you have few inputs and many outputs.
+**Forward mode** zaczyna od wejść i pcha pochodne forward. Oblicza `dx/dx = 1` i propaguje przez każdą operację. Dobry, gdy masz mało wejść i wiele wyjść.
 
 ```
 Forward mode: seed dx/dx = 1, propagate forward
@@ -98,7 +98,7 @@ Forward mode: seed dx/dx = 1, propagate forward
   y = sin(a)  (dy/dx = cos(a) * da/dx = cos(4) * 4 = -2.615)
 ```
 
-**Reverse mode** starts at the output and pulls gradients backward. It computes `dy/dy = 1` and propagates through each operation in reverse. Good when you have many inputs and few outputs.
+**Reverse mode** zaczyna od wyjścia i ciągnie gradienty wstecz. Oblicza `dy/dy = 1` i propaguje przez każdą operację w odwrotnej kolejności. Dobry, gdy masz wiele wejść i mało wyjść.
 
 ```
 Reverse mode: seed dy/dy = 1, propagate backward
@@ -108,43 +108,43 @@ Reverse mode: seed dy/dy = 1, propagate backward
   x = 2       (dy/dx = dy/da * da/dx = -0.654 * 4 = -2.615)
 ```
 
-Neural networks have millions of inputs (weights) and one output (loss). Reverse mode computes all gradients in one backward pass. This is why backpropagation uses reverse mode.
+Sieci neuronowe mają miliony wejść (wag) i jedno wyjście (strata). Reverse mode oblicza wszystkie gradienty w jednym backward pass. Dlatego backpropagation używa reverse mode.
 
-| Mode | Seed | Direction | Best when |
+| Tryb | Seed | Kierunek | Najlepszy gdy |
 |------|------|-----------|-----------|
-| Forward | `dx_i/dx_i = 1` | Input to output | Few inputs, many outputs |
-| Reverse | `dy/dy = 1` | Output to input | Many inputs, few outputs (neural nets) |
+| Forward | `dx_i/dx_i = 1` | Wejście do wyjścia | Mało wejść, wiele wyjść |
+| Reverse | `dy/dy = 1` | Wyjście do wejścia | Wiele wejść, mało wyjść (sieci neuronowe) |
 
-### Dual Numbers for Forward Mode
+### Liczby dualne dla forward mode
 
-Forward mode can be implemented elegantly with dual numbers. A dual number has the form `a + b*epsilon` where `epsilon^2 = 0`.
+Forward mode może być elegancko zaimplementowany z liczbami dualnymi. Liczba dualna ma formę `a + b*epsilon` gdzie `epsilon^2 = 0`.
 
 ```
-Dual number: (value, derivative)
+Liczba dualna: (value, derivative)
 
-(2, 1) means: value is 2, derivative w.r.t. x is 1
+(2, 1) oznacza: wartość to 2, pochodna względem x to 1
 
-Arithmetic rules:
+Reguły arytmetyczne:
   (a, a') + (b, b') = (a+b, a'+b')
   (a, a') * (b, b') = (a*b, a'*b + a*b')
   sin(a, a')         = (sin(a), cos(a)*a')
 ```
 
-Seed the input variable with derivative 1. The derivative propagates automatically through every operation.
+Zasiej zmienną wejściową z pochodną 1. Pochodna automatycznie propaguje przez każdą operację.
 
-### Building an Autograd Engine
+### Budowanie silnika Autograd
 
-An autograd engine needs three things:
+Silnik autograd potrzebuje trzech rzeczy:
 
-1. **Value wrapping.** Wrap every number in an object that stores its value and gradient.
-2. **Graph recording.** Every operation records its inputs and the local gradient function.
-3. **Backward pass.** Topological sort the graph, then walk it in reverse, applying the chain rule at each node.
+1. **Owinięcie wartości.** Owiń każdą liczbę w obiekt przechowujący jej wartość i gradient.
+2. **Rejestracja grafu.** Każda operacja rejestruje swoje wejścia i lokalną funkcję gradientu.
+3. **Backward pass.** Sortuj topologicznie graf, potem chodź wstecz, stosując regułę łańcuchową w każdym węźle.
 
-This is exactly what PyTorch's `autograd` does. The `torch.Tensor` class wraps values, records operations when `requires_grad=True`, and computes gradients when you call `.backward()`.
+To jest dokładnie to, co robi `autograd` PyTorch. Klasa `torch.Tensor` owija wartości, rejestruje operacje gdy `requires_grad=True`, i oblicza gradienty gdy wywołujesz `.backward()`.
 
-### How PyTorch Autograd Works Under the Hood
+### Jak działa autograd PyTorch pod maską
 
-When you write PyTorch code:
+Gdy piszesz kod PyTorch:
 
 ```python
 x = torch.tensor(2.0, requires_grad=True)
@@ -153,19 +153,19 @@ y.backward()
 print(x.grad)  # 7.0 = 2*x + 3 = 2*2 + 3
 ```
 
-PyTorch internally:
+PyTorch wewnętrznie:
 
-1. Creates a `Tensor` node for `x` with `requires_grad=True`
-2. Every operation (`**`, `*`, `+`) creates a new node and records the backward function
-3. `y.backward()` triggers reverse-mode autodiff through the recorded graph
-4. Each node's `grad_fn` computes local gradients and passes them to parent nodes
-5. Gradients accumulate in `.grad` attributes via addition (not replacement)
+1. Tworzy węzeł `Tensor` dla `x` z `requires_grad=True`
+2. Każda operacja (`**`, `*`, `+`) tworzy nowy węzeł i rejestruje funkcję backward
+3. `y.backward()` triggeruje reverse-mode autodiff przez zarejestrowany graf
+4. Każda funkcja `grad_fn` oblicza lokalne gradienty i przekazuje je do węzłów nadrzędnych
+5. Gradienty akumulują się w atrybutach `.grad` przez dodawanie (nie zastępowanie)
 
-The graph is dynamic (define-by-run). A new graph is built on every forward pass. This is why PyTorch supports control flow (if/else, loops) inside models.
+Graf jest dynamiczny (define-by-run). Nowy graf jest budowany przy każdym forward pass. Dlatego PyTorch wspiera control flow (if/else, pętle) wewnątrz modeli.
 
-## Build It
+## Buduj to
 
-### Step 1: The Value class
+### Krok 1: Klasa Value
 
 ```python
 class Value:
@@ -180,9 +180,9 @@ class Value:
         return f"Value(data={self.data:.4f}, grad={self.grad:.4f})"
 ```
 
-Every `Value` stores its numeric data, its gradient (initially zero), a backward function, and pointers to child nodes that produced it.
+Każdy `Value` przechowuje swoje dane numeryczne, swój gradient (początkowo zero), funkcję backward i wskaźniki do węzłów potomnych, które go wyprodukowały.
 
-### Step 2: Arithmetic operations with gradient tracking
+### Krok 2: Operacje arytmetyczne ze śledzeniem gradientów
 
 ```python
     def __add__(self, other):
@@ -211,9 +211,9 @@ Every `Value` stores its numeric data, its gradient (initially zero), a backward
         return out
 ```
 
-Each operation creates a closure that knows how to compute local gradients and multiply by the upstream gradient (`out.grad`). The `+=` handles the case where a value is used in multiple operations.
+Każda operacja tworzy closure, który wie, jak obliczyć lokalne gradienty i pomnożyć przez upstream gradient (`out.grad`). `+=` obsługuje przypadek, gdy wartość jest używana w wielu operacjach.
 
-### Step 3: The backward pass
+### Krok 3: Backward pass
 
 ```python
     def backward(self):
@@ -232,11 +232,11 @@ Each operation creates a closure that knows how to compute local gradients and m
             v._backward()
 ```
 
-Topological sort ensures every node's gradient is fully computed before it propagates to its children. The seed gradient is 1.0 (dy/dy = 1).
+Sortowanie topologiczne zapewnia, że gradient każdego węzła jest w pełni obliczony przed propagacją do jego dzieci. Seed gradient to 1.0 (dy/dy = 1).
 
-### Step 4: More operations for a complete engine
+### Krok 4: Więcej operacji dla kompletnego silnika
 
-The basic Value class handles addition, multiplication, and relu. A real autograd engine needs more. Here are the operations you need to build neural networks:
+Podstawowa klasa Value obsługuje dodawanie, mnożenie i relu. Prawdziwy silnik autograd potrzebuje więcej. Oto operacje, których potrzebujesz do budowania sieci neuronowych:
 
 ```python
     def __neg__(self):
@@ -291,22 +291,22 @@ The basic Value class handles addition, multiplication, and relu. A real autogra
         return out
 ```
 
-**Why each operation matters:**
+**Dlaczego każda operacja ma znaczenie:**
 
-| Operation | Backward rule | Used in |
+| Operacja | Reguła backward | Używana w |
 |-----------|--------------|---------|
-| `__sub__` | Reuses add + neg | Loss computation (pred - target) |
-| `__pow__` | n * x^(n-1) | Polynomial activations, MSE (error^2) |
-| `__truediv__` | Reuses mul + pow(-1) | Normalization, learning rate scaling |
+| `__sub__` | Używa ponownie add + neg | Obliczanie straty (pred - target) |
+| `__pow__` | n * x^(n-1) | Wielomianowe aktywacje, MSE (error^2) |
+| `__truediv__` | Używa ponownie mul + pow(-1) | Normalizacja, skalowanie learning rate |
 | `exp` | exp(x) * upstream | Softmax, log-likelihood |
-| `log` | (1/x) * upstream | Cross-entropy loss, log probabilities |
-| `tanh` | (1 - tanh^2) * upstream | Classic activation function |
+| `log` | (1/x) * upstream | Funkcja straty cross-entropy, log-probabilities |
+| `tanh` | (1 - tanh^2) * upstream | Klasyczna funkcja aktywacji |
 
-The clever part: `__sub__` and `__truediv__` are defined in terms of existing operations. They get correct gradients for free because the chain rule composes through the underlying add/mul/pow operations.
+Sprytna część: `__sub__` i `__truediv__` są zdefiniowane w terminach istniejących operacji. Dostają poprawne gradienty za darmo, bo reguła łańcuchowa komponuje przez podstawowe operacje add/mul/pow.
 
-### Step 5: Mini MLP from scratch
+### Krok 5: Mini MLP od zera
 
-With a complete Value class, you can build a neural network. No PyTorch. No NumPy. Just Values and the chain rule.
+Z kompletną klasą Value możesz zbudować sieć neuronową. Bez PyTorch. Bez NumPy. Tylko Values i reguła łańcuchowa.
 
 ```python
 import random
@@ -346,16 +346,16 @@ class MLP:
         return [p for layer in self.layers for p in layer.parameters()]
 ```
 
-A `Neuron` computes `tanh(w1*x1 + w2*x2 + ... + b)`. A `Layer` is a list of neurons. An `MLP` stacks layers. Every weight is a `Value`, so calling `loss.backward()` propagates gradients to every parameter.
+`Neuron` oblicza `tanh(w1*x1 + w2*x2 + ... + b)`. `Layer` to lista neuronów. `MLP` stackuje warstwy. Każda waga to `Value`, więc wywołanie `loss.backward()` propaguje gradienty do każdego parametru.
 
-**Training on XOR:**
+**Trenowanie na XOR:**
 
 ```python
 random.seed(42)
-model = MLP([2, 4, 1])  # 2 inputs, 4 hidden neurons, 1 output
+model = MLP([2, 4, 1])  # 2 wejścia, 4 ukryte neurony, 1 wyjście
 
 xs = [[0, 0], [0, 1], [1, 0], [1, 1]]
-ys = [-1, 1, 1, -1]  # XOR pattern (using -1/1 for tanh)
+ys = [-1, 1, 1, -1]  # wzorzec XOR (używając -1/1 dla tanh)
 
 for step in range(100):
     preds = [model(x) for x in xs]
@@ -377,11 +377,11 @@ for x, y in zip(xs, ys):
     print(f"  input={x}  target={y:2d}  pred={model(x).data:6.3f}")
 ```
 
-This is micrograd. A complete neural network training loop in pure Python with automatic differentiation. Every commercial deep learning framework does the same thing at massive scale.
+To jest micrograd. Kompletna pętla trenowania sieci neuronowej w czystym Pythonie z automatyczną dyferencjacją. Każdy komercyjny framework deep learning robi to samo na masową skalę.
 
-### Step 6: Gradient checking
+### Krok 6: Gradient checking
 
-How do you know your autodiff is correct? Compare it against numerical derivatives. This is gradient checking.
+Skąd wiesz, że twój autodiff jest poprawny? Porównaj z pochodnymi numerycznymi. To gradient checking.
 
 ```python
 def gradient_check(build_expr, x_val, h=1e-7):
@@ -398,7 +398,7 @@ def gradient_check(build_expr, x_val, h=1e-7):
     return autodiff_grad, numerical_grad, diff
 ```
 
-Test it on a complex expression:
+Przetestuj to na złożonym wyrażeniu:
 
 ```python
 def expr(x):
@@ -408,21 +408,21 @@ ad, num, diff = gradient_check(expr, 0.5)
 print(f"Autodiff:  {ad:.8f}")
 print(f"Numerical: {num:.8f}")
 print(f"Difference: {diff:.2e}")
-# Difference should be < 1e-5
+# Różnica powinna być < 1e-5
 ```
 
-Gradient checking is essential when implementing new operations. If your backward pass has a bug, the numerical check catches it. Every serious deep learning implementation runs gradient checks during development.
+Gradient checking jest niezbędny przy implementacji nowych operacji. Jeśli twój backward pass ma błąd, numeryczny check to złapie. Każda poważna implementacja deep learning uruchamia gradient checks podczas developmentu.
 
-**When to use gradient checking:**
+**Kiedy używać gradient checking:**
 
-| Situation | Do gradient check? |
+| Sytuacja | Robić gradient check? |
 |-----------|-------------------|
-| Adding a new operation to your autograd | Yes, always |
-| Debugging a training loop that won't converge | Yes, check gradients first |
-| Production training | No, too slow (2x forward passes per parameter) |
-| Unit tests for autograd code | Yes, automate it |
+| Dodawanie nowej operacji do autograd | Tak, zawsze |
+| Debugowanie pętli trenowania która nie zbiega | Tak, najpierw sprawdź gradienty |
+| Produkcyjne trenowanie | Nie, za wolne (2x forward passes per parametr) |
+| Testy jednostkowe dla kodu autograd | Tak, zautomatyzuj to |
 
-### Step 7: Verify against manual calculation
+### Krok 7: Weryfikacja przeciwko ręcznym obliczeniom
 
 ```python
 x1 = Value(2.0)
@@ -438,12 +438,12 @@ print(f"dy/dx1 = {x1.grad}")   # 3.0 (= x2)
 print(f"dy/dx2 = {x2.grad}")   # 2.0 (= x1)
 ```
 
-Manual check: `y = relu(x1*x2 + 1)`. Since `x1*x2 + 1 = 7 > 0`, relu is identity.
-`dy/dx1 = x2 = 3`. `dy/dx2 = x1 = 2`. The engine matches.
+Ręczna weryfikacja: `y = relu(x1*x2 + 1)`. Ponieważ `x1*x2 + 1 = 7 > 0`, relu to identity.
+`dy/dx1 = x2 = 3`. `dy/dx2 = x1 = 2`. Silnik się zgadza.
 
-## Use It
+## Użyj tego
 
-### Verify against PyTorch
+### Zweryfikuj przeciwko PyTorch
 
 ```python
 import torch
@@ -459,9 +459,9 @@ print(f"PyTorch dy/dx1 = {x1.grad.item()}")  # 3.0
 print(f"PyTorch dy/dx2 = {x2.grad.item()}")  # 2.0
 ```
 
-Same gradients. Your engine computes the same result as PyTorch because the math is the same: reverse-mode autodiff via the chain rule.
+Te same gradienty. Twój silnik oblicza ten sam wynik co PyTorch, bo matematyka jest ta sama: reverse-mode autodiff przez regułę łańcuchową.
 
-### A more complex expression
+### Bardziej złożone wyrażenie
 
 ```python
 a = Value(2.0)
@@ -475,43 +475,43 @@ print(f"df/db = {b.grad}")  #  2.0 (= a)
 print(f"df/dc = {c.grad}")  #  1.0
 ```
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/skill-autodiff.md` -- a skill for building and debugging autograd systems
-- `code/autodiff.py` -- a minimal autograd engine you can extend
+Ta lekcja tworzy:
+- `outputs/skill-autodiff.md` -- skill do budowania i debugowania systemów autograd
+- `code/autodiff.py` -- minimalny silnik autograd, który możesz rozszerzać
 
-The Value class built here is the foundation for the neural network training loop in Phase 3.
+Klasa Value zbudowana tutaj to fundament dla pętli trenowania sieci neuronowej w Fazie 3.
 
-## Exercises
+## Ćwiczenia
 
-1. Add `__pow__` to the Value class so you can compute `x ** n`. Verify that `d/dx(x^3)` at `x=2` equals `12.0`.
+1. Dodaj `__pow__` do klasy Value, żebyś mógł obliczać `x ** n`. Zweryfikuj, że `d/dx(x^3)` przy `x=2` equals `12.0`.
 
-2. Add `tanh` as an activation function. Verify that `tanh'(0) = 1` and `tanh'(2) = 0.0707` (approx).
+2. Dodaj `tanh` jako funkcję aktywacji. Zweryfikuj, że `tanh'(0) = 1` i `tanh'(2) = 0.0707` (approx).
 
-3. Build a computation graph for a single neuron: `y = relu(w1*x1 + w2*x2 + b)`. Compute all five gradients and verify against PyTorch.
+3. Zbuduj graf obliczeniowy dla pojedynczego neuronu: `y = relu(w1*x1 + w2*x2 + b)`. Oblicz wszystkie pięć gradientów i zweryfikuj przeciwko PyTorch.
 
-4. Implement forward-mode autodiff using dual numbers. Create a `Dual` class and verify it gives the same derivatives as your reverse-mode engine.
+4. Zaimplementuj forward-mode autodiff używając liczb dualnych. Stwórz klasę `Dual` i zweryfikuj, że daje te same pochodne co twój silnik reverse-mode.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Chain rule | "Multiply the derivatives" | The derivative of composed functions equals the product of each function's local derivative, evaluated at the right point |
-| Computational graph | "The network diagram" | A directed acyclic graph where nodes are operations and edges carry values (forward) or gradients (backward) |
-| Forward mode | "Push derivatives forward" | Autodiff that propagates derivatives from inputs to outputs. One pass per input variable. |
-| Reverse mode | "Backpropagation" | Autodiff that propagates gradients from outputs to inputs. One pass per output variable. |
-| Autograd | "Automatic gradients" | A system that records operations on values, builds a graph, and computes exact gradients via the chain rule |
-| Dual numbers | "Value plus derivative" | Numbers of the form a + b*epsilon (epsilon^2 = 0) that carry derivative information through arithmetic |
-| Topological sort | "Dependency order" | Ordering graph nodes so every node comes after all its dependencies. Required for correct gradient propagation. |
-| Gradient accumulation | "Add, don't replace" | When a value feeds into multiple operations, its gradient is the sum of all incoming gradient contributions |
-| Dynamic graph | "Define by run" | A computation graph rebuilt on every forward pass, allowing Python control flow inside models (PyTorch style) |
-| Gradient checking | "Numerical verification" | Comparing autodiff gradients against numerical finite-difference gradients to verify correctness. Essential for debugging. |
-| MLP | "Multi-layer perceptron" | A neural network with one or more hidden layers of neurons. Each neuron computes a weighted sum plus bias, then applies an activation function. |
-| Neuron | "Weighted sum + activation" | The basic unit: output = activation(w1*x1 + w2*x2 + ... + b). The weights and bias are learnable parameters. |
+| Reguła łańcuchowa | "Pomnóż pochodne" | Pochodna złożonych funkcji równa się iloczynowi pochodnych każdej funkcji, ewaluowanych w prawidłowym punkcie |
+| Graf obliczeniowy | "Diagram sieci" | Skierowany graf acykliczny, gdzie węzły to operacje, a krawędzie niosą wartości (forward) lub gradienty (backward) |
+| Forward mode | "Pcha pochodne forward" | Autodiff który propaguje pochodne od wejść do wyjść. Jeden pass per zmienna wejściowa. |
+| Reverse mode | "Backpropagation" | Autodiff który propaguje gradienty od wyjść do wejść. Jeden pass per zmienna wyjściowa. |
+| Autograd | "Automatyczne gradienty" | System który rejestruje operacje na wartościach, buduje graf i oblicza dokładne gradienty przez regułę łańcuchową |
+| Liczby dualne | "Wartość plus pochodna" | Liczby postaci a + b*epsilon (epsilon^2 = 0) które niosą informację o pochodnej przez arytmetykę |
+| Sortowanie topologiczne | "Kolejność zależności" | Porządkowanie węzłów grafu tak, żeby każdy węzeł był po wszystkich swoich zależnościach. Wymagane dla poprawnej propagacji gradientów. |
+| Akumulacja gradientu | "Dodawaj, nie zastępuj" | Gdy wartość wchodzi do wielu operacji, jej gradient to suma wszystkich przychodzących wkładów gradientowych |
+| Dynamiczny graf | "Define by run" | Graf obliczeniowy odbudowany przy każdym forward pass, pozwalający na Python control flow wewnątrz modeli (styl PyTorch) |
+| Gradient checking | "Weryfikacja numeryczna" | Porównywanie gradientów autodiff z numerycznymi gradientami różnic skończonych dla weryfikacji poprawności. Niezbędne dla debugowania. |
+| MLP | "Multi-layer perceptron" | Sieć neuronowa z jedną lub więcej ukrytymi warstwami neuronów. Każdy neuron oblicza sumę ważoną plus bias, potem applyuje funkcję aktywacji. |
+| Neuron | "Suma ważona + aktywacja" | Podstawowa jednostka: output = activation(w1*x1 + w2*x2 + ... + b). Wagi i bias to parametry learnable. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [3Blue1Brown: Backpropagation calculus](https://www.youtube.com/watch?v=tIeHLnjs5U8) -- visual explanation of the chain rule in neural networks
-- [PyTorch Autograd mechanics](https://pytorch.org/docs/stable/notes/autograd.html) -- how the real system works
-- [Baydin et al., Automatic Differentiation in Machine Learning: a Survey](https://arxiv.org/abs/1502.05767) -- comprehensive reference
+- [3Blue1Brown: Backpropagation calculus](https://www.youtube.com/watch?v=tIeHLnjs5U8) -- wizualne wyjaśnienie reguły łańcuchowej w sieciach neuronowych
+- [PyTorch Autograd mechanics](https://pytorch.org/docs/stable/notes/autograd.html) -- jak działa prawdziwy system
+- [Baydin et al., Automatic Differentiation in Machine Learning: a Survey](https://arxiv.org/abs/1502.05767) -- kompleksowe odniesienie

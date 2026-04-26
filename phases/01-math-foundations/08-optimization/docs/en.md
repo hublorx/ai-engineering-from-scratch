@@ -1,32 +1,32 @@
-# Optimization
+# Optymalizacja
 
-> Training a neural network is nothing more than finding the bottom of a valley.
+> Trenowanie sieci neuronowej to nic innego jak znalezienie dna doliny.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 1, Lessons 04-05 (Derivatives, Gradients)
-**Time:** ~75 minutes
+**Typ:** Buduj
+**Język:** Python
+**Wymagania wstępne:** Faza 1, Lekcje 04-05 (Pochodne, Gradienty)
+**Czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement vanilla gradient descent, SGD with momentum, and Adam from scratch
-- Compare optimizer convergence on the Rosenbrock function and explain why Adam adapts per-weight learning rates
-- Distinguish convex from non-convex loss landscapes and explain the role of saddle points in high dimensions
-- Configure learning rate schedules (step decay, cosine annealing, warmup) for training stability
+- Zaimplementuj zwykły spadek gradientu, SGD z pędem oraz Adama od zera
+- Porównaj zbieżność optymalizatorów na funkcji Rosenbrocka i wyjaśnij, dlaczego Adam dostosowuje szybkość uczenia dla każdej wagi
+- Rozróżnij wypukłe i niewypukłe krajobrazy strat oraz wyjaśnij rolę punktów siodłowych w wysokich wymiarach
+- Skonfiguruj harmonogramy szybkości uczenia (spadek krokowy, wyżarzanie cosinusowe, rozgrzewanie) dla stabilności treningu
 
-## The Problem
+## Problem
 
-You have a loss function. It tells you how wrong your model is. You have gradients. They tell you which direction makes the loss worse. Now you need a strategy for walking downhill.
+Masz funkcję straty. Mówi ci, jak bardzo niepoprawny jest twój model. Masz gradienty. Mówią ci, który kierunek sprawia, że strata rośnie. Teraz potrzebujesz strategii schodzenia w dół.
 
-The naive approach is simple: move opposite the gradient. Scale the step by some number called the learning rate. Repeat. This is gradient descent, and it works. But "works" has caveats. Too large a learning rate and you overshoot the valley entirely, bouncing between walls. Too small and you crawl toward the answer over thousands of unnecessary steps. Hit a saddle point and you stop moving even though you have not found a minimum.
+Naiwne podejście jest proste: idź w przeciwnym kierunku gradientu. Skaluj krok przez pewną liczbę zwaną szybkością uczenia. Powtarzaj. To jest spadek gradientu i działa. Ale "działa" ma zastrzeżenia. Zbyt duża szybkość uczenia i przekraczasz dolinę całkowicie, odbijaając się między ścianami. Zbyt mała i czołgasz się ku odpowiedzi przez tysiące niepotrzebnych kroków. Trafisz w punkt siodłowy i przestajesz się poruszać, mimo że nie znalazłeś minimum.
 
-Every optimizer in deep learning is an answer to the same question: how do you get to the bottom of the valley faster and more reliably?
+Każdy optymalizator w uczeniu głębokim jest odpowiedzią na to samo pytanie: jak dotrzeć na dno doliny szybciej i bardziej niezawodnie?
 
-## The Concept
+## Koncepcja
 
-### What optimization means
+### Co oznacza optymalizacja
 
-Optimization is finding the input values that minimize (or maximize) a function. In machine learning, the function is the loss. The inputs are the model's weights. Training is optimization.
+Optymalizacja to znajdowanie wartości wejściowych, które minimalizują (lub maksymalizują) funkcję. W uczeniu maszynowym funkcją jest strata. Wejściami są wagi modelu. Trenowanie to optymalizacja.
 
 ```
 minimize L(w) where:
@@ -34,15 +34,15 @@ minimize L(w) where:
   w = model weights (could be millions of parameters)
 ```
 
-### Gradient descent (vanilla)
+### Spadek gradientu (zwykły)
 
-The simplest optimizer. Compute the gradient of the loss with respect to every weight. Move each weight in the opposite direction of its gradient. Scale the step by the learning rate.
+Najprostszy optymalizator. Oblicz gradient straty względem każdej wagi. Przesuń każdą wagę w przeciwnym kierunku jej gradientu. Skaluj krok przez szybkość uczenia.
 
 ```
 w = w - lr * gradient
 ```
 
-That is the entire algorithm. One line.
+To jest cały algorytm. Jedna linia.
 
 ```mermaid
 graph TD
@@ -51,9 +51,9 @@ graph TD
     C --> D["o Minimum (low loss)"]
 ```
 
-### Learning rate: the most important hyperparameter
+### Szybkość uczenia: najważniejszy hiperparametr
 
-The learning rate controls step size. It determines everything about convergence.
+Szybkość uczenia kontroluje rozmiar kroku. Określa wszystko dotyczące zbieżności.
 
 ```mermaid
 graph LR
@@ -72,34 +72,34 @@ graph LR
     end
 ```
 
-There is no formula for the right learning rate. You find it by experiment. Common starting points: 0.001 for Adam, 0.01 for SGD with momentum.
+Nie ma wzoru na właściwą szybkość uczenia. Znajdujesz ją eksperymentalnie. Częste punkty wyjścia: 0.001 dla Adama, 0.01 dla SGD z pędem.
 
-### SGD vs batch vs mini-batch
+### SGD vs wsadowy vs mini-wsadowy
 
-Vanilla gradient descent computes the gradient over the entire dataset before taking one step. This is called batch gradient descent. It is stable but slow.
+Zwykły spadek gradientu oblicza gradient dla całego zestawu danych przed wykonaniem jednego kroku. To nazywa się wsadowym spadkiem gradientu. Jest stabilny, ale wolny.
 
-Stochastic gradient descent (SGD) computes the gradient on a single random sample and steps immediately. It is noisy but fast.
+Stochastyczny spadek gradientu (SGD) oblicza gradient na pojedynczej losowej próbce i natychmiast wykonuje krok. Jest zaszumiony, ale szybki.
 
-Mini-batch gradient descent splits the difference. Compute the gradient over a small batch (32, 64, 128, 256 samples), then step. This is what everyone actually uses.
+Mini-wsadowy spadek gradientu znajduje się pomiędzy. Oblicz gradient na małej partii (32, 64, 128, 256 próbek), następnie wykonaj krok. To jest to, czego wszyscy faktycznie używają.
 
-| Variant | Batch size | Gradient quality | Speed per step | Noise |
+| Wariant | Rozmiar partii | Jakość gradientu | Szybkość na krok | Szum |
 |---------|-----------|-----------------|---------------|-------|
-| Batch GD | Entire dataset | Exact | Slow | None |
-| SGD | 1 sample | Very noisy | Fast | High |
-| Mini-batch | 32-256 | Good estimate | Balanced | Moderate |
+| Wsadowy GD | Cały zestaw danych | Dokładny | Wolny | Brak |
+| SGD | 1 próbka | Bardzo zaszumiony | Szybki | Wysoki |
+| Mini-wsadowy | 32-256 | Dobre przybliżenie | Zrównoważony | Umiarkowany |
 
-The noise in SGD and mini-batch is not a bug. It helps escape shallow local minima and saddle points.
+Szum w SGD i mini-wsadowym nie jest błędem. Pomaga uciec z płytkich lokalnych minimów i punktów siodłowych.
 
-### Momentum: the ball rolling downhill
+### Momentum: piłka tocząca się w dół
 
-Vanilla gradient descent only looks at the current gradient. If the gradient zigzags (common in narrow valleys), progress is slow. Momentum fixes this by accumulating past gradients into a velocity term.
+Zwykły spadek gradientu patrzy tylko na aktualny gradient. Jeśli gradient zygzakuje (częste w wąskich dolinach), postęp jest wolny. Momentum to naprawia, akumulując przeszłe gradienty w termin prędkości.
 
 ```
 v = beta * v + gradient
 w = w - lr * v
 ```
 
-The analogy: a ball rolling downhill. It does not stop and restart at every bump. It builds speed in consistent directions and dampens oscillations.
+Analogia: piłka tocząca się w dół. Nie zatrzymuje się i nie restartuje przy każdym wypięciu. Nabiera prędkości w spójnych kierunkach i tłumi oscylacje.
 
 ```mermaid
 graph TD
@@ -116,16 +116,16 @@ graph TD
     end
 ```
 
-`beta` (typically 0.9) controls how much history to keep. Higher beta means more momentum, smoother paths, but slower response to direction changes.
+`beta` (zazwyczaj 0.9) kontroluje, ile historii zachować. Wyższy beta oznacza więcej momentum, gładsze ścieżki, ale wolniejszą reakcję na zmiany kierunku.
 
-### Adam: adaptive learning rates
+### Adam: adaptacyjne szybkości uczenia
 
-Different weights need different learning rates. A weight that rarely gets large gradients should take bigger steps when it finally does. A weight that gets huge gradients constantly should take smaller steps.
+Różne wagi potrzebują różnych szybkości uczenia. Waga, która rzadko otrzymuje duże gradienty, powinna wykonywać większe kroki, gdy w końcu to robi. Waga, która stale otrzymuje ogromne gradienty, powinna wykonywać mniejsze kroki.
 
-Adam (Adaptive Moment Estimation) tracks two things per weight:
+Adam (Adaptive Moment Estimation) śledzi dwie rzeczy dla każdej wagi:
 
-1. First moment (m): running average of gradients (like momentum)
-2. Second moment (v): running average of squared gradients (gradient magnitude)
+1. Pierwszy moment (m): bieżąca średnia gradientów (jak momentum)
+2. Drugi moment (v): bieżąca średnia kwadratów gradientów (wielkość gradientu)
 
 ```
 m = beta1 * m + (1 - beta1) * gradient
@@ -137,28 +137,28 @@ v_hat = v / (1 - beta2^t)    bias correction
 w = w - lr * m_hat / (sqrt(v_hat) + epsilon)
 ```
 
-The division by `sqrt(v_hat)` is the key insight. Weights with large gradients get divided by a large number (small effective step). Weights with small gradients get divided by a small number (large effective step). Each weight gets its own adaptive learning rate.
+Dzielenie przez `sqrt(v_hat)` jest kluczowym spostrzeżeniem. Wagi z dużymi gradientami są dzielone przez dużą liczbę (mały efektywny krok). Wagi z małymi gradientami są dzielone przez małą liczbę (duży efektywny krok). Każda waga otrzymuje własną adaptacyjną szybkość uczenia.
 
-Default hyperparameters: `lr=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8`. These defaults work well for most problems.
+Domyślne hiperparametry: `lr=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8`. Te domyślne wartości dobrze działają w większości problemów.
 
-### Learning rate schedules
+### Harmonogramy szybkości uczenia
 
-A fixed learning rate is a compromise. Early in training, you want large steps to make fast progress. Late in training, you want small steps to fine-tune near the minimum.
+Stała szybkość uczenia to kompromis. Na początku treningu chcesz dużych kroków, aby szybko poczynić postępy. Pod koniec treningu chcesz małych kroków, aby precyzyjnie dostroić w pobliżu minimum.
 
-Common schedules:
+Częste harmonogramy:
 
-| Schedule | Formula | Use case |
+| Harmonogram | Formuła | Przypadek użycia |
 |----------|---------|----------|
-| Step decay | lr = lr * factor every N epochs | Simple, manual control |
-| Exponential decay | lr = lr_0 * decay^t | Smooth reduction |
-| Cosine annealing | lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * t / T)) | Transformers, modern training |
-| Warmup + decay | Linear ramp up, then decay | Large models, prevents early instability |
+| Spadek krokowy | lr = lr * współczynnik co N epok | Prosty, ręczna kontrola |
+| Spadek wykładniczy | lr = lr_0 * decay^t | Gładka redukcja |
+| Wyżarzanie cosinusowe | lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * t / T)) | Transformery, nowoczesny trening |
+| Rozgrzewanie + spadek | Liniowy wzrost, następnie spadek | Duże modele, zapobiega wczesnej niestabilności |
 
-### Convex vs non-convex
+### Wypukłe vs niewypukłe
 
-A convex function has one minimum. Gradient descent always finds it. A quadratic like `f(x) = x^2` is convex.
+Funkcja wypukła ma jedno minimum. Spadek gradientu zawsze je znajduje. Kwadratowa jak `f(x) = x^2` jest wypukła.
 
-Neural network loss functions are non-convex. They have many local minima, saddle points, and flat regions.
+Funkcje strat sieci neuronowych są niewypukłe. Mają wiele lokalnych minimów, punktów siodłowych i płaskich regionów.
 
 ```mermaid
 graph LR
@@ -174,11 +174,11 @@ graph LR
     end
 ```
 
-In practice, local minima in high-dimensional neural networks are rarely a problem. Most local minima have loss values close to the global minimum. Saddle points (flat in some directions, curved in others) are the real obstacle. Momentum and noise from mini-batches help escape them.
+W praktyce lokalne minima w wysokowymiarowych sieciach neuronowych rzadko stanowią problem. Większość lokalnych minimów ma wartości strat bliskie globalnemu minimum. Punkty siodłowe (płaskie w niektórych kierunkach, zakrzywione w innych) są prawdziwą przeszkodą. Momentum i szum z mini-partii pomagają z nich uciec.
 
-### Loss landscape visualization
+### Wizualizacja krajobrazu strat
 
-The loss is a function of all weights. For a model with 1 million weights, the loss landscape lives in 1,000,001-dimensional space. We visualize it by picking two random directions in weight space and plotting the loss along those directions, producing a 2D surface.
+Strata jest funkcją wszystkich wag. Dla modelu z 1 milionem wag, krajobraz strat istnieje w przestrzeni 1 000 001-wymiarowej. Wizualizujemy go, wybierając dwa losowe kierunki w przestrzeni wag i wykreślając stratę wzdłuż tych kierunków, tworząc powierzchnię 2D.
 
 ```mermaid
 graph TD
@@ -193,13 +193,13 @@ graph TD
     style GM fill:#66ff66,color:#000
 ```
 
-Sharp minima generalize poorly. Flat minima generalize well. This is one reason SGD with momentum often outperforms Adam on final test accuracy: its noise prevents settling into sharp minima.
+Ostre minima źle się uogólniają. Płaskie minima dobrze się uogólniają. To jeden z powodów, dla których SGD z pędem często przewyższa Adama w końcowej dokładności testowej: jego szum zapobiega osiadaniu w ostrych minimach.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Define a test function
+### Krok 1: Zdefiniuj funkcję testową
 
-The Rosenbrock function is a classic optimization benchmark. Its minimum is at (1, 1) inside a narrow curved valley that is easy to find but hard to follow.
+Funkcja Rosenbrocka to klasyczny punkt odniesienia optymalizacji. Jej minimum znajduje się w (1, 1) wewnątrz wąskiej zakrzywionej doliny, którą łatwo znaleźć, ale trudno podążać.
 
 ```
 f(x, y) = (1 - x)^2 + 100 * (y - x^2)^2
@@ -217,7 +217,7 @@ def rosenbrock_gradient(params):
     return [df_dx, df_dy]
 ```
 
-### Step 2: Vanilla gradient descent
+### Krok 2: Zwykły spadek gradientu
 
 ```python
 class GradientDescent:
@@ -228,7 +228,7 @@ class GradientDescent:
         return [p - self.lr * g for p, g in zip(params, grads)]
 ```
 
-### Step 3: SGD with momentum
+### Krok 3: SGD z pędem
 
 ```python
 class SGDMomentum:
@@ -247,7 +247,7 @@ class SGDMomentum:
         return [p - self.lr * v for p, v in zip(params, self.velocity)]
 ```
 
-### Step 4: Adam
+### Krok 4: Adam
 
 ```python
 class Adam:
@@ -285,7 +285,7 @@ class Adam:
         ]
 ```
 
-### Step 5: Run and compare
+### Krok 5: Uruchom i porównaj
 
 ```python
 def optimize(optimizer, func, grad_func, start, steps=5000):
@@ -309,11 +309,11 @@ for name, history in [("GD", gd_history), ("SGD+M", sgd_history), ("Adam", adam_
     print(f"{name:6s} -> x={final[0]:.6f}, y={final[1]:.6f}, loss={loss:.8f}")
 ```
 
-Expected output: Adam converges fastest. SGD with momentum follows a smoother path. Vanilla GD makes slow progress along the narrow valley.
+Oczekiwane wyjście: Adam zbiega najszybciej. SGD z pędem podąża gładszą ścieżką. Zwykły GD robi wolny postęp wzdłuż wąskiej doliny.
 
-## Use It
+## Użyj tego
 
-In practice, use PyTorch or JAX optimizers. They handle parameter groups, weight decay, gradient clipping, and GPU acceleration.
+W praktyce używaj optymalizatorów PyTorch lub JAX. Obsługują grupy parametrów, decaweight decay, obcinanie gradientów i przyspieszenie GPU.
 
 ```python
 import torch
@@ -327,50 +327,50 @@ adamw = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(adam, T_max=100)
 ```
 
-Rules of thumb:
+Zasady kciuka:
 
-- Start with Adam (lr=0.001). It works for most problems without tuning.
-- Switch to SGD with momentum (lr=0.01, momentum=0.9) when you need the best final accuracy and can afford more tuning.
-- Use AdamW (Adam with decoupled weight decay) for transformers.
-- Always use a learning rate schedule for training runs longer than a few epochs.
-- If training is unstable, reduce the learning rate. If training is too slow, increase it.
+- Zaczynaj od Adama (lr=0.001). Działa w większości problemów bez dostrajania.
+- Przełącz na SGD z pędem (lr=0.01, momentum=0.9) gdy potrzebujesz najlepszej końcowej dokładności i możesz poświęcić więcej czasu na dostrajanie.
+- Używaj AdamW (Adam z odłączonym weight decay) dla transformerów.
+- Zawsze używaj harmonogramu szybkości uczenia dla treningów dłuższych niż kilka epok.
+- Jeśli trening jest niestabilny, zmniejsz szybkość uczenia. Jeśli trening jest zbyt wolny, zwiększ ją.
 
-## Ship It
+## Wyślij to
 
-This lesson produces a prompt for choosing the right optimizer. See `outputs/prompt-optimizer-guide.md`.
+Ta lekcja generuje prompt do wyboru właściwego optymalizatora. Zobacz `outputs/prompt-optimizer-guide.md`.
 
-The optimizer classes built here reappear in Phase 3 when we train a neural network from scratch.
+Klasy optymalizatorów zbudowane tutaj pojawią się ponownie w Fazie 3, gdy będziemy trenować sieć neuronową od zera.
 
-## Exercises
+## Ćwiczenia
 
-1. **Learning rate sweep.** Run vanilla gradient descent on the Rosenbrock function with learning rates [0.0001, 0.0005, 0.001, 0.005, 0.01]. Plot or print the final loss after 5000 steps for each. Find the largest learning rate that still converges.
+1. **Przeszukiwanie szybkości uczenia.** Uruchom zwykły spadek gradientu na funkcji Rosenbrocka z szybkościami uczenia [0.0001, 0.0005, 0.001, 0.005, 0.01]. Wykreśl lub wydrukuj końcową stratę po 5000 krokach dla każdej. Znajdź największą szybkość uczenia, która nadal zbiega.
 
-2. **Momentum comparison.** Run SGD with momentum values [0.0, 0.5, 0.9, 0.99] on the Rosenbrock function. Track the loss at every step. Which momentum value converges fastest? Which overshoots?
+2. **Porównanie momentum.** Uruchom SGD z wartościami momentum [0.0, 0.5, 0.9, 0.99] na funkcji Rosenbrocka. Śledź stratę na każdym kroku. Która wartość momentum zbiega najszybciej? Która przekracza cel?
 
-3. **Saddle point escape.** Define the function `f(x, y) = x^2 - y^2` (a saddle point at the origin). Start at (0.01, 0.01). Compare how vanilla GD, SGD with momentum, and Adam behave. Which escapes the saddle point?
+3. **Ucieczka z punktu siodłowego.** Zdefiniuj funkcję `f(x, y) = x^2 - y^2` (punkt siodłowy w początku). Zacznij w (0.01, 0.01). Porównaj zachowanie zwykłego GD, SGD z pędem i Adama. Który ucieka z punktu siodłowego?
 
-4. **Implement learning rate decay.** Add an exponential decay schedule to the GradientDescent class: `lr = lr_0 * 0.999^step`. Compare convergence with and without decay on the Rosenbrock function.
+4. **Zaimplementuj spadek szybkości uczenia.** Dodaj harmonogram wykładniczego spadku do klasy GradientDescent: `lr = lr_0 * 0.999^step`. Porównaj zbieżność z i bez spadku na funkcji Rosenbrocka.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Gradient descent | "Go downhill" | Update weights by subtracting the gradient scaled by the learning rate. The most basic optimizer. |
-| Learning rate | "Step size" | A scalar that controls how far each update moves the weights. Too large causes divergence. Too small wastes compute. |
-| Momentum | "Keep rolling" | Accumulate past gradients into a velocity vector. Dampens oscillations and accelerates movement through consistent directions. |
-| SGD | "Random sampling" | Stochastic gradient descent. Compute gradient on a random subset instead of the full dataset. Almost always means mini-batch SGD in practice. |
-| Mini-batch | "A chunk of data" | A small subset of training data (32-256 samples) used to estimate the gradient. Balances speed and gradient accuracy. |
-| Adam | "The default optimizer" | Adaptive Moment Estimation. Tracks per-weight running averages of gradients and squared gradients to give each weight its own learning rate. |
-| Bias correction | "Fix the cold start" | Adam's first and second moments are initialized to zero. Bias correction divides by (1 - beta^t) to compensate during early steps. |
-| Learning rate schedule | "Change lr over time" | A function that adjusts the learning rate during training. Large steps early, small steps late. |
-| Convex function | "One valley" | A function where any local minimum is the global minimum. Gradient descent always finds it. Neural network losses are not convex. |
-| Saddle point | "Flat but not a minimum" | A point where the gradient is zero but it is a minimum in some directions and a maximum in others. Common in high dimensions. |
-| Loss landscape | "The terrain" | The loss function plotted over weight space. Visualized by slicing along two random directions. |
-| Convergence | "Getting there" | The optimizer has reached a point where further steps do not meaningfully reduce the loss. |
+| Gradient descent | "Schodź w dół" | Aktualizuj wagi poprzez odjęcie gradientu skalowanego przez szybkość uczenia. Najbardziej podstawowy optymalizator. |
+| Learning rate | "Rozmiar kroku" | Skalar kontrolujący, jak daleko każda aktualizacja przesuwa wagi. Zbyt duży powoduje dywergencję. Zbyt mały marnuje obliczenia. |
+| Momentum | "Keep rolling" | Akumuluj przeszłe gradienty w wektor prędkości. Tłumi oscylacje i przyspiesza ruch przez spójne kierunki. |
+| SGD | "Losowe próbkowanie" | Stochastyczny spadek gradientu. Oblicz gradient na losowym podzbiorze zamiast na całym zestawie danych. Prawie zawsze oznacza mini-wsadowy SGD w praktyce. |
+| Mini-batch | "Kawałek danych" | Mały podzbiór danych treningowych (32-256 próbek) używany do oszacowania gradientu. Równoważy szybkość i dokładność gradientu. |
+| Adam | "Domyślny optymalizator" | Adaptive Moment Estimation. Śledzi dla każdej wagi bieżące średnie gradientów i kwadratów gradientów, aby dać każdej wadze własną szybkość uczenia. |
+| Bias correction | "Napraw zimny start" | Pierwszy i drugi moment Adama są inicjalizowane do zera. Korekcja obciążenia dzieli przez (1 - beta^t), aby zrekompensować we wczesnych krokach. |
+| Learning rate schedule | "Zmień lr w czasie" | Funkcja, która dostosowuje szybkość uczenia podczas treningu. Duże kroki wcześnie, małe kroki późno. |
+| Convex function | "Jedna dolina" | Funkcja, w której każde lokalne minimum jest globalnym minimum. Spadek gradientu zawsze je znajduje. Straty sieci neuronowych nie są wypukłe. |
+| Saddle point | "Płaskie, ale nie minimum" | Punkt, gdzie gradient wynosi zero, ale jest minimum w niektórych kierunkach, a maksimum w innych. Częste w wysokich wymiarach. |
+| Loss landscape | "Teren" | Funkcja straty wykreślona nad przestrzenią wag. Wizualizowana przez przecięcie wzdłuż dwóch losowych kierunków. |
+| Convergence | "Docieranie" | Optymalizator osiągnął punkt, w którym dalsze kroki nie zmniejszają już znacząco straty. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Sebastian Ruder: An overview of gradient descent optimization algorithms](https://ruder.io/optimizing-gradient-descent/) - comprehensive survey of all major optimizers
-- [Why Momentum Really Works (Distill)](https://distill.pub/2017/momentum/) - interactive visualization of momentum dynamics
-- [Adam: A Method for Stochastic Optimization (Kingma & Ba, 2014)](https://arxiv.org/abs/1412.6980) - the original Adam paper, readable and short
-- [Visualizing the Loss Landscape of Neural Nets (Li et al., 2018)](https://arxiv.org/abs/1712.09913) - the paper that showed sharp vs flat minima
+- [Sebastian Ruder: An overview of gradient descent optimization algorithms](https://ruder.io/optimizing-gradient-descent/) - kompleksowy przegląd wszystkich głównych optymalizatorów
+- [Why Momentum Really Works (Distill)](https://distill.pub/2017/momentum/) - interaktywna wizualizacja dynamiki momentum
+- [Adam: A Method for Stochastic Optimization (Kingma & Ba, 2014)](https://arxiv.org/abs/1412.6980) - oryginalny artykuł o Adamie, czytelny i krótki
+- [Visualizing the Loss Landscape of Neural Nets (Li et al., 2018)](https://arxiv.org/abs/1712.09913) - artykuł pokazujący ostre vs płaskie minima

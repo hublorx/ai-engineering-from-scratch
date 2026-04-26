@@ -1,46 +1,47 @@
-# Stochastic Processes
+# Procesy Stochastyczne
 
-> Randomness with structure. The math behind random walks, Markov chains, and diffusion models.
+> Losowość z strukturą. Matematyka stojąca za losowymi błądzeniami, łańcuchami Markowa i modelami dyfuzji.
 
-**Type:** Learn
-**Language:** Python
-**Prerequisites:** Phase 1, Lessons 06-07 (probability, Bayes)
-**Time:** ~75 minutes
+**Typ:** Nauka
+**Język:** Python
+**Wymagania wstępne:** Phase 1, Ukończenie lekcji 06-07 (prawdopodobieństwo, twierdzenie Bayesa)
+**Czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Simulate 1D and 2D random walks and verify the sqrt(n) scaling of displacement
-- Build a Markov chain simulator and compute its stationary distribution via eigendecomposition
-- Implement Metropolis-Hastings MCMC and Langevin dynamics for sampling from target distributions
-- Connect the forward diffusion process to Brownian motion and explain how the reverse process generates data
+- Symuluj jednowymiarowe i dwuwymiarowe losowe błądzenia i sprawdź skalowanie sqrt(n) dla przemieszczenia
+- Zbuduj symulator łańcucha Markowa i oblicz jego rozkład stacjonarny poprzez dekompozycję własną
+- Zaimplementuj Metropolis-Hastings MCMC i dynamikę Langevina do próbkowania z docelowych rozkładów
+- Połącz proces dyfuzji w przód z ruchem Browna i wyjaśnij, jak proces odwrotny generuje dane
 
-## The Problem
+## Problem
 
-Many AI systems involve randomness that evolves over time. Not static randomness -- structured, sequential randomness where each step depends on what came before.
+Wiele systemów AI obejmuje losowość, która ewoluuje w czasie. Nie statyczną losowość, lecz ustrukturyzowaną, sekwencyjną losowość, gdzie każdy krok zależy od tego, co było przed nim.
 
-Language models generate tokens one at a time. Each token depends on the previous context. The model outputs a probability distribution, samples from it, and moves on. That is a stochastic process.
+Modele językowe generują tokeny jeden po drugim. Każdy token zależy od poprzedniego kontekstu. Model wyprowadza rozkład prawdopodobieństwa, próbkuje z niego i przechodzi dalej. To jest proces stochastyczny.
 
-Diffusion models add noise to an image step by step until it becomes pure static. Then they reverse the process, denoising step by step until a new image emerges. The forward process is a Markov chain. The reverse process is a learned Markov chain running backward.
+Modele dyfuzji dodają szum do obrazu krok po kroku, aż stanie się on czystą statyką. Następnie odwracają proces, odszumowując krok po kroku, aż pojawi się nowy obraz. Proces w przód jest łańcuchem Markowa. Proces odwrotny jest nauczonym łańcuchem Markowa uruchomionym wstecz.
 
-Reinforcement learning agents take actions in an environment. Each action leads to a new state with some probability. The agent follows a random policy in a random world. The whole thing is a Markov decision process.
+Agenci uczenia ze wzmocnieniem podejmują działania w środowisku. Każde działanie prowadzi do nowego stanu z pewnym prawdopodobieństwem. Agent podąża za losową polityką w losowym świecie. Całość jest procesem decyzyjnym Markowa.
 
-MCMC sampling -- the backbone of Bayesian inference -- constructs a Markov chain whose stationary distribution is the posterior you want to sample from.
+Próbkowanie MCMC - podstawa wnioskowania bayesowskiego - konstruuje łańcuch Markowa, którego rozkład stacjonarny jest posteriorem, z którego chcesz próbkować.
 
-All of these build on four foundational ideas:
-1. Random walks -- the simplest stochastic process
-2. Markov chains -- structured randomness with a transition matrix
-3. Langevin dynamics -- gradient descent with noise
-4. Metropolis-Hastings -- sampling from any distribution
+Wszystkie te techniki opierają się na czterech podstawowych koncepcjach:
 
-## The Concept
+1. Losowe błądzenia - najprostszy proces stochastyczny
+2. Łańcuchy Markowa - ustrukturyzowana losowość z macierzą przejścia
+3. Dynamika Langevina - spadek gradientowy z szumem
+4. Metropolis-Hastings - próbkowanie z dowolnego rozkładu
 
-### Random Walks
+## Koncepcja
 
-Start at position 0. At each step, flip a fair coin. Heads: move right (+1). Tails: move left (-1).
+### Losowe błądzenia
 
-After n steps, your position is the sum of n random +/-1 values. The expected position is 0 (the walk is unbiased). But the expected distance from the origin grows as sqrt(n).
+Zacznij od pozycji 0. Przy każdym kroku rzuć uczciwą monetą. Reszka: idź w prawo (+1). Orzeł: idź w lewo (-1).
 
-This is counterintuitive. The walk is fair -- no drift in either direction. But over time, it wanders further and further from where it started. The standard deviation after n steps is sqrt(n).
+Po n krokach twoja pozycja jest sumą n losowych wartości +/-1. Oczekiwana pozycja to 0 (błądzenie jest bezstronne). Ale oczekiwana odległość od początku rośnie jak sqrt(n).
+
+To jest sprzeczne z intuicją. Błądzenie jest uczciwe - brak dryfu w żadnym kierunku. Ale z czasem błądzi coraz dalej od miejsca, w którym się zaczęło. Odchylenie standardowe po n krokach to sqrt(n).
 
 ```
 Step 0:  Position = 0
@@ -51,35 +52,35 @@ Step 100: Expected distance from origin ~ 10 (sqrt(100))
 Step 10000: Expected distance from origin ~ 100 (sqrt(10000))
 ```
 
-**In 2D**, the walk moves up, down, left, or right with equal probability. The same sqrt(n) scaling applies to the distance from the origin. The path traces a fractal-like pattern.
+**W 2D** błądzenie porusza się w górę, w dół, w lewo lub w prawo z równym prawdopodobieństwem. To samo skalowanie sqrt(n) dotyczy odległości od początku. Ścieżka rysuje fraktalny wzór.
 
-**Why sqrt(n)?** Each step is +1 or -1 with equal probability. After n steps, the position S_n = X_1 + X_2 + ... + X_n where each X_i is +/-1. The variance of each step is 1, and the steps are independent, so Var(S_n) = n. Standard deviation = sqrt(n). By the central limit theorem, S_n / sqrt(n) converges to a standard normal distribution.
+**Dlaczego sqrt(n)?** Każdy krok to +1 lub -1 z równym prawdopodobieństwem. Po n krokach pozycja S_n = X_1 + X_2 + ... + X_n, gdzie każde X_i to +/-1. Wariancja każdego kroku to 1, a kroki są niezależne, więc Var(S_n) = n. Odchylenie standardowe = sqrt(n). Na mocy centralnego twierdzenia granicznego S_n / sqrt(n) zbiega do standardowego rozkładu normalnego.
 
-This sqrt(n) scaling shows up everywhere in ML. SGD noise scales as 1/sqrt(batch_size). Embedding dimensions scale as sqrt(d). The square root is the signature of independent random additions.
+To skalowanie sqrt(n) pojawia się wszędzie w ML. Szum SGD skaluje się jak 1/sqrt(batch_size). Wymiary embeddingów skalują się jak sqrt(d). Pierwiastek kwadratowy jest sygnaturą niezależnych losowych dodatków.
 
-**Connection to Brownian motion.** Take a random walk with step size 1/sqrt(n) and n steps per unit time. As n goes to infinity, the walk converges to Brownian motion B(t) -- a continuous-time process where B(t) is normally distributed with mean 0 and variance t.
+**Połączenie z ruchem Browna.** Weź losowe błądzenie z rozmiarem kroku 1/sqrt(n) i n krokami na jednostkę czasu. Gdy n dąży do nieskończoności, błądzenie zbiega do ruchu Browna B(t) - procesu w czasie ciągłym, gdzie B(t) ma rozkład normalny ze średnią 0 i wariancją t.
 
-Brownian motion is the mathematical foundation of diffusion. It models the random jiggling of particles in a fluid, the fluctuations of stock prices, and -- crucially -- the noise process in diffusion models.
+Ruch Browna jest matematycznym fundamentem dyfuzji. Modeluje losowe podrygiwanie cząstek w płynie, fluktuacje cen akcji i - co kluczowe - proces szumu w modelach dyfuzji.
 
-**Gambler's ruin.** A random walker starting at position k, with absorbing barriers at 0 and N. What is the probability of reaching N before 0? For a fair walk: P(reach N) = k/N. This is surprisingly simple and elegant. It connects to the theory of martingales -- the fair random walk is a martingale (expected future value = current value).
+**Ruinujący się hazardzista.** Losowy przechodzień startujący z pozycji k, z barierami absorbującymi w 0 i N. Jakie jest prawdopodobieństwo dotarcia do N przed 0? Dla uczciwego błądzenia: P(dotarcie N) = k/N. To zaskakująco proste i eleganckie. Łączy się z teorią martyngałów - uczciwe losowe błądzenie jest martyngałem (oczekiwana przyszła wartość = obecna wartość).
 
-### Markov Chains
+### Łańcuchy Markowa
 
-A Markov chain is a system that transitions between states according to fixed probabilities. The key property: the next state depends only on the current state, not on the history.
+Łańcuch Markowa to system, który przechodzi między stanami zgodnie z ustalonymi prawdopodobieństwami. Kluczowa właściwość: następny stan zależy tylko od obecnego stanu, nie od historii.
 
 ```
 P(X_{t+1} = j | X_t = i, X_{t-1} = ...) = P(X_{t+1} = j | X_t = i)
 ```
 
-This is the Markov property. It means you can describe the entire dynamics with a transition matrix P:
+To jest właściwość Markowa. Oznacza to, że możesz opisać całą dynamikę za pomocą macierzy przejścia P:
 
 ```
 P[i][j] = probability of going from state i to state j
 ```
 
-Each row of P sums to 1 (you must go somewhere).
+Każdy wiersz P sumuje się do 1 (musisz gdzieś przejść).
 
-**Example -- Weather:**
+**Przykład - Pogoda:**
 
 ```
 States: Sunny (0), Rainy (1), Cloudy (2)
@@ -89,9 +90,9 @@ P = [[0.7, 0.1, 0.2],    (if sunny: 70% sunny, 10% rainy, 20% cloudy)
      [0.4, 0.2, 0.4]]    (if cloudy: 40% sunny, 20% rainy, 40% cloudy)
 ```
 
-Start in any state. After many transitions, the distribution of states converges to the stationary distribution pi, where pi * P = pi. This is the left eigenvector of P with eigenvalue 1.
+Zacznij w dowolnym stanie. Po wielu przejściach rozkład stanów zbiega do rozkładu stacjonarnego pi, gdzie pi * P = pi. To jest lewy wektor własny P z wartością własną 1.
 
-For the weather chain, the stationary distribution might be [0.53, 0.18, 0.29] -- over the long run, it is sunny 53% of the time regardless of the starting state.
+Dla łańcucha pogodowego rozkład stacjonarny może być [0.53, 0.18, 0.29] - w długim okresie jest słonecznie przez 53% czasu niezależnie od stanu początkowego.
 
 ```mermaid
 graph LR
@@ -106,78 +107,81 @@ graph LR
     C -->|0.4| C
 ```
 
-**Computing the stationary distribution.** There are two approaches:
+**Obliczanie rozkładu stacjonarnego.** Są dwa podejścia:
 
-1. **Power method**: multiply any initial distribution by P repeatedly. After enough iterations, it converges.
-2. **Eigenvalue method**: find the left eigenvector of P with eigenvalue 1. This is the eigenvector of P^T with eigenvalue 1.
+1. **Metoda potęgowa**: pomnóż dowolny początkowy rozkład przez P wielokrotnie. Po wystarczającej liczbie iteracji zbiega.
+2. **Metoda wartości własnych**: znajdź lewy wektor własny P z wartością własną 1. To jest wektor własny P^T z wartością własną 1.
 
-Both approaches require the chain to satisfy convergence conditions.
+Oba podejścia wymagają, aby łańcuch spełniał warunki zbieżności.
 
-**Convergence conditions.** A Markov chain converges to a unique stationary distribution if it is:
-- **Irreducible**: every state is reachable from every other state
-- **Aperiodic**: the chain does not cycle with a fixed period
+**Warunki zbieżności.** Łańcuch Markowa zbiega do jedynego rozkładu stacjonarnego, jeśli jest:
 
-Most chains you encounter in ML satisfy both conditions.
+- **Nieprzywodzony**: każdy stan jest osiągalny z każdego innego stanu
+- **Nieokresowy**: łańcuch nie cykluje z ustalonym okresem
 
-**Absorbing states.** A state is absorbing if once you enter it, you never leave (P[i][i] = 1). Absorbing Markov chains model processes with terminal states -- a game that ends, a customer who churns, a token sequence that hits the end-of-text token.
+Większość łańcuchów spotykanych w ML spełnia oba warunki.
 
-**Mixing time.** How many steps until the chain is "close" to the stationary distribution? Formally, the number of steps until the total variation distance from stationarity drops below some threshold. Fast mixing = few steps needed. The spectral gap of P (1 minus the second-largest eigenvalue) controls the mixing time. Larger gap = faster mixing.
+**Stany absorbujące.** Stan jest absorbujący, jeśli gdy raz do niego wejdziesz, nigdy go nie opuszczasz (P[i][i] = 1). Absorbujące łańcuchy Markowa modelują procesy ze stanami terminalnymi - grę, która się kończy, klienta, który odchodzi, sekwencję tokenów, która trafia na token end-of-text.
 
-### Connection to Language Models
+**Czas mieszania.** Ile kroków, aż łańcuch będzie "blisko" rozkładu stacjonarnego? Formalnie, liczba kroków, aż odległość w całkowitej wariacji od stacjonarności spadnie poniżej pewnego progu. Szybkie mieszanie = potrzeba niewiele kroków. Przerwa spektralna P (1 minus druga co do wielkości wartość własna) kontroluje czas mieszania. Większa przerwa = szybsze mieszanie.
 
-Token generation in a language model is approximately a Markov process. Given the current context, the model outputs a distribution over the next token. Temperature controls the sharpness:
+### Połączenie z modelami językowymi
+
+Generowanie tokenów w modelu językowym jest w przybliżeniu procesem Markowa. Mając obecny kontekst, model wyprowadza rozkład nad następnym tokenem. Temperatura kontroluje ostrość:
 
 ```
 P(token_i) = exp(logit_i / temperature) / sum(exp(logit_j / temperature))
 ```
 
-- Temperature = 1.0: standard distribution
-- Temperature < 1.0: sharper (more deterministic)
-- Temperature > 1.0: flatter (more random)
-- Temperature -> 0: argmax (greedy)
+- Temperatura = 1.0: standardowy rozkład
+- Temperatura < 1.0: ostrzejszy (bardziej deterministyczny)
+- Temperatura > 1.0: bardziej płaski (bardziej losowy)
+- Temperatura -> 0: argmax (chciwy)
 
-Top-k sampling truncates to the k highest-probability tokens. Top-p (nucleus) sampling truncates to the smallest set of tokens whose cumulative probability exceeds p. Both modify the Markov transition probabilities.
+Próbkowanie top-k obcina do k tokenów o najwyższym prawdopodobieństwie. Próbkowanie top-p (nucleus) obcina do najmniejszego zestawu tokenów, których skumulowane prawdopodobieństwo przekracza p. Oba modyfikują prawdopodobieństwa przejścia Markowa.
 
-### Brownian Motion
+### Ruch Browna
 
-The continuous-time limit of the random walk. Position B(t) has three properties:
+Granica w czasie ciągłym losowego błądzenia. Pozycja B(t) ma trzy właściwości:
+
 1. B(0) = 0
-2. B(t) - B(s) is normally distributed with mean 0 and variance t - s (for t > s)
-3. Increments on non-overlapping intervals are independent
+2. B(t) - B(s) ma rozkład normalny ze średnią 0 i wariancją t - s (dla t > s)
+3. Przyrosty na nie nakładających się przedziałach są niezależne
 
-Brownian motion is continuous but nowhere differentiable -- it jiggles at every scale. The path has fractal dimension 2 in the plane.
+Ruch Browna jest ciągły, ale nigdzie nie różniczkowalny - podryguje na każdej skali. Ścieżka ma wymiar fraktalny 2 na płaszczyźnie.
 
-In discrete simulation, you approximate Brownian motion by:
+W dyskretnej symulacji przybliżasz ruch Browna przez:
 
 ```
 B(t + dt) = B(t) + sqrt(dt) * z,    where z ~ N(0, 1)
 ```
 
-The sqrt(dt) scaling is important. It comes from the central limit theorem applied to random walks.
+To skalowanie sqrt(dt) jest ważne. Pochodzi z centralnego twierdzenia granicznego zastosowanego do losowych błądzeń.
 
-### Langevin Dynamics
+### Dynamika Langevina
 
-Gradient descent finds the minimum of a function. Langevin dynamics finds the probability distribution proportional to exp(-U(x)/T), where U is an energy function and T is temperature.
+Spadek gradientowy znajduje minimum funkcji. Dynamika Langevina znajduje rozkład prawdopodobieństwa proporcjonalny do exp(-U(x)/T), gdzie U jest funkcją energii, a T jest temperaturą.
 
 ```
 x_{t+1} = x_t - dt * gradient(U(x_t)) + sqrt(2 * T * dt) * z_t
 ```
 
-Two forces act on the particle:
-1. **Gradient force** (-dt * gradient(U)): pushes toward low energy (like gradient descent)
-2. **Random force** (sqrt(2*T*dt) * z): pushes in random directions (exploration)
+Dwie siły działają na cząstkę:
 
-At temperature T = 0, this is pure gradient descent. At high temperature, it is nearly a random walk. At the right temperature, the particle explores the energy landscape and spends more time in low-energy regions.
+1. **Siła gradientu** (-dt * gradient(U)): popycha w kierunku niskiej energii (jak spadek gradientowy)
+2. **Siła losowa** (sqrt(2*T*dt) * z): popycha w losowych kierunkach (eksploracja)
 
-**Connection to diffusion models.** The forward process of a diffusion model is:
+Przy temperaturze T = 0 to czysty spadek gradientowy. Przy wysokiej temperaturze to prawie losowe błądzenie. Przy odpowiedniej temperaturze cząstka eksploruje krajobraz energii i spędza więcej czasu w regionach niskiej energii.
+
+**Połączenie z modelami dyfuzji.** Proces w przód modelu dyfuzji to:
 
 ```
 x_t = sqrt(alpha_t) * x_{t-1} + sqrt(1 - alpha_t) * noise
 ```
 
-This is a Markov chain that gradually mixes the data with noise. After enough steps, x_T is pure Gaussian noise.
+To jest łańcuch Markowa, który stopniowo miesza dane z szumem. Po wystarczającej liczbie kroków x_T to czysty szum Gaussian.
 
-The reverse process -- going from noise back to data -- is also a Markov chain, but its transition probabilities are learned by a neural network. The network learns to predict the noise that was added at each step, then subtracts it.
+Proces odwrotny - od szumu z powrotem do danych - też jest łańcuchem Markowa, ale jego prawdopodobieństwa przejścia są nauczone przez sieć neuronową. Sieć uczy się przewidywać szum dodany na każdym kroku, a następnie go odejmuje.
 
 ```mermaid
 graph LR
@@ -195,42 +199,43 @@ graph LR
 
 ### MCMC: Markov Chain Monte Carlo
 
-Sometimes you need to sample from a distribution p(x) that you can evaluate (up to a constant) but cannot sample from directly. Bayesian posteriors are the classic example -- you know the likelihood times the prior, but the normalizing constant is intractable.
+Czasami musisz próbkować z rozkładu p(x), który możesz ocenić (do stałej), ale nie możesz próbkować bezpośrednio. Bayesowskie posteriora są klasycznym przykładem - znasz wiarygodność razy wcześniejsze, ale stała normalizująca jest nierozwiązywalna.
 
-**Metropolis-Hastings** constructs a Markov chain whose stationary distribution is p(x):
+**Metropolis-Hastings** konstruuje łańcuch Markowa, którego rozkład stacjonarny to p(x):
 
-1. Start at some position x
-2. Propose a new position x' from a proposal distribution Q(x'|x)
-3. Compute acceptance ratio: a = p(x') * Q(x|x') / (p(x) * Q(x'|x))
-4. Accept x' with probability min(1, a). Otherwise stay at x.
-5. Repeat.
+1. Zacznij od jakiejś pozycji x
+2. Zaproponuj nową pozycję x' z rozkładu propozycji Q(x'|x)
+3. Oblicz współczynnik akceptacji: a = p(x') * Q(x|x') / (p(x) * Q(x'|x))
+4. Zaakceptuj x' z prawdopodobieństwem min(1, a). W przeciwnym razie zostań przy x.
+5. Powtórz.
 
-If Q is symmetric (e.g., Q(x'|x) = Q(x|x') = N(x, sigma^2)), the ratio simplifies to a = p(x') / p(x). You only need the ratio of probabilities -- the normalizing constant cancels.
+Jeśli Q jest symetryczny (np. Q(x'|x) = Q(x|x') = N(x, sigma^2)), współczynnik upraszcza się do a = p(x') / p(x). Potrzebujesz tylko stosunku prawdopodobieństw - stała normalizująca się skraca.
 
-The chain is guaranteed to converge to p(x) under mild conditions. But convergence can be slow if the proposal is too small (random walk) or too large (high rejection). Tuning the proposal is the art of MCMC.
+Łańcuch jest gwarantowany do zbieżności do p(x) przy łagodnych warunkach. Ale zbieżność może być wolna, jeśli propozycja jest za mała (losowe błądzenie) lub za duża (wysokie odrzucenie). Dostrajanie propozycji to sztuka MCMC.
 
-**Why it works.** The acceptance ratio ensures detailed balance: the probability of being at x and moving to x' equals the probability of being at x' and moving to x. Detailed balance implies that p(x) is the stationary distribution of the chain. So after enough steps, the samples come from p(x).
+**Dlaczego to działa.** Współczynnik akceptacji zapewnia szczegółową równowagę: prawdopodobieństwo bycia w x i przejścia do x' równa się prawdopodobieństwu bycia w x' i przejścia do x. Szczegółowa równowaga implikuje, że p(x) jest rozkładem stacjonarnym łańcucha. Więc po wystarczającej liczbie kroków próbki pochodzą z p(x).
 
-**Practical considerations:**
-- **Burn-in**: discard the first N samples. The chain needs time to reach the stationary distribution from its starting point.
-- **Thinning**: keep every k-th sample to reduce autocorrelation.
-- **Multiple chains**: run several chains from different starting points. If they converge to the same distribution, you have evidence of convergence.
-- **Acceptance rate**: for Gaussian proposals in d dimensions, the optimal acceptance rate is about 23% (Roberts & Rosenthal, 2001). Too high means the chain barely moves. Too low means it rejects everything.
+**Praktyczne rozważania:**
 
-### Stochastic Processes in AI
+- **Burn-in**: odrzuć pierwsze N próbek. Łańcuch potrzebuje czasu, aby dotrzeć do rozkładu stacjonarnego od punktu startowego.
+- **Thinning**: zachowuj co k-tą próbkę, aby zmniejszyć autokorelację.
+- **Wiele łańcuchów**: uruchom kilka łańcuchów z różnych punktów startowych. Jeśli zbiegają do tego samego rozkładu, masz dowód zbieżności.
+- **Wskaźnik akceptacji**: dla Gaussian propozycji w d wymiarach optymalny wskaźnik akceptacji to około 23% (Roberts & Rosenthal, 2001). Za wysoki oznacza, że łańcuch prawie się nie porusza. Za niski oznacza, że odrzuca wszystko.
 
-| Process | AI Application |
-|---------|---------------|
-| Random walk | Exploration in RL, Node2Vec embeddings |
-| Markov chain | Text generation, MCMC sampling |
-| Brownian motion | Diffusion models (forward process) |
-| Langevin dynamics | Score-based generative models, SGLD |
-| Markov decision process | Reinforcement learning |
-| Metropolis-Hastings | Bayesian inference, posterior sampling |
+### Procesy stochastyczne w AI
 
-## Build It
+| Proces | Zastosowanie AI |
+|--------|-----------------|
+| Losowe błądzenie | Eksploracja w RL, embeddingy Node2Vec |
+| Łańcuch Markowa | Generowanie tekstu, próbkowanie MCMC |
+| Ruch Browna | Modele dyfuzji (proces w przód) |
+| Dynamika Langevina | Modele generatywne oparte na wyniku, SGLD |
+| Proces decyzyjny Markowa | Uczenie ze wzmocnieniem |
+| Metropolis-Hastings | Wnioskowanie bayesowskie, próbkowanie posteriora |
 
-### Step 1: Random walk simulator
+## Zbuduj to
+
+### Krok 1: Symulator losowego błądzenia
 
 ```python
 import numpy as np
@@ -256,9 +261,9 @@ def random_walk_2d(n_steps, seed=None):
     return x, y
 ```
 
-The 1D walk stores cumulative sums. Each step is +1 or -1. After n steps, the position is the sum. The variance grows linearly with n, so the standard deviation grows as sqrt(n).
+Jednowymiarowe błądzenie przechowuje sumy skumulowane. Każdy krok to +1 lub -1. Po n krokach pozycja to suma. Wariancja rośnie liniowo z n, więc odchylenie standardowe rośnie jak sqrt(n).
 
-### Step 2: Markov chain
+### Krok 2: Łańcuch Markowa
 
 ```python
 class MarkovChain:
@@ -290,9 +295,9 @@ class MarkovChain:
         return np.abs(stationary)
 ```
 
-The stationary distribution is the left eigenvector of P with eigenvalue 1. We find it by computing eigenvectors of P^T (transposing turns left eigenvectors into right eigenvectors).
+Rozkład stacjonarny to lewy wektor własny P z wartością własną 1. Znajdujemy go, obliczając wektory własne P^T (transpozycja zamienia lewe wektory własne na prawe).
 
-### Step 3: Langevin dynamics
+### Krok 3: Dynamika Langevina
 
 ```python
 def langevin_dynamics(grad_U, x0, dt, temperature, n_steps, seed=None):
@@ -306,9 +311,9 @@ def langevin_dynamics(grad_U, x0, dt, temperature, n_steps, seed=None):
     return np.array(trajectory)
 ```
 
-The gradient pushes x toward low energy. The noise prevents it from getting stuck. At equilibrium, the distribution of samples is proportional to exp(-U(x)/temperature).
+Gradient popycha x w kierunku niskiej energii. Szum zapobiega utknięciu. W równowadze rozkład próbek jest proporcjonalny do exp(-U(x)/temperature).
 
-### Step 4: Metropolis-Hastings
+### Krok 4: Metropolis-Hastings
 
 ```python
 def metropolis_hastings(target_log_prob, proposal_std, x0, n_samples, seed=None):
@@ -327,11 +332,11 @@ def metropolis_hastings(target_log_prob, proposal_std, x0, n_samples, seed=None)
     return np.array(samples), acceptance_rate
 ```
 
-The algorithm proposes a new point, checks if it has higher probability (or accepts with probability proportional to the ratio), and repeats. The acceptance rate should be around 23-50% for good mixing.
+Algorytm proponuje nowy punkt, sprawdza, czy ma wyższe prawdopodobieństwo (lub akceptuje z prawdopodobieństwem proporcjonalnym do stosunku), i powtarza. Wskaźnik akceptacji powinien wynosić około 23-50% dla dobrego mieszania.
 
-## Use It
+## Użyj tego
 
-In practice, you use established libraries for these algorithms. But understanding the mechanics matters for debugging and tuning.
+W praktyce używasz sprawdzonych bibliotek dla tych algorytmów. Ale rozumienie mechaniki jest ważne dla debugowania i dostrajania.
 
 ```python
 import numpy as np
@@ -343,7 +348,7 @@ print(f"Expected distance: {np.sqrt(10000):.1f}")
 print(f"Actual distance: {abs(walk[-1])}")
 ```
 
-### numpy for transition matrices
+### numpy dla macierzy przejścia
 
 ```python
 import numpy as np
@@ -359,15 +364,15 @@ for _ in range(100):
 print(f"Stationary distribution: {np.round(distribution, 4)}")
 ```
 
-Multiply the initial distribution by P repeatedly. After enough iterations, it converges to the stationary distribution regardless of where you started. This is the power method for finding the dominant left eigenvector.
+Pomnóż początkowy rozkład przez P wielokrotnie. Po wystarczającej liczbie iteracji zbiega do rozkładu stacjonarnego niezależnie od punktu startowego. To jest metoda potęgowa znajdowania dominującego lewego wektora własnego.
 
-### Connections to real frameworks
+### Połączenia z prawdziwymi frameworkami
 
-- **PyTorch diffusion:** The `DDPMScheduler` in Hugging Face `diffusers` implements the forward and reverse Markov chains
-- **NumPyro / PyMC:** Use MCMC (NUTS sampler, which improves on Metropolis-Hastings) for Bayesian inference
-- **Gymnasium (RL):** The environment step function defines a Markov decision process
+- **PyTorch diffusion:** `DDPMScheduler` w Hugging Face `diffusers` implementuje procesy w przód i wstecz Markowa
+- **NumPyro / PyMC:** Używają MCMC (próbkownik NUTS, który poprawia Metropolis-Hastings) do wnioskowania bayesowskiego
+- **Gymnasium (RL):** Funkcja step środowiska definiuje proces decyzyjny Markowa
 
-### Verifying Markov chain convergence
+### Weryfikacja zbieżności łańcucha Markowa
 
 ```python
 import numpy as np
@@ -381,77 +386,78 @@ print(f"Spectral gap: {spectral_gap:.4f}")
 print(f"Approximate mixing time: {1/spectral_gap:.1f} steps")
 ```
 
-The spectral gap tells you how fast the chain forgets its initial state. A gap of 0.2 means roughly 5 steps to mix. A gap of 0.01 means roughly 100 steps. Always check this before running long simulations -- a slowly mixing chain wastes compute.
+Przerwa spektralna mówi, jak szybko łańcuch zapomina swój początkowy stan. Przerwa 0.2 oznacza mniej więcej 5 kroków do wymieszania. Przerwa 0.01 oznacza mniej więcej 100 kroków. Zawsze to sprawdzaj przed uruchomieniem długich symulacji - wolno mieszający się łańcuch marnuje obliczenia.
 
-## Ship It
+## Wdróż to
 
-This lesson produces:
-- `outputs/prompt-stochastic-process-advisor.md` -- a prompt that helps identify which stochastic process framework applies to a given problem
+Ta lekcja tworzy:
 
-## Connections
+- `outputs/prompt-stochastic-process-advisor.md` - prompt, który pomaga zidentyfikować, który framework procesów stochastycznych ma zastosowanie do danego problemu
 
-| Concept | Where it shows up |
-|---------|------------------|
-| Random walk | Node2Vec graph embeddings, exploration in RL |
-| Markov chain | Token generation in LLMs, MCMC sampling |
-| Brownian motion | Forward diffusion process in DDPM, SDE-based models |
-| Langevin dynamics | Score-based generative models, stochastic gradient Langevin dynamics (SGLD) |
-| Stationary distribution | MCMC convergence target, PageRank |
-| Metropolis-Hastings | Bayesian posterior sampling, simulated annealing |
-| Temperature | LLM sampling, Boltzmann exploration in RL, simulated annealing |
-| Mixing time | Convergence speed of MCMC, spectral gap analysis |
-| Absorbing state | End-of-sequence token, terminal states in RL |
-| Detailed balance | Correctness guarantee for MCMC samplers |
+## Powiązania
 
-Diffusion models deserve special attention. DDPM (Ho et al., 2020) defines a forward Markov chain:
+| Koncepcja | Gdzie się pojawia |
+|-----------|-------------------|
+| Losowe błądzenie | Embeddingi grafów Node2Vec, eksploracja w RL |
+| Łańcuch Markowa | Generowanie tokenów w LLM, próbkowanie MCMC |
+| Ruch Browna | Proces dyfuzji w przód w DDPM, modele oparte na SDE |
+| Dynamika Langevina | Modele generatywne oparte na wyniku, stochastyczna dynamika gradientowa Langevina (SGLD) |
+| Rozkład stacjonarny | Cel zbieżności MCMC, PageRank |
+| Metropolis-Hastings | Próbkowanie posteriora bayesowskiego, symulowane wyżarzanie |
+| Temperatura | Próbkowanie LLM, eksploracja Boltzmanna w RL, symulowane wyżarzanie |
+| Czas mieszania | Szybkość zbieżności MCMC, analiza przerwy spektralnej |
+| Stan absorbujący | Token end-of-sequence, stany terminalne w RL |
+| Szczegółowa równowaga | Gwarancja poprawności dla próbkowników MCMC |
+
+Modele dyfuzji zasługują na szczególną uwagę. DDPM (Ho et al., 2020) definiuje proces w przód Markowa:
 
 ```
 q(x_t | x_{t-1}) = N(x_t; sqrt(1-beta_t) * x_{t-1}, beta_t * I)
 ```
 
-where beta_t is a noise schedule. After T steps, x_T is approximately N(0, I). The reverse process is parameterized by a neural network that predicts the noise:
+gdzie beta_t to harmonogram szumu. Po T krokach x_T to w przybliżeniu N(0, I). Proces odwrotny jest sparametryzowany przez sieć neuronową, która przewiduje szum:
 
 ```
 p_theta(x_{t-1} | x_t) = N(x_{t-1}; mu_theta(x_t, t), sigma_t^2 * I)
 ```
 
-Every step of generation is a step in a learned Markov chain. Understanding Markov chains means understanding how and why diffusion models generate data.
+Każdy krok generowania jest krokiem w nauczonym łańcuchu Markowa. Rozumienie łańcuchów Markowa oznacza rozumienie, jak i dlaczego modele dyfuzji generują dane.
 
-SGLD (Stochastic Gradient Langevin Dynamics) combines mini-batch gradient descent with Langevin noise. Instead of computing the full gradient, you use a stochastic estimate and add calibrated noise. As learning rate decays, SGLD transitions from optimization to sampling -- you get approximate Bayesian posterior samples for free. This is one of the simplest ways to get uncertainty estimates from a neural network.
+SGLD (Stochastyczna Dynamika Gradientowa Langevina) łączy spadek gradientowy mini-batch z szumem Langevina. Zamiast obliczać pełny gradient, używasz oszacowania stochastycznego i dodajesz skalibrowany szum. Gdy współczynnik uczenia się maleje, SGLD przechodzi od optymalizacji do próbkowania - otrzymujesz przybliżone próbki posteriora bayesowskiego za darmo. To jeden z najprostszych sposobów uzyskania oszacowań niepewności z sieci neuronowej.
 
-The key insight across all these connections: stochastic processes are not just theoretical tools. They are the computational mechanisms inside modern AI systems. When you tune the temperature of an LLM, you are adjusting a Markov chain. When you train a diffusion model, you are learning to reverse a Brownian-motion-like process. When you run Bayesian inference, you are constructing a chain that converges to the posterior.
+Kluczowy wgląd we wszystkich tych powiązaniach: procesy stochastyczne to nie tylko narzędzia teoretyczne. To mechanizmy obliczeniowe wewnątrz nowoczesnych systemów AI. Gdy dostrajasz temperaturę LLM, dostosowujesz łańcuch Markowa. Gdy trenujesz model dyfuzji, uczysz się odwracać proces podobny do ruchu Browna. Gdy przeprowadzasz wnioskowanie bayesowskie, konstruujesz łańcuch, który zbiega do posteriora.
 
-## Exercises
+## Ćwiczenia
 
-1. **Simulate 1000 random walks of 10000 steps.** Plot the distribution of final positions. Verify it is approximately Gaussian with mean 0 and standard deviation sqrt(10000) = 100.
+1. **Symuluj 1000 losowych błądzeń po 10000 kroków.** Narysuj rozkład pozycji końcowych. Sprawdź, że jest w przybliżeniu Gaussian z średnią 0 i odchyleniem standardowym sqrt(10000) = 100.
 
-2. **Build a text generator using a Markov chain.** Train on a small corpus: for each word, count transitions to the next word. Build the transition matrix. Generate new sentences by sampling from the chain.
+2. **Zbuduj generator tekstu używając łańcucha Markowa.** Trenuj na małym korpusie: dla każdego słowa policz przejścia do następnego słowa. Zbuduj macierz przejścia. Generuj nowe zdania, próbkując z łańcucha.
 
-3. **Implement simulated annealing** using Metropolis-Hastings. Start at high temperature (accept almost everything) and gradually cool down (accept only improvements). Use it to find the minimum of a function with many local minima.
+3. **Zaimplementuj symulowane wyżarzanie** używając Metropolis-Hastings. Zacznij od wysokiej temperatury (akceptuj prawie wszystko) i stopniowo chłodź (akceptuj tylko poprawy). Użyj tego do znalezienia minimum funkcji z wieloma minimami lokalnymi.
 
-4. **Compare Langevin dynamics at different temperatures.** Sample from a double-well potential U(x) = (x^2 - 1)^2. At low temperature, samples cluster in one well. At high temperature, they spread across both. Find the critical temperature where the chain mixes between wells.
+4. **Porównaj dynamikę Langevina przy różnych temperaturach.** Próbkuj z potencjałem dwu-dołkowym U(x) = (x^2 - 1)^2. Przy niskiej temperaturze próbki grupują się w jednym dołku. Przy wysokiej temperaturze rozprzestrzeniają się po obu. Znajdź temperaturę krytyczną, przy której łańcuch miesza się między dołkami.
 
-5. **Implement the forward diffusion process.** Start with a 1D signal (e.g., a sine wave). Add noise progressively over 100 steps with a linear noise schedule. Show how the signal degrades to pure noise. Then implement a simple denoiser that reverses the process (even a naive one that just subtracts the estimated noise).
+5. **Zaimplementuj proces dyfuzji w przód.** Zacznij od sygnału 1D (np. sinusoidy). Dodawaj szum stopniowo przez 100 kroków z liniowym harmonogramem szumu. Pokaż, jak sygnał degraduje się do czystego szumu. Następnie zaimplementuj prosty odszumiacz, który odwraca proces (nawet naiwny, który po prostu odejmuje szacowany szum).
 
-## Key Terms
+## Kluczowe pojęcia
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Random walk | "Coin-flip movement" | A process where position changes by random increments at each step |
-| Markov property | "Memoryless" | The future depends only on the present state, not on the history |
-| Transition matrix | "The probability table" | P[i][j] = probability of moving from state i to state j |
-| Stationary distribution | "The long-run average" | The distribution pi where pi*P = pi -- the chain's equilibrium |
-| Brownian motion | "Random jiggling" | The continuous-time limit of a random walk, B(t) ~ N(0, t) |
-| Langevin dynamics | "Gradient descent with noise" | Update rule that combines deterministic gradient and random perturbation |
-| MCMC | "Walking toward the target" | Constructing a Markov chain whose stationary distribution is the one you want |
-| Metropolis-Hastings | "Propose and accept/reject" | MCMC algorithm that uses acceptance ratios to ensure convergence |
-| Temperature | "The randomness knob" | Parameter controlling the tradeoff between exploration and exploitation |
-| Diffusion process | "Noise in, noise out" | Forward: gradually add noise. Reverse: gradually remove it. Generates data. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|--------------------------|
+| Losowe błądzenie | "Ruch rzutu monetą" | Proces, gdzie pozycja zmienia się o losowe przyrosty przy każdym kroku |
+| Właściwość Markowa | "Bezpamięciowy" | Przyszłość zależy tylko od obecnego stanu, nie od historii |
+| Macierz przejścia | "Tabela prawdopodobieństw" | P[i][j] = prawdopodobieństwo przejścia ze stanu i do stanu j |
+| Rozkład stacjonarny | "Długoterminowa średnia" | Rozkład pi, gdzie pi*P = pi - równowaga łańcucha |
+| Ruch Browna | "Losowe podrygiwanie" | Granica w czasie ciągłym losowego błądzenia, B(t) ~ N(0, t) |
+| Dynamika Langevina | "Spadek gradientowy z szumem" | Reguła aktualizacji łącząca deterministyczny gradient i losowe zaburzenie |
+| MCMC | "Błądzenie w kierunku celu" | Konstruowanie łańcucha Markowa, którego rozkład stacjonarny jest tym, którego chcesz |
+| Metropolis-Hastings | "Zaproponuj i zaakceptuj/odrzuć" | Algorytm MCMC, który używa współczynników akceptacji, aby zapewnić zbieżność |
+| Temperatura | "Pokrętło losowości" | Parametr kontrolujący kompromis między eksploracją a eksploatacją |
+| Proces dyfuzji | "Szum w, szum out" | W przód: stopniowo dodawaj szum. Wstecz: stopniowo go usuwaj. Generuje dane. |
 
-## Further Reading
+## Dalsza lektura
 
-- **Ho, Jain, Abbeel (2020)** -- "Denoising Diffusion Probabilistic Models." The DDPM paper that launched the diffusion model revolution. Clear derivation of the forward and reverse Markov chains.
-- **Song & Ermon (2019)** -- "Generative Modeling by Estimating Gradients of the Data Distribution." Score-based approach using Langevin dynamics for sampling.
-- **Roberts & Rosenthal (2004)** -- "General state space Markov chains and MCMC algorithms." The theory behind when and why MCMC works.
-- **Norris (1997)** -- "Markov Chains." The standard textbook. Covers convergence, stationary distributions, and hitting times.
-- **Welling & Teh (2011)** -- "Bayesian Learning via Stochastic Gradient Langevin Dynamics." Combines SGD with Langevin dynamics for scalable Bayesian inference.
+- **Ho, Jain, Abbeel (2020)** -- "Denoising Diffusion Probabilistic Models." Artykuł DDPM, który zapoczątkował rewolucję modeli dyfuzji. Jasne wyprowadzenie procesów Markowa w przód i wstecz.
+- **Song & Ermon (2019)** -- "Generative Modeling by Estimating Gradients of the Data Distribution." Podejście oparte na wyniku używające dynamiki Langevina do próbkowania.
+- **Roberts & Rosenthal (2004)** -- "General state space Markov chains and MCMC algorithms." Teoria kryjąca się za tym, kiedy i dlaczego MCMC działa.
+- **Norris (1997)** -- "Markov Chains." Standardowy podręcznik. Obejmuje zbieżność, rozkłady stacjonarne i czasy dotarcia.
+- **Welling & Teh (2011)** -- "Bayesian Learning via Stochastic Gradient Langevin Dynamics." Łączy SGD z dynamiką Langevina dla skalowalnego wnioskowania bayesowskiego.

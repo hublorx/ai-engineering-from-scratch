@@ -1,43 +1,43 @@
-# Dev Environment
+# Srodowisko programistyczne
 
-> Your tools shape your thinking. Set them up once, set them up right.
+> Twoje narzędzia kształtują sposób myślenia. Skonfiguruj je raz, skonfiguruj je porządnie.
 
-**Type:** Build
-**Languages:** Python, Node.js, Rust
-**Prerequisites:** None
-**Time:** ~45 minutes
+**Typ:** Budowa
+**Języki:** Python, Node.js, Rust
+**Wymagania wstępne:** Brak
+**Czas:** ~45 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Set up Python 3.11+, Node.js 20+, and Rust toolchains from scratch
-- Configure virtual environments and package managers for reproducible builds
-- Verify GPU access with CUDA/MPS and run a test tensor operation
-- Understand the four-layer stack: system, packages, runtimes, AI libraries
+- Skonfiguruj Python 3.11+, Node.js 20+ i Rust od zera
+- Skonfiguruj środowiska wirtualne i menedżery pakietów dla powtarzalnych buildów
+- Zweryfikuj dostęp do GPU z CUDA/MPS i uruchom testową operację tensorową
+- Zrozum czterowarstwową architekturę: system, pakiety, runtime'y, biblioteki AI
 
-## The Problem
+## Problem
 
-You're about to learn AI engineering across 200+ lessons using Python, TypeScript, Rust, and Julia. If your environment is broken, every single lesson becomes a fight against tooling instead of learning.
+Zamierzasz uczyć się inżynierii AI przez ponad 200 lekcji używając Pythona, TypeScript, Rust i Julia. Jeśli środowisko jest zepsute, każda lekcja staje się walką z narzędziami zamiast nauką.
 
-Most people skip environment setup. Then they spend hours debugging import errors, version conflicts, and missing CUDA drivers. We're going to do this once, properly.
+Większość ludzi pomija konfigurację środowiska. Potem spędzają godziny na debugowaniu błędów importu, konfliktów wersji i brakujących sterowników CUDA. Zrobimy to raz, porządnie.
 
-## The Concept
+## Koncepcja
 
-An AI engineering environment has four layers:
+Środowisko inżynierii AI ma cztery warstwy:
 
 ```mermaid
 graph TD
-    A["4. AI/ML Libraries\nPyTorch, JAX, transformers, etc."] --> B["3. Language Runtimes\nPython 3.11+, Node 20+, Rust, Julia"]
-    B --> C["2. Package Managers\nuv, pnpm, cargo, juliaup"]
-    C --> D["1. System Foundation\nOS, shell, git, editor, GPU drivers"]
+    A["4. Biblioteki AI/ML\nPyTorch, JAX, transformers, itp."] --> B["3. Runtime'y jezykowe\nPython 3.11+, Node 20+, Rust, Julia"]
+    B --> C["2. Menedżery pakietów\nuv, pnpm, cargo, juliaup"]
+    C --> D["1. Fundament systemu\nOS, shell, git, edytor, sterowniki GPU"]
 ```
 
-We install bottom-up. Each layer depends on the one below it.
+Instalujemy od dołu. Każda warstwa zależy od tej poniżej.
 
-## Build It
+## Zbuduj to
 
-### Step 1: System Foundation
+### Krok 1: Fundament systemu
 
-Check your system and install the basics.
+Sprawdź system i zainstaluj podstawy.
 
 ```bash
 # macOS
@@ -51,9 +51,9 @@ sudo apt update && sudo apt install -y build-essential git curl wget
 wsl --install -d Ubuntu-24.04
 ```
 
-### Step 2: Python with uv
+### Krok 2: Python z uv
 
-We use `uv` — it's 10-100x faster than pip and handles virtual environments automatically.
+Używamy `uv` - jest 10-100x szybszy niż pip i automatycznie obsługuje środowiska wirtualne.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -66,7 +66,7 @@ source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 uv pip install numpy matplotlib jupyter
 ```
 
-Verify:
+Zweryfikuj:
 
 ```python
 import sys
@@ -78,9 +78,9 @@ a = np.array([1, 2, 3])
 print(f"Vector: {a}, dot product with itself: {np.dot(a, a)}")
 ```
 
-### Step 3: Node.js with pnpm
+### Krok 3: Node.js z pnpm
 
-For TypeScript lessons (agents, MCP servers, web apps).
+Dla lekcji TypeScript (agenci, serwery MCP, aplikacje webowe).
 
 ```bash
 curl -fsSL https://fnm.vercel.app/install | bash
@@ -92,9 +92,9 @@ npm install -g pnpm
 node -e "console.log('Node', process.version)"
 ```
 
-### Step 4: Rust
+### Krok 4: Rust
 
-For performance-critical lessons (inference, systems).
+Dla lekcji wymagających wydajności (inferencja, systemy).
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -103,9 +103,9 @@ rustc --version
 cargo --version
 ```
 
-### Step 5: Julia (Optional)
+### Krok 5: Julia (opcjonalnie)
 
-For math-heavy lessons where Julia shines.
+Dla lekcji matematycznych gdzie Julia się wyróżnia.
 
 ```bash
 curl -fsSL https://install.julialang.org | sh
@@ -113,13 +113,13 @@ curl -fsSL https://install.julialang.org | sh
 julia -e 'println("Julia ", VERSION)'
 ```
 
-### Step 6: GPU Setup (If You Have One)
+### Krok 6: Konfiguracja GPU (jesli masz)
 
 ```bash
 # NVIDIA
 nvidia-smi
 
-# Install PyTorch with CUDA
+# Zainstaluj PyTorch z CUDA
 uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
 
@@ -130,35 +130,35 @@ if torch.cuda.is_available():
     print(f"GPU: {torch.cuda.get_device_name(0)}")
 ```
 
-No GPU? No problem. Most lessons work on CPU. For training-heavy lessons, use Google Colab or cloud GPUs.
+Nie masz GPU? Nie problem. Większość lekcji działa na CPU. Dla intensywnych treningów używaj Google Colab lub chmurowych GPU.
 
-### Step 7: Verify Everything
+### Krok 7: Zweryfikuj wszystko
 
-Run the verification script:
+Uruchom skrypt weryfikacyjny:
 
 ```bash
 python phases/00-setup-and-tooling/01-dev-environment/code/verify.py
 ```
 
-## Use It
+## Użyj tego
 
-Your environment is now ready for every lesson in this course. Here's what you'll use where:
+Środowisko jest gotowe na każdą lekcję tego kursu. Oto gdzie co użyjesz:
 
-| Language | Used In | Package Manager |
+| Język | Używane w | Menedżer pakietów |
 |----------|---------|-----------------|
-| Python | Phases 1-12 (ML, DL, NLP, Vision, Audio, LLMs) | uv |
-| TypeScript | Phases 13-17 (Tools, Agents, Swarms, Infra) | pnpm |
-| Rust | Phases 12, 15-17 (Performance-critical systems) | cargo |
-| Julia | Phase 1 (Math foundations) | Pkg |
+| Python | Fazy 1-12 (ML, DL, NLP, Vision, Audio, LLM) | uv |
+| TypeScript | Fazy 13-17 (Tools, Agents, Swarms, Infra) | pnpm |
+| Rust | Fazy 12, 15-17 (systemy krytyczne dla wydajności) | cargo |
+| Julia | Faza 1 (podstawy matematyki) | Pkg |
 
-## Ship It
+## Dystrybuuj to
 
-This lesson produces a verification script that anyone can run to check their setup.
+Ta lekcja wytwarza skrypt weryfikacyjny który każdy może uruchomić żeby sprawdzić swoje środowisko.
 
-See `outputs/prompt-env-check.md` for a prompt that helps AI assistants diagnose environment issues.
+Zobacz `outputs/prompt-env-check.md` - prompt który pomaga AI asystentom diagnozować problemy ze środowiskiem.
 
-## Exercises
+## Ćwiczenia
 
-1. Run the verification script and fix any failures
-2. Create a Python virtual environment for this course and install PyTorch
-3. Write a "hello world" in all four languages and run each one
+1. Uruchom skrypt weryfikacyjny i napraw wszystkie błędy
+2. Stwórz środowisko wirtualne Python dla tego kursu i zainstaluj PyTorch
+3. Napisz "hello world" w czterech językach i uruchom każdy

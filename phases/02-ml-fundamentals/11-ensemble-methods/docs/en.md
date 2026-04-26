@@ -1,47 +1,61 @@
-# Ensemble Methods
+<think>
+The user wants me to translate this lesson about Ensemble Methods from English to Polish. I need to follow the translation rules provided:
 
-> A group of weak learners, combined correctly, becomes a strong learner. This is not a metaphor. It is a theorem.
+1. Stay in English for IT/AI terms, function names, variables, imports, etc.
+2. Translate section headers like Learning Objectives, Summary, Exercise, etc.
+3. Don't translate code blocks
+4. Add commas before "że", "bo", "który", etc.
+5. Polish diacritics must be correct
+6. Minimal intervention - don't improve or shorten
+7. Polish characters must be correct (no Chinese/Cyrillic)
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 2, Lesson 10 (Bias-Variance Tradeoff)
-**Time:** ~120 minutes
+Let me translate this carefully, section by section.
+</think>
 
-## Learning Objectives
+# Metody Ansamblowe
 
-- Implement AdaBoost and gradient boosting from scratch and explain how boosting sequentially reduces bias
-- Build a bagging ensemble and demonstrate how averaging decorrelated models reduces variance without increasing bias
-- Compare bagging, boosting, and stacking in terms of what error component each method targets
-- Evaluate ensemble diversity and explain why majority voting accuracy improves with more independent weak learners
+> Grupa słabych uczestników, połączona poprawnie, staje się silnym uczestnikiem. To nie metafora. To twierdzenie.
 
-## The Problem
+**Typ:** Build
+**Język:** Python
+**Wymagania wstępne:** Faza 2, Lekcja 10 (Tradeoff Bias-Wariancja)
+**Czas:** ~120 minut
 
-A single decision tree is fast to train and easy to interpret, but it overfits. A single linear model underfits on complex boundaries. You could spend days engineering the perfect model architecture. Or you could combine a bunch of imperfect models and get something better than any of them individually.
+## Cele uczenia się
 
-Ensemble methods do exactly this. They are the most reliable technique for winning Kaggle competitions on tabular data, they power most production ML systems, and they illustrate the bias-variance tradeoff in action. Bagging reduces variance. Boosting reduces bias. Stacking learns which models to trust on which inputs.
+- Zaimplementuj AdaBoost i gradient boosting od zera i wyjaśnij, jak boosting sekwencyjnie redukuje bias
+- Zbuduj ansambl bagging i demonstruj, jak uśrednianie dekorelowanych modeli redukuje wariancję bez zwiększania bias
+- Porównaj bagging, boosting i stacking pod względem tego, który składnik błędu każda metoda celuje
+- Oceń różnorodność ansamblu i wyjaśnij, dlaczego dokładność głosowania większościowego poprawia się wraz z większą liczbą niezależnych słabych uczestników
 
-## The Concept
+## Problem
 
-### Why Ensembles Work
+Pojedyncze drzewo decyzyjne jest szybkie w trenowaniu i łatwe do interpretacji, ale przeucza się. Pojedynczy model liniowy niedoucza się na złożonych granicach. Możesz spędzić dni na inżynierowaniu idealnej architektury modelu. Albo możesz połączyć grupę niedoskonałych modeli i uzyskać coś lepszego niż cokolwiek indywidualnie.
 
-Suppose you have N independent classifiers, each with accuracy p > 0.5. The majority vote has accuracy:
+Metody ansamblowe robią dokładnie to. Są najbardziej niezawodną techniką wygrywania konkursów Kaggle na danych tabelarycznych, napędzają większość produkcyjnych systemów ML i ilustrują tradeoff bias-wariancja w działaniu. Bagging redukuje wariancję. Boosting redukuje bias. Stacking uczy się, którym modelom ufać przy których danych wejściowych.
+
+## Koncepcja
+
+### Dlaczego ansamble działają
+
+Załóżmy, że masz N niezależnych klasyfikatorów, z których każdy ma dokładność p > 0.5. Głosowanie większościowe ma dokładność:
 
 ```
 P(majority correct) = sum over k > N/2 of C(N,k) * p^k * (1-p)^(N-k)
 ```
 
-For 21 classifiers each with 60% accuracy, majority vote accuracy is about 74%. With 101 classifiers, it rises to 84%. The errors cancel out when the models make different mistakes.
+Dla 21 klasyfikatorów, każdy z dokładnością 60%, dokładność głosowania większościowego wynosi około 74%. Przy 101 klasyfikatorach rośnie do 84%. Błędy znoszą się, gdy modele popełniają różne błędy.
 
-The key requirement is **diversity**. If all models make the same errors, combining them helps nothing. Ensembles work because they produce diverse models through:
+Kluczowym wymaganiem jest **różnorodność**. Jeśli wszystkie modele popełniają te same błędy, łączenie ich nic nie daje. Ansamble działają, ponieważ produkują zróżnicowane modele poprzez:
 
-- Different training subsets (bagging)
-- Different feature subsets (random forests)
-- Sequential error correction (boosting)
-- Different model families (stacking)
+- Różne podzbiory treningowe (bagging)
+- Różne podzbiory cech (lasy losowe)
+- Sekwencyjną korekcję błędów (boosting)
+- Różne rodziny modeli (stacking)
 
 ### Bagging (Bootstrap Aggregating)
 
-Bagging creates diversity by training each model on a different bootstrap sample of the training data.
+Bagging tworzy różnorodność poprzez trenowanie każdego modelu na innym bootstrapowym przykładzie danych treningowych.
 
 ```mermaid
 flowchart TD
@@ -63,15 +77,15 @@ flowchart TD
     V --> P[Final Prediction]
 ```
 
-A bootstrap sample is drawn with replacement from the original data, same size as the original. About 63.2% of unique samples appear in each bootstrap. The remaining 36.8% (out-of-bag samples) provide a free validation set.
+Bootstrap sample jest losowany z powtórzeniami z oryginalnych danych, w tym samym rozmiarze co oryginalne. Około 63.2% unikalnych próbek pojawia się w każdym bootstrapie. Pozostałe 36.8% (próbki out-of-bag) zapewniają darmowy zbiór walidacyjny.
 
-Bagging reduces variance without increasing bias much. Each individual tree overfits to its bootstrap sample, but the overfitting is different for each tree, so averaging cancels out the noise.
+Bagging redukuje wariancję bez znacznego zwiększania bias. Każde pojedyncze drzewo przeucza się do swojego bootstrapowego próbki, ale przeuczanie jest różne dla każdego drzewa, więc uśrednianie znosi szum.
 
-**Random Forests** are bagging with an extra twist: at each split, only a random subset of features is considered. This forces even more diversity among trees. The typical number of candidate features is `sqrt(n_features)` for classification and `n_features / 3` for regression.
+**Lasy Losowe** to bagging z dodatkowym trikiem: przy każdym podziale rozważany jest tylko losowy podzbiór cech. To wymusza jeszcze większą różnorodność między drzewami. Typowa liczba kandydujących cech to `sqrt(n_features)` dla klasyfikacji i `n_features / 3` dla regresji.
 
-### Boosting (Sequential Error Correction)
+### Boosting (Sekwencyjna Korekcja Błędów)
 
-Boosting trains models sequentially. Each new model focuses on the examples that previous models got wrong.
+Boosting trenuje modele sekwencyjnie. Każdy nowy model koncentruje się na przykładach, które poprzednie modele źle zaklasyfikowały.
 
 ```mermaid
 flowchart LR
@@ -85,15 +99,15 @@ flowchart LR
     M3 --> F[Weighted sum of all models]
 ```
 
-Boosting reduces bias. Each new model corrects the systematic errors of the ensemble so far. The final prediction is a weighted sum of all models, where better models get higher weights.
+Boosting redukuje bias. Każdy nowy model koryguje systematyczne błędy ansamblu do tej pory. Ostateczna predykcja to ważona suma wszystkich modeli, gdzie lepsze modele otrzymują wyższe wagi.
 
-The tradeoff: boosting can overfit if you run too many rounds, because it keeps fitting harder examples, some of which may be noise.
+Kompromis: boosting może przeuczyć się, jeśli uruchomisz zbyt wiele rund, ponieważ ciągle dopasowuje trudniejsze przykłady, z których niektóre mogą być szumem.
 
 ### AdaBoost
 
-AdaBoost (Adaptive Boosting) was the first practical boosting algorithm. It works with any base learner, typically decision stumps (depth-1 trees).
+AdaBoost (Adaptive Boosting) był pierwszym praktycznym algorytmem boosting. Działa z dowolnym bazowym uczestnikiem, typowo pniaczkami decyzyjnymi (drzewa głębokości 1).
 
-The algorithm:
+Algorytm:
 
 ```
 1. Initialize sample weights: w_i = 1/N for all i
@@ -111,11 +125,11 @@ The algorithm:
 3. Final prediction: H(x) = sign(sum(alpha_t * h_t(x)))
 ```
 
-Models with lower error get higher alpha. Misclassified samples get higher weights so the next model focuses on them.
+Modele z niższym błędem otrzymują wyższe alpha. Błędnie zaklasyfikowane próbki otrzymują wyższe wagi, więc następny model się na nich koncentruje.
 
 ### Gradient Boosting
 
-Gradient boosting generalizes boosting to arbitrary loss functions. Instead of reweighting samples, it fits each new model to the residuals (negative gradient of the loss) of the current ensemble.
+Gradient boosting uogólnia boosting na dowolne funkcje straty. Zamiast przeważać próbki, dopasowuje każdy nowy model do residuów (ujemny gradient funkcji straty) aktualnego ansamblu.
 
 ```
 1. Initialize: F_0(x) = argmin_c sum(L(y_i, c))
@@ -132,26 +146,26 @@ Gradient boosting generalizes boosting to arbitrary loss functions. Instead of r
 3. Final prediction: F_T(x)
 ```
 
-For squared error loss, the pseudo-residuals are just the actual residuals: `r_i = y_i - F_{t-1}(x_i)`. Each tree literally fits the errors of the previous ensemble.
+Dla funkcji straty błędu średniokwadratowego, pseudo-residua to po prostu rzeczywiste residua: `r_i = y_i - F_{t-1}(x_i)`. Każde drzewo dosłownie dopasowuje błędy poprzedniego ansamblu.
 
-The learning rate (shrinkage) controls how much each tree contributes. Smaller learning rates require more trees but generalize better. Typical values: 0.01 to 0.3.
+Learning rate (skurcz) kontroluje, ile każde drzewo wnosi. Mniejsze learning rate wymagają więcej drzew, ale lepiej uogólniają. Typowe wartości: 0.01 do 0.3.
 
-### XGBoost: Why It Dominates Tabular Data
+### XGBoost: Dlaczego Dominuje w Danych Tabelarycznych
 
-XGBoost (eXtreme Gradient Boosting) is gradient boosting with engineering optimizations that make it fast, accurate, and resistant to overfitting:
+XGBoost (eXtreme Gradient Boosting) to gradient boosting z optymalizacjami inżynieryjnymi, które czynią go szybkim, dokładnym i odpornym na przeuczanie:
 
-- **Regularized objective:** L1 and L2 penalties on leaf weights prevent individual trees from being too confident
-- **Second-order approximation:** Uses both first and second derivatives of the loss, giving better split decisions
-- **Sparsity-aware splits:** Handles missing values natively by learning the best direction for missing data at each split
-- **Column subsampling:** Like random forests, samples features at each split for diversity
-- **Weighted quantile sketch:** Efficiently finds split points for continuous features on distributed data
-- **Cache-aware block structure:** Memory layout optimized for CPU cache lines
+- **Zregularizowana funkcja celu:** Kary L1 i L2 na wagach liści zapobiegają temu, by pojedyncze drzewa były zbyt pewne
+- **Aproksymacja drugiego rzędu:** Używa zarówno pierwszej, jak i drugiej pochodnej funkcji straty, dając lepsze decyzje podziału
+- **Podziały świadome rzadkości:** Natywnie obsługuje brakujące wartości poprzez uczenie się najlepszego kierunku dla brakujących danych przy każdym podziale
+- **Subsampling kolumn:** Jak w lasach losowych, próbkuje cechy przy każdym podziale dla różnorodności
+- **Weighted quantile sketch:** Efektywnie znajduje punkty podziału dla ciągłych cech na danych rozproszonych
+- **Cache-aware block structure:** Układ pamięci zoptymalizowany dla linii cache CPU
 
-For tabular data, XGBoost (and its successor LightGBM) consistently outperforms neural networks. This is not changing anytime soon. If your data fits in a table with rows and columns, start with gradient boosting.
+Dla danych tabelarycznych, XGBoost (i jego następca LightGBM) konsekwentnie przewyższa sieci neuronowe. To się nie zmieni w najbliższym czasie. Jeśli twoje dane pasują do tabeli z wierszami i kolumnami, zacznij od gradient boosting.
 
-### Stacking (Meta-Learning)
+### Stacking (Meta-Uczenie)
 
-Stacking uses the predictions of multiple base models as features for a meta-learner.
+Stacking używa predykcji wielu bazowych modeli jako cech dla meta-ucznia.
 
 ```mermaid
 flowchart TD
@@ -170,22 +184,22 @@ flowchart TD
     META --> F[Final Prediction]
 ```
 
-The meta-learner learns which base model to trust for which inputs. If the random forest is better at certain regions and the SVM at others, the meta-learner will learn to route accordingly.
+Meta-learner uczy się, który bazowy model ufać dla których danych wejściowych. Jeśli las losowy jest lepszy w pewnych regionach, a SVM w innych, meta-learner nauczy się odpowiednio kierować.
 
-To avoid data leakage, base model predictions must be generated via cross-validation on the training set. You never train base models and generate meta-features on the same data.
+Aby uniknąć przecieku danych, predykcje bazowego modelu muszą być generowane przez cross-validation na zbiorze treningowym. Nigdy nie trenujesz bazowych modeli i nie generujesz meta-cech na tych samych danych.
 
 ### Voting
 
-The simplest ensemble. Just combine predictions directly.
+Najprostszy ansambl. Po prostu łączy predykcje bezpośrednio.
 
-- **Hard voting:** Majority vote on class labels.
-- **Soft voting:** Average predicted probabilities, pick the class with highest average probability. Usually better because it uses confidence information.
+- **Hard voting:** Głosowanie większościowe na etykietach klas.
+- **Soft voting:** Uśrednianie przewidywanych prawdopodobieństw, wybór klasy z najwyższym średnim prawdopodobieństwem. Zwykle lepsze, ponieważ używa informacji o pewności.
 
-## Build It
+## Zbuduj To
 
-### Step 1: Decision Stump (Base Learner)
+### Krok 1: Pień Decyzyjny (Bazowy Uczestnik)
 
-The code in `code/ensembles.py` implements everything from scratch. We start with a decision stump: a tree with a single split.
+Kod w `code/ensembles.py` implementuje wszystko od zera. Zaczynamy od pnia decyzyjnego: drzewa z pojedynczym podziałem.
 
 ```python
 class DecisionStump:
@@ -220,7 +234,7 @@ class DecisionStump:
         return pred
 ```
 
-### Step 2: AdaBoost from Scratch
+### Krok 2: AdaBoost od Zera
 
 ```python
 class AdaBoostScratch:
@@ -254,7 +268,7 @@ class AdaBoostScratch:
         return np.sign(total)
 ```
 
-### Step 3: Gradient Boosting from Scratch
+### Krok 3: Gradient Boosting od Zera
 
 ```python
 class GradientBoostingScratch:
@@ -284,13 +298,13 @@ class GradientBoostingScratch:
         return pred
 ```
 
-### Step 4: Compare against sklearn
+### Krok 4: Porównaj z sklearn
 
-The code verifies that our from-scratch implementations produce similar accuracy to sklearn's `AdaBoostClassifier` and `GradientBoostingClassifier`, and compares all methods side by side.
+Kod weryfikuje, że nasze implementacje od zera produkują podobną dokładność do sklearn's `AdaBoostClassifier` i `GradientBoostingClassifier`, i porównuje wszystkie metody obok siebie.
 
-## Use It
+## Użyj To
 
-### When to Use Each Method
+### Kiedy Używać Każdej Metody
 
 | Method | Reduces | Best for | Watch out for |
 |--------|---------|----------|---------------|
@@ -301,34 +315,34 @@ The code verifies that our from-scratch implementations produce similar accuracy
 | Stacking | Both | Getting last 1-2% accuracy | Complex, risk of overfitting meta-learner |
 | Voting | Variance | Quick combination of diverse models | Only helps if models are diverse |
 
-### The Production Stack for Tabular Data
+### Stack Produkcji dla Danych Tabelarycznych
 
-For most tabular prediction problems, this is the order to try:
+Dla większości problemów predykcji tabelarycznej, oto kolejność do wypróbowania:
 
-1. **LightGBM or XGBoost** with default parameters
-2. Tune n_estimators, learning_rate, max_depth, min_child_weight
-3. If you need the last 0.5%, build a stacking ensemble with 3-5 diverse models
-4. Use cross-validation throughout
+1. **LightGBM lub XGBoost** z domyślnymi parametrami
+2. Dostrój n_estimators, learning_rate, max_depth, min_child_weight
+3. Jeśli potrzebujesz ostatnich 0.5%, zbuduj ansambl stacking z 3-5 zróżnicowanymi modelami
+4. Używaj cross-validation throughout
 
-Neural networks on tabular data are almost always worse than gradient boosting, despite continued research attempts. TabNet, NODE, and similar architectures occasionally match but rarely beat a well-tuned XGBoost.
+Sieci neuronowe na danych tabelarycznych są prawie zawsze gorsze niż gradient boosting, mimo ciągłych prób badawczych. TabNet, NODE i podobne architektury sporadycznie dorównują, ale rzadko przewyższają dobrze dostrojony XGBoost.
 
-## Ship It
+## Wyślij To
 
-This lesson produces `outputs/prompt-ensemble-selector.md` -- a prompt that helps you pick the right ensemble method for a given dataset. Describe your data (size, feature types, noise level, class balance) and the problem you are solving. The prompt walks through a decision checklist, recommends a method, suggests starting hyperparameters, and warns about common mistakes for that method. Also produces `outputs/skill-ensemble-builder.md` with the full selection guide.
+Ta lekcja tworzy `outputs/prompt-ensemble-selector.md` -- prompt, który pomaga wybrać właściwą metodę ansamblową dla danego zbioru danych. Opisz swoje dane (rozmiar, typy cech, poziom szumu, balans klas) i problem, który rozwiązujesz. Prompt przechodzi przez listę kontrolną decyzji, zaleca metodę, sugeruje starting hyperparameters i ostrzega o typowych błędach dla tej metody. Tworzy również `outputs/skill-ensemble-builder.md` z pełnym przewodnikiem wyboru.
 
-## Exercises
+## Ćwiczenia
 
-1. Modify the AdaBoost implementation to track training accuracy after each round. Plot accuracy vs. number of estimators. When does it converge?
+1. Zmodyfikuj implementację AdaBoost, aby śledziła dokładność treningu po każdej rundzie. Wykreśl dokładność vs. liczbę estimatorów. Kiedy się zbiega?
 
-2. Implement a random forest from scratch by adding random feature subsampling to the regression tree. Train 100 trees with `max_features=sqrt(n_features)` and average predictions. Compare variance reduction to a single tree.
+2. Zaimplementuj las losowy od zera, dodając losowy subsampling cech do drzewa regresji. Trenuj 100 drzew z `max_features=sqrt(n_features)` i uśredniaj predykcje. Porównaj redukcję wariancji do pojedynczego drzewa.
 
-3. In the gradient boosting implementation, add early stopping: track validation loss after each round and stop when it has not improved for 10 consecutive rounds. How many trees does it actually need?
+3. W implementacji gradient boosting dodaj early stopping: śledź loss walidacyjny po każdej rundzie i zatrzymaj, gdy nie poprawił się przez 10 kolejnych rund. Ile drzew faktycznie potrzebuje?
 
-4. Build a stacking ensemble with three base models (logistic regression, decision tree, k-nearest neighbors) and a logistic regression meta-learner. Use 5-fold cross-validation to generate meta-features. Compare to each base model alone.
+4. Zbuduj ansambl stacking z trzema bazowymi modelami (regresja logistyczna, drzewo decyzyjne, k-najbliższych sąsiadów) i meta-learnerem regresji logistycznej. Użyj 5-fold cross-validation do generowania meta-cech. Porównaj do każdego bazowego modelu osobno.
 
-5. Run XGBoost on the same dataset with default parameters. Compare its accuracy to your from-scratch gradient boosting. Time both. How large is the speed difference?
+5. Uruchom XGBoost na tym samym zbiorze danych z domyślnymi parametrami. Porównaj jego dokładność do twojego gradient boosting od zera. Zmierz czas obu. Jak duża jest różnica prędkości?
 
-## Key Terms
+## Kluczowe Terminy
 
 | Term | What people say | What it actually means |
 |------|----------------|----------------------|
@@ -342,10 +356,10 @@ This lesson produces `outputs/prompt-ensemble-selector.md` -- a prompt that help
 | Ensemble diversity | "Make different mistakes" | Models must be uncorrelated in their errors for the ensemble to improve over individuals |
 | Out-of-bag error | "Free validation" | Samples not in a bootstrap draw (~36.8%) serve as a validation set without needing a holdout |
 
-## Further Reading
+## Dalsze Czytanie
 
-- [Schapire & Freund: Boosting: Foundations and Algorithms](https://mitpress.mit.edu/9780262526036/) -- the book by AdaBoost's creators
-- [Friedman: Greedy Function Approximation: A Gradient Boosting Machine (2001)](https://statweb.stanford.edu/~jhf/ftp/trebst.pdf) -- the original gradient boosting paper
-- [Chen & Guestrin: XGBoost (2016)](https://arxiv.org/abs/1603.02754) -- the XGBoost paper
-- [Wolpert: Stacked Generalization (1992)](https://www.sciencedirect.com/science/article/abs/pii/S0893608005800231) -- the original stacking paper
-- [scikit-learn Ensemble Methods](https://scikit-learn.org/stable/modules/ensemble.html) -- practical reference
+- [Schapire & Freund: Boosting: Foundations and Algorithms](https://mitpress.mit.edu/9780262526036/) -- książka twórców AdaBoost
+- [Friedman: Greedy Function Approximation: A Gradient Boosting Machine (2001)](https://statweb.stanford.edu/~jhf/ftp/trebst.pdf) -- oryginalny artykuł o gradient boosting
+- [Chen & Guestrin: XGBoost (2016)](https://arxiv.org/abs/1603.02754) -- artykuł o XGBoost
+- [Wolpert: Stacked Generalization (1992)](https://www.sciencedirect.com/science/article/abs/pii/S0893608005800231) -- oryginalny artykuł o stacking
+- [scikit-learn Ensemble Methods](https://scikit-learn.org/stable/modules/ensemble.html) -- praktyczne odniesienie

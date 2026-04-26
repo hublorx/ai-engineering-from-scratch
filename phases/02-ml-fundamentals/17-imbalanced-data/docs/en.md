@@ -1,61 +1,61 @@
-# Handling Imbalanced Data
+# Obsługa Niezbalansowanych Danych
 
-> When 99% of your data is "normal," accuracy is a lie.
+> Gdy 99% twoich danych to "normalne," dokładność jest kłamstwem.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 2, Lessons 01-09 (especially evaluation metrics)
-**Time:** ~90 minutes
+**Typ:** Build
+**Język:** Python
+**Wymagania wstępne:** Phase 2, Lessons 01-09 (szczególnie metryki ewaluacji)
+**Czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement SMOTE from scratch and explain how synthetic oversampling differs from random duplication
-- Evaluate imbalanced classifiers using F1, AUPRC, and Matthews Correlation Coefficient instead of accuracy
-- Compare class weighting, threshold tuning, and resampling strategies and select the right approach for a given imbalance ratio
-- Build a complete imbalanced data pipeline that combines SMOTE, class weights, and threshold optimization
+- Implementacja SMOTE od zera i wyjaśnienie, czym syntetyczne nad próbkowanie różni się od losowego duplikowania
+- Ewaluacja klasyfikatorów z niezbalansowanymi danymi przy użyciu F1, AUPRC i współczynnika korelacji Matthewsa zamiast dokładności
+- Porównanie wag klas, strojenia progu i strategii ponownego próbkowania oraz wybór odpowiedniego podejścia dla danego współczynnika niezbalansowania
+- Zbudowanie kompletnego potoku danych z niezbalansowanymi danymi łączącego SMOTE, wagi klas i optymalizację progu
 
-## The Problem
+## Problem
 
-You build a fraud detection model. It gets 99.9% accuracy. You celebrate. Then you realize it predicts "not fraud" for every single transaction.
+Budujesz model wykrywania oszustw. Osiąga 99,9% dokładności. Świętujesz. Potem uświadamiasz sobie, że przewiduje "nie oszustwo" dla każdej pojedynczej transakcji.
 
-This is not a bug. It is the rational thing to do when only 0.1% of transactions are fraudulent. The model learns that always guessing the majority class minimizes overall error. It is technically correct and completely useless.
+To nie jest błąd. To racjonalna rzecz do zrobienia, gdy tylko 0,1% transakcji jest oszukańczych. Model uczy się, że zawsze zgadywanie klasy większościowej minimalizuje całkowity błąd. Jest technicznie poprawny i całkowicie bezużyteczny.
 
-This happens everywhere real classification matters. Disease diagnosis: 1% positive rate. Network intrusion: 0.01% attacks. Manufacturing defects: 0.5% defective. Spam filtering: 20% spam. Churn prediction: 5% churners. The more consequential the minority class, the rarer it tends to be.
+To dzieje się wszędzie tam, gdzie liczy się prawdziwa klasyfikacja. Diagnoza choroby: 1% pozytywny wynik. Włamanie do sieci: 0,01% ataków. Wady produkcyjne: 0,5% wadliwych. Filtrowanie spamu: 20% spamu. Predykcja rezygnacji: 5% rezygnacji. Im bardziej znacząca jest mniejszościowa klasa, tym rzadziej występuje.
 
-Accuracy fails because it treats all correct predictions equally. Correctly labeling a legitimate transaction and correctly catching fraud both count as one point of accuracy. But catching fraud is the entire reason the model exists. We need metrics, techniques, and training strategies that force the model to pay attention to the rare but important class.
+Dokładność zawodzi, ponieważ traktuje wszystkie poprawne predykcje jednakowo. Poprawne oznaczenie legitymacyjnej transakcji i poprawne wykrycie oszustwa oba liczą się jako jeden punkt dokładności. Ale wykrycie oszustwa jest całym powodem istnienia modelu. Potrzebujemy metryk, technik i strategii treningowych, które zmuszą model do zwrócenia uwagi na rzadką, ale ważną klasę.
 
-## The Concept
+## Koncepcja
 
-### Why Accuracy Fails
+### Dlaczego dokładność zawodzi
 
-Consider a dataset with 1000 samples: 990 negative, 10 positive. A model that always predicts negative:
+Rozważ zbiór danych z 1000 próbek: 990 negatywnych, 10 pozytywnych. Model, który zawsze przewiduje negatywne:
 
-|  | Predicted Positive | Predicted Negative |
+|  | Przewidziano Pozytywne | Przewidziano Negatywne |
 |--|---|---|
-| Actually Positive | 0 (TP) | 10 (FN) |
-| Actually Negative | 0 (FP) | 990 (TN) |
+| Faktycznie Pozytywne | 0 (TP) | 10 (FN) |
+| Faktycznie Negatywne | 0 (FP) | 990 (TN) |
 
-Accuracy = (0 + 990) / 1000 = 99.0%
+Dokładność = (0 + 990) / 1000 = 99,0%
 
-The model catches zero fraud. Zero disease. Zero defects. But accuracy says 99%. This is why accuracy is dangerous for imbalanced problems.
+Model nie wykrywa żadnego oszustwa. Żadnej choroby. Żadnych wad. Ale dokładność mówi 99%. Dlatego dokładność jest niebezpieczna dla niezbalansowanych problemów.
 
-### Better Metrics
+### Lepsze metryki
 
-**Precision** = TP / (TP + FP). Of everything flagged as positive, how many actually are? High precision means few false alarms.
+**Precyzja** = TP / (TP + FP). Z wszystkiego oznaczonego jako pozytywne, ile faktycznie jest pozytywnych? Wysoka precyzja oznacza mało fałszywych alarmów.
 
-**Recall** = TP / (TP + FN). Of everything actually positive, how many did we catch? High recall means few missed positives.
+**Pełność** = TP / (TP + FN). Z wszystkiego faktycznie pozytywnego, ile wykryliśmy? Wysoka pełność oznacza mało przeoczonych pozytywów.
 
-**F1 Score** = 2 * precision * recall / (precision + recall). The harmonic mean. Penalizes extreme imbalance between precision and recall more than the arithmetic mean would.
+**Wynik F1** = 2 * precyzja * pełność / (precyzja + pełność). Średnia harmoniczna. Kara za ekstremalną nierównowagę między precyzją a pełnością jest większa niż w przypadku średniej arytmetycznej.
 
-**F-beta Score** = (1 + beta^2) * precision * recall / (beta^2 * precision + recall). When beta > 1, recall matters more. When beta < 1, precision matters more. F2 is common in fraud detection (missing fraud is worse than a false alarm).
+**Wynik F-beta** = (1 + beta^2) * precyzja * pełność / (beta^2 * precyzja + pełność). Gdy beta > 1, pełność ma większe znaczenie. Gdy beta < 1, precyzja ma większe znaczenie. F2 jest powszechna w wykrywaniu oszustw (przeoczenie oszustwa jest gorsze niż fałszywy alarm).
 
-**AUPRC** (Area Under Precision-Recall Curve). Like AUC-ROC but more informative for imbalanced data. A random classifier has AUPRC equal to the positive class rate (not 0.5 like ROC). This makes improvements easier to see.
+**AUPRC** (Pole pod krzywą Precyzja-Pełność). Jak AUC-ROC, ale bardziej informacyjne dla niezbalansowanych danych. Losowy klasyfikator ma AUPRC równy współczynnikowi klasy pozytywnej (nie 0,5 jak ROC). To sprawia, że ulepszenia są łatwiejsze do zaobserwowania.
 
-**Matthews Correlation Coefficient** = (TP * TN - FP * FN) / sqrt((TP+FP)(TP+FN)(TN+FP)(TN+FN)). Ranges from -1 to +1. Only gives a high score when the model does well on both classes. Balanced even when classes are very different sizes.
+**Współczynnik korelacji Matthewsa** = (TP * TN - FP * FN) / sqrt((TP+FP)(TP+FN)(TN+FP)(TN+FN)). Zwraca wartości od -1 do +1. Daje wysoki wynik tylko wted, gdy model dobrze radzi sobie z obiema klasami. Zbalansowany nawet gdy klasy mają bardzo różne rozmiary.
 
-For the "always predict negative" model above: precision = 0/0 (undefined, often set to 0), recall = 0/10 = 0, F1 = 0, MCC = 0. These metrics correctly identify the model as worthless.
+Dla modelu "zawsze przewiduj negatywne" powyżej: precyzja = 0/0 (niezdefiniowana, często ustawiana na 0), pełność = 0/10 = 0, F1 = 0, MCC = 0. Te metryki poprawnie identyfikują model jako bezwartościowy.
 
-### The Imbalanced Data Pipeline
+### Potok danych z niezbalansowanymi danymi
 
 ```mermaid
 flowchart TD
@@ -73,19 +73,19 @@ flowchart TD
     I --> B
 ```
 
-### SMOTE: Synthetic Minority Oversampling Technique
+### SMOTE: Syntetyczna technika nad próbkowania mniejszości
 
-Random oversampling duplicates existing minority samples. This works but risks overfitting because the model sees identical points repeatedly.
+Losowe nad próbkowanie duplikuje istniejące próbki mniejszości. To działa, ale grozi przeuczeniem, ponieważ model widzi identyczne punkty wielokrotnie.
 
-SMOTE creates new synthetic minority samples that are plausible but not copies. The algorithm:
+SMOTE tworzy nowe syntetyczne próbki mniejszości, które są prawdopodobne, ale nie są kopiami. Algorytm:
 
-1. For each minority sample x, find its k nearest neighbors among other minority samples
-2. Pick one neighbor at random
-3. Create a new sample on the line segment between x and that neighbor
+1. Dla każdej próbki mniejszości x, znajdź jej k najbliższych sąsiadów wśród innych próbek mniejszości
+2. Wybierz jednego sąsiada losowo
+3. Utwórz nową próbkę na linii między x a tym sąsiadem
 
-The formula: `new_sample = x + random(0, 1) * (neighbor - x)`
+Wzór: `new_sample = x + random(0, 1) * (neighbor - x)`
 
-This interpolates between real minority points, creating samples in the same region of feature space without just copying existing data.
+To interpoluje między prawdziwymi punktami mniejszości, tworząc próbki w tym samym regionie przestrzeni cech bez po prostu kopiowania istniejących danych.
 
 ```mermaid
 flowchart LR
@@ -112,56 +112,56 @@ flowchart LR
     SMOTE --> Result
 ```
 
-### Sampling Strategies Compared
+### Porównanie strategii próbkowania
 
-**Random Oversampling**: duplicate minority samples to match majority count.
-- Pros: simple, no information loss
-- Cons: exact duplicates cause overfitting, increases training time
+**Losowe nad próbkowanie**: duplikuj próbki mniejszości, aby dopasować liczbę większości.
+- Zalety: proste, brak utraty informacji
+- Wady: dokładne duplikaty powodują przeuczenie, zwiększa czas treningu
 
-**Random Undersampling**: remove majority samples to match minority count.
-- Pros: fast training, simple
-- Cons: throws away potentially useful majority data, higher variance
+**Losowe pod próbkowanie**: usuń próbki większości, aby dopasować liczbę mniejszości.
+- Zalety: szybki trening, proste
+- Wady: odrzuca potencjalnie użyteczne dane większości, wyższa wariancja
 
-**SMOTE**: create synthetic minority samples via interpolation.
-- Pros: generates new data points, reduces overfitting compared to random oversampling
-- Cons: can create noisy samples near the decision boundary, does not account for majority class distribution
+**SMOTE**: twórz syntetyczne próbki mniejszości przez interpolację.
+- Zalety: generuje nowe punkty danych, zmniejsza przeuczenie w porównaniu z losowym nad próbkowaniem
+- Wady: może tworzyć szumne próbki blisko granicy decyzyjnej, nie uwzględnia rozkładu klasy większości
 
-| Strategy | Data Changed | Risk | When to Use |
+| Strategia | Zmienione dane | Ryzyko | Kiedy używać |
 |----------|-------------|------|-------------|
-| Oversample | Minority duplicated | Overfitting | Small datasets, moderate imbalance |
-| Undersample | Majority removed | Information loss | Large datasets, want fast training |
-| SMOTE | Synthetic minority added | Boundary noise | Moderate imbalance, enough minority samples for k-NN |
+| Nad próbkowanie | Mniejszość duplikowana | Przeuczenie | Małe zbiory danych, umiarkowane niezbalansowanie |
+| Pod próbkowanie | Większość usunięta | Utrata informacji | Duże zbiory danych, chcesz szybki trening |
+| SMOTE | Syntetyczna mniejszość dodana | Szum graniczny | Umiarkowane niezbalansowanie, wystarczająco dużo próbek mniejszości dla k-NN |
 
-### Class Weights
+### Wagi klas
 
-Instead of changing the data, change how the model treats errors. Assign higher weight to misclassifying the minority class.
+Zamiast zmieniać dane, zmień sposób, w jaki model traktuje błędy. Przypisz wyższą wagę do błędnie sklasyfikowanej mniejszości.
 
-For a binary problem with 950 negative and 50 positive samples:
-- Weight for negative class = n_samples / (2 * n_negative) = 1000 / (2 * 950) = 0.526
-- Weight for positive class = n_samples / (2 * n_positive) = 1000 / (2 * 50) = 10.0
+Dla problemu binarnego z 950 negatywnymi i 50 pozytywnymi próbkami:
+- Waga dla klasy negatywnej = n_próbek / (2 * n_negatywnych) = 1000 / (2 * 950) = 0,526
+- Waga dla klasy pozytywnej = n_próbek / (2 * n_pozytywnych) = 1000 / (2 * 50) = 10,0
 
-The positive class gets 19x the weight. Misclassifying one positive sample costs as much as misclassifying 19 negative samples. The model is forced to pay attention to the minority class.
+Klasa pozytywna ma 19 razy większą wagę. Błędnie sklasyfikowanie jednej próbki pozytywnej kosztuje tyle, co błędnie sklasyfikowanie 19 próbek negatywnych. Model jest zmuszony zwracać uwagę na klasę mniejszości.
 
-In logistic regression, this modifies the loss function:
+W regresji logistycznej modyfkuje to funkcję straty:
 
 ```
 weighted_loss = -sum(w_i * [y_i * log(p_i) + (1-y_i) * log(1-p_i)])
 ```
 
-where w_i depends on the class of sample i.
+gdzie w_i zależy od klasy próbki i.
 
-Class weights are mathematically equivalent to oversampling in expectation, but without creating new data points. This makes them faster and avoids the overfitting risk of duplicated samples.
+Wagi klas są matematycznie równoważne nad próbkowaniu w oczekiwaniu, ale bez tworzenia nowych punktów danych. To sprawia, że są szybsze i unikają ryzyka przeuczenia z powodu zduplikowanych próbek.
 
-### Threshold Tuning
+### Strojenie progu
 
-Most classifiers output a probability. The default threshold is 0.5: if P(positive) >= 0.5, predict positive. But 0.5 is arbitrary. When classes are imbalanced, the optimal threshold is usually much lower.
+Większość klasyfikatorów wyprowadza prawdopodobieństwo. Domyślny próg to 0,5: jeśli P(pozytywne) >= 0,5, przewiduj pozytywne. Ale 0,5 jest arbitralne. Gdy klasy są niezbalansowane, optymalny próg jest zwykle znacznie niższy.
 
-The process:
-1. Train a model
-2. Get predicted probabilities on the validation set
-3. Sweep thresholds from 0.0 to 1.0
-4. Compute F1 (or your chosen metric) at each threshold
-5. Pick the threshold that maximizes your metric
+Proces:
+1. Trenuj model
+2. Pobierz przewidywane prawdopodobieństwa na zbiorze walidacyjnym
+3. Przeglądaj progi od 0,0 do 1,0
+4. Oblicz F1 (lub wybraną metrykę) dla każdego progu
+5. Wybierz próg, który maksymalizuje twoją metrykę
 
 ```mermaid
 flowchart LR
@@ -172,22 +172,22 @@ flowchart LR
     E --> F[Use in Production]
 ```
 
-A model might output P(fraud) = 0.15 for a fraudulent transaction. At threshold 0.5, this is classified as not fraud. At threshold 0.10, it is correctly caught. The probability calibration matters less than the ranking -- as long as fraud gets higher probabilities than non-fraud, there exists a threshold that separates them.
+Model może wyprowadzać P(oszustwo) = 0,15 dla oszukańczej transakcji. Przy progu 0,5 jest to klasyfikowane jako nie oszustwo. Przy progu 0,10 jest poprawnie wykryte. Kalibracja prawdopodobieństwa ma mniejsze znaczenie niż ranking -- o ile oszustwo dostaje wyższe prawdopodobieństwa niż nie-oszustwo, istnieje próg, który je rozdziela.
 
-### Cost-Sensitive Learning
+### Nauka wrażliwa na koszty
 
-Generalization of class weights. Instead of uniform costs, assign specific misclassification costs:
+Uogólnienie wag klas. Zamiast jednolitych kosztów, przypisz specyficzne koszty błędnej klasyfikacji:
 
-| | Predict Positive | Predict Negative |
+| | Przewidziano Pozytywne | Przewidziano Negatywne |
 |--|---|---|
-| Actually Positive | 0 (correct) | C_FN = 100 |
-| Actually Negative | C_FP = 1 | 0 (correct) |
+| Faktycznie Pozytywne | 0 (poprawne) | C_FN = 100 |
+| Faktycznie Negatywne | C_FP = 1 | 0 (poprawne) |
 
-Missing a fraudulent transaction (FN) costs 100x more than a false alarm (FP). The model optimizes for total cost, not total error count.
+Pominięcie oszukańczej transakcji (FN) kosztuje 100 razy więcej niż fałszywy alarm (FP). Model optymalizuje całkowity koszt, nie całkowitą liczbę błędów.
 
-This is the most principled approach when you can estimate real-world costs. A missed cancer diagnosis has a very different cost than a false alarm that leads to an extra biopsy. Making these costs explicit forces the right tradeoffs.
+To najbardziej zasadne podejście, gdy możesz oszacować rzeczywiste koszty. Przeoczona diagnoza raka ma bardzo inny koszt niż fałszywy alarm prowadzący do dodatkowej biopsji. Jawne określenie tych kosztów wymusza właściwe kompromisy.
 
-### Decision Flowchart
+### Schemat decyzyjny
 
 ```mermaid
 flowchart TD
@@ -211,9 +211,9 @@ flowchart TD
     M -->|Yes| O[Ship it]
 ```
 
-## Build It
+## Zbuduj to
 
-### Step 1: Generate an imbalanced dataset
+### Krok 1: Generowanie niezbalansowanego zbioru danych
 
 ```python
 import numpy as np
@@ -232,7 +232,7 @@ def make_imbalanced_data(n_majority=950, n_minority=50, seed=42):
     return X[shuffle_idx], y[shuffle_idx]
 ```
 
-### Step 2: SMOTE from scratch
+### Krok 2: SMOTE od zera
 
 ```python
 def euclidean_distance(a, b):
@@ -267,7 +267,7 @@ def smote(X_minority, k=5, n_synthetic=100, seed=42):
     return np.array(synthetic)
 ```
 
-### Step 3: Random oversampling and undersampling
+### Krok 3: Losowe nad próbkowanie i pod próbkowanie
 
 ```python
 def random_oversample(X, y, seed=42):
@@ -312,7 +312,7 @@ def random_undersample(X, y, seed=42):
     return X_out[shuffle], y_out[shuffle]
 ```
 
-### Step 4: Logistic regression with class weights
+### Krok 4: Regresja logistyczna z wagami klas
 
 ```python
 def sigmoid(z):
@@ -349,7 +349,7 @@ def compute_class_weights(y):
     return np.array([weight_map[yi] for yi in y])
 ```
 
-### Step 5: Threshold tuning
+### Krok 5: Strojenie progu
 
 ```python
 def find_optimal_threshold(y_true, y_probs, metric="f1"):
@@ -378,7 +378,7 @@ def find_optimal_threshold(y_true, y_probs, metric="f1"):
     return best_threshold, best_score
 ```
 
-### Step 6: Evaluation functions
+### Krok 6: Funkcje ewaluacyjne
 
 ```python
 def confusion_matrix_values(y_true, y_pred):
@@ -408,7 +408,7 @@ def compute_metrics(y_true, y_pred):
     }
 ```
 
-### Step 7: Compare all approaches
+### Krok 7: Porównanie wszystkich podejść
 
 ```python
 X, y = make_imbalanced_data(950, 50, seed=42)
@@ -455,11 +455,11 @@ best_thresh, best_f1 = find_optimal_threshold(y_val, probs_val, metric="f1")
 preds_thresh = (probs_cw >= best_thresh).astype(int)
 ```
 
-The code file runs all of this in a single script and prints results.
+Ten skrypt uruchamia wszystko w jednym pliku i drukuje wyniki.
 
-## Use It
+## Zastosuj to
 
-With scikit-learn and imbalanced-learn, these techniques are one-liners:
+Z scikit-learn i imbalanced-learn, te techniki to jednolinijkowce:
 
 ```python
 from sklearn.linear_model import LogisticRegression
@@ -489,42 +489,42 @@ pipeline.fit(X_train, y_train)
 print(classification_report(y_test, pipeline.predict(X_test)))
 ```
 
-The from-scratch implementations show exactly what each technique does. SMOTE is just k-NN interpolation on the minority class. Class weights multiply the loss. Threshold tuning is a for-loop over cutoffs. No magic.
+Implementacje od zera pokazują dokładnie, co każda technika robi. SMOTE to tylko interpolacja k-NN na klasie mniejszości. Wagi klas mnożą stratę. Strojenie progu to pętla for przez progi odcięcia. Bez magii.
 
-## Ship It
+## Wdrożenie
 
-This lesson produces:
-- `outputs/skill-imbalanced-data.md` -- a decision checklist for handling imbalanced classification problems
+Ta lekcja produkuje:
+- `outputs/skill-imbalanced-data.md` -- lista kontrolna decyzji do obsługi problemów klasyfikacji z niezbalansowanymi danymi
 
-## Exercises
+## Ćwiczenia
 
-1. **Borderline-SMOTE**: modify the SMOTE implementation to only generate synthetic samples for minority points that are near the decision boundary (those whose k-nearest neighbors include majority class samples). Compare results with standard SMOTE on a dataset where classes overlap.
+1. **Borderline-SMOTE**: Zmodyfikuj implementację SMOTE, aby generować syntetyczne próbki tylko dla punktów mniejszości blisko granicy decyzyjnej (tych, których k-najbliższych sąsiadów obejmuje próbki klasy większości). Porównaj wyniki ze standardowym SMOTE na zbiorze danych, gdzie klasy się nakładają.
 
-2. **Cost matrix optimization**: implement cost-sensitive learning where the cost matrix is a parameter. Create a function that takes a cost matrix and returns optimal predictions that minimize expected cost. Test with different cost ratios (1:10, 1:100, 1:1000) and plot how the precision-recall tradeoff changes.
+2. **Optymalizacja macierzy kosztów**: Zaimplementuj naukę wrażliwą na koszty, gdzie macierz kosztów jest parametrem. Stwórz funkcję, która przyjmuje macierz kosztów i zwraca optymalne predykcje minimalizujące oczekiwany koszt. Testuj z różnymi współczynnikami kosztów (1:10, 1:100, 1:1000) i wykreśl, jak zmienia się kompromis precyzja-pełność.
 
-3. **Threshold calibration**: implement Platt scaling (fit a logistic regression on the model's raw outputs to produce calibrated probabilities). Compare the precision-recall curve before and after calibration. Show that calibration does not change the ranking (AUC stays the same) but makes the probabilities more meaningful.
+3. **Kalibracja progu**: Zaimplementuj skalowanie Platta (dopasuj regresję logistyczną na surowych wyjściach modelu, aby produkować skalibrowane prawdopodobieństwa). Porównaj krzywą precyzja-pełność przed i po kalibracji. Pokaż, że kalibracja nie zmienia rankingu (AUC pozostaje takie samo), ale czyni prawdopodobieństwa bardziej znaczącymi.
 
-4. **Ensemble with balanced bagging**: train multiple models, each on a balanced bootstrap sample (all minority + random subset of majority). Average their predictions. Compare this approach against a single model with SMOTE. Measure both performance and variance across runs.
+4. **Ensembling z zbalansowanym baggingiem**: Trenuj wiele modeli, każdy na zbalansowanej próbce bootstrap (wszystkie mniejszości + losowy podzbiór większości). Uśrednij ich predykcje. Porównaj to podejście z pojedynczym modelem z SMOTE. Mierz zarówno wydajność, jak i wariancję między uruchomieniami.
 
-5. **Imbalance ratio experiment**: take a balanced dataset and progressively increase the imbalance ratio (50/50, 70/30, 90/10, 95/5, 99/1). For each ratio, train with and without SMOTE. Plot F1 vs imbalance ratio for both approaches. At what ratio does SMOTE start making a meaningful difference?
+5. **Eksperyment ze współczynnikiem niezbalansowania**: Weź zbalansowany zbiór danych i progresywnie zwiększaj współczynnik niezbalansowania (50/50, 70/30, 90/10, 95/5, 99/1). Dla każdego współczynnika trenuj z i bez SMOTE. Wykreśl F1 vs współczynnik niezbalansowania dla obu podejść. Przy jakim współczynniku SMOTE zaczyna mieć znaczącą różnicę?
 
-## Key Terms
+## Kluczowe pojęcia
 
-| Term | What people say | What it actually means |
+| Term | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Class imbalance | "One class has way more samples" | The distribution of classes in the dataset is significantly skewed, causing models to favor the majority class |
-| SMOTE | "Synthetic oversampling" | Creates new minority samples by interpolating between existing minority samples and their k-nearest minority neighbors |
-| Class weights | "Making errors on rare classes more expensive" | Multiplying the loss function by class-specific weights so the model penalizes minority misclassification more heavily |
-| Threshold tuning | "Moving the decision boundary" | Changing the probability cutoff for classification from the default 0.5 to a value that optimizes the desired metric |
-| Precision-recall tradeoff | "You cannot have both" | Lowering the threshold catches more positives (higher recall) but also flags more false positives (lower precision), and vice versa |
-| AUPRC | "Area under the PR curve" | Summarizes the precision-recall curve into a single number; more informative than AUC-ROC when classes are heavily imbalanced |
-| Matthews Correlation Coefficient | "The balanced metric" | A correlation between predicted and actual labels that produces a high score only when the model performs well on both classes |
-| Cost-sensitive learning | "Different mistakes cost different amounts" | Incorporating real-world misclassification costs into the training objective so the model optimizes for total cost, not error count |
-| Random oversampling | "Duplicate the minority" | Repeating minority class samples to balance class counts; simple but risks overfitting to duplicated points |
+| Class imbalance | "Jedna klasa ma dużo więcej próbek" | Rozkład klas w zbiorze danych jest znacząco skośny, powodując, że modele faworyzują klasę większościową |
+| SMOTE | "Syntetyczne nad próbkowanie" | Tworzy nowe próbki mniejszości przez interpolację między istniejącymi próbkami mniejszości a ich k-najbliższymi sąsiadami mniejszości |
+| Class weights | "Błędy na rzadkich klasach są droższe" | Mnożenie funkcji straty przez wagi specyficzne dla klas, aby model karał błędną klasyfikację mniejszości bardziej |
+| Threshold tuning | "Przesuwanie granicy decyzyjnej" | Zmiana progu prawdopodobieństwa dla klasyfikacji z domyślnego 0,5 na wartość optymalizującą pożądaną metrykę |
+| Precision-recall tradeoff | "Nie możesz mieć obu" | Obniżenie progu wykrywa więcej pozytywów (wyższa pełność), ale także oznacza więcej fałszywych pozytywów (niższa precyzja), i odwrotnie |
+| AUPRC | "Pole pod krzywą PR" | Sumaryzuje krzywą precyzja-pełność w jedną liczbę; bardziej informacyjne niż AUC-ROC, gdy klasy są mocno niezbalansowane |
+| Matthews Correlation Coefficient | "Zbalansowana metryka" | Korelacja między przewidywanymi a rzeczywistymi etykietami, która produkuje wysoki wynik tylko wted, gdy model dobrze radzi sobie z obiema klasami |
+| Cost-sensitive learning | "Różne błędy kosztują różne kwoty" | Włączanie rzeczywistych kosztów błędnej klasyfikacji do celu treningowego, aby model optymalizował całkowity koszt, nie liczbę błędów |
+| Random oversampling | "Duplikuj mniejszość" | Powtarzanie próbek klasy mniejszości, aby zbalansować liczby klas; proste, ale grozi przeuczeniem na zduplikowanych punktach |
 
-## Further Reading
+## Dalsze materiały do czytania
 
-- [SMOTE: Synthetic Minority Over-sampling Technique (Chawla et al., 2002)](https://arxiv.org/abs/1106.1813) -- the original SMOTE paper, still the most cited work on imbalanced learning
-- [Learning from Imbalanced Data (He & Garcia, 2009)](https://ieeexplore.ieee.org/document/5128907) -- comprehensive survey covering sampling, cost-sensitive, and algorithmic approaches
-- [imbalanced-learn documentation](https://imbalanced-learn.org/stable/) -- Python library with SMOTE variants, undersampling strategies, and pipeline integration
-- [The Precision-Recall Plot Is More Informative than the ROC Plot (Saito & Rehmsmeier, 2015)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0118432) -- when and why to prefer PR curves over ROC curves for imbalanced problems
+- [SMOTE: Synthetic Minority Over-sampling Technique (Chawla et al., 2002)](https://arxiv.org/abs/1106.1813) -- oryginalny artykuł o SMOTE, wciąż najczęściej cytowana praca o niezbalansowanej nauce
+- [Learning from Imbalanced Data (He & Garcia, 2009)](https://ieeexplore.ieee.org/document/5128907) -- kompleksowy przegląd obejmujący próbkowanie, podejścia wrażliwe na koszty i algorytmiczne
+- [imbalanced-learn documentation](https://imbalanced-learn.org/stable/) -- biblioteka Python z wariantami SMOTE, strategiami pod próbkowania i integracją potoków
+- [The Precision-Recall Plot Is More Informative than the ROC Plot (Saito & Rehmsmeier, 2015)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0118432) -- kiedy i dlaczego preferować krzywe PR nad krzywymi ROC dla niezbalansowanych problemów

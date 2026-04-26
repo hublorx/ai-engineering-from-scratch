@@ -1,0 +1,2 @@
+=== TRANSLATING 05-jupyter-notebooks ===
+SAVED: C:/VisualStudioCodeRepo/AIWorkspace/ai-engineering-from-scratch/.tmp_05-jupyter-notebooks_translated.md (9259 chars)

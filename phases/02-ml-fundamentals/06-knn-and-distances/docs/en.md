@@ -1,233 +1,234 @@
-# K-Nearest Neighbors and Distances
+---
+# K-Najbliższych Sąsiadów i Odległości
 
-> Store everything. Predict by looking at your neighbors. The simplest algorithm that actually works.
+> Przechowuj wszystko. Predykcja poprzez spojrzenie na sąsiadów. Najprostszy algorytm, który faktycznie działa.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 1 (Lesson 14 Norms and Distances)
-**Time:** ~90 minutes
+**Typ:** Zbuduj
+**Język:** Python
+**Wymagania wstępne:** Faza 1 (Lekcja 14 Normy i Odległości)
+**Czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement KNN classification and regression from scratch with configurable K and distance-weighted voting
-- Compare L1, L2, cosine, and Minkowski distance metrics and select the appropriate one for a given data type
-- Explain the curse of dimensionality and demonstrate why KNN degrades in high-dimensional spaces
-- Build a KD-tree for efficient nearest neighbor search and analyze when it outperforms brute-force
+- Zaimplementuj klasyfikację i regresję KNN od zera z konfigurowalnym K oraz głosowaniem ważonym odległością
+- Porównaj metryki odległości L1, L2, cosinusową i Minkowskiego oraz wybierz odpowiednią dla danego typu danych
+- Wyjaśnij przekleństwo wymiarowości i zademonstruj, dlaczego KNN degraduje w przestrzeniach wysokowymiarowych
+- Zbuduj KD-drzewo dla efektywnego wyszukiwania najbliższego sąsiada i przeanalizuj, kiedy przewyższa metodę pełnego przeszukiwania
 
-## The Problem
+## Problem
 
-You have a dataset. A new data point arrives. You need to classify it or predict its value. Instead of learning parameters from the data (like linear regression or SVMs), you just find the K training points closest to the new point and let them vote.
+Masz zbiór danych. Pojawia się nowy punkt danych. Musisz go sklasyfikować lub przewidzieć jego wartość. Zamiast uczyć się parametrów z danych (jak w regresji liniowej czy SVM), po prostu znajdujesz K punktów treningowych najbliższych nowemu punktowi i pozwalasz im głosować.
 
-This is K-nearest neighbors. There is no training phase. No parameters to learn. No loss function to minimize. You store the entire training set and compute distances at prediction time.
+To jest K-najbliższych sąsiadów. Nie ma fazy treningowej. Nie ma parametrów do nauczenia. Nie ma funkcji straty do minimalizacji. Przechowujesz cały zbiór treningowy i obliczasz odległości w czasie predykcji.
 
-It sounds too simple to work. But KNN is surprisingly competitive for many problems, especially with small to medium datasets, and understanding it deeply reveals fundamental concepts: the choice of distance metric (connecting to Phase 1 Lesson 14), the curse of dimensionality, and the difference between lazy and eager learning.
+To brzmi zbyt prosto, żeby działało. Ale KNN jest zaskakująco konkurencyjny dla wielu problemów, zwłaszcza przy małych i średnich zbiorach danych, a głębokie zrozumienie tego algorytmu ujawnia fundamentalne koncepcje: wybór metryki odległości (łączy się z Lekcją 14 Fazy 1), przekleństwo wymiarowości oraz różnicę między leniwym a chciwym uczeniem.
 
-KNN also shows up everywhere in modern AI, just under different names. Vector databases do KNN search over embeddings. Retrieval-augmented generation (RAG) finds the K nearest document chunks. Recommendation systems find similar users or items. The algorithm is the same. The scale and the data structures are different.
+KNN pojawia się również wszędzie w nowoczesnym AI, tylko pod innymi nazwami. Wektorowe bazy danych wykonują wyszukiwanie KNN na reprezentacjach wektorowych. Retrieval-augmented generation (RAG) znajduje K najbliższych fragmentów dokumentów. Systemy rekomendacji znajdują podobnych użytkowników lub elementy. Algorytm jest ten sam. Skala i struktury danych są inne.
 
-## The Concept
+## Koncepcja
 
-### How KNN works
+### Jak działa KNN
 
-Given a dataset of labeled points and a new query point:
+Mając zbiór danych z etykietowanymi punktami i nowy punkt zapytania:
 
-1. Compute the distance from the query to every point in the dataset
-2. Sort by distance
-3. Take the K closest points
-4. For classification: majority vote among the K neighbors
-5. For regression: average (or weighted average) of the K neighbors' values
+1. Oblicz odległość od zapytania do każdego punktu w zbiorze danych
+2. Posortuj według odległości
+3. Weź K najbliższych punktów
+4. Dla klasyfikacji: głosowanie większościowe wśród K sąsiadów
+5. Dla regresji: średnia (lub średnia ważona) wartości K sąsiadów
 
 ```mermaid
 graph TD
-    Q["Query point ?"] --> D["Compute distances<br>to all training points"]
-    D --> S["Sort by distance"]
-    S --> K["Select K nearest"]
-    K --> C{"Classification<br>or Regression?"}
-    C -->|Classification| V["Majority vote"]
-    C -->|Regression| A["Average values"]
-    V --> P["Prediction"]
+    Q["Punkt zapytania ?"] --> D["Oblicz odległości<br>do wszystkich punktów treningowych"]
+    D --> S["Posortuj według odległości"]
+    S --> K["Wybierz K najbliższych"]
+    K --> C{"Klasyfikacja<br>czy Regresja?"}
+    C -->|Klasyfikacja| V["Głosowanie większościowe"]
+    C -->|Regresja| A["Uśrednij wartości"]
+    V --> P["Predykcja"]
     A --> P
 ```
 
-That is the entire algorithm. No fitting. No gradient descent. No epochs.
+To jest cały algorytm. Bez dopasowywania. Bez gradientu. Bez epok.
 
-### Choosing K
+### Wybór K
 
-K is the single hyperparameter. It controls the bias-variance trade-off:
+K jest jedynym hiperparametrem. Kontroluje kompromis między obciążeniem a wariancją:
 
-| K | Behavior |
-|---|----------|
-| K = 1 | Decision boundary follows every point. Zero training error. High variance. Overfits |
-| Small K (3-5) | Sensitive to local structure. Can capture complex boundaries |
-| Large K | Smoother boundaries. More robust to noise. May underfit |
-| K = N | Predicts the majority class for every point. Maximum bias |
+| K | Zachowanie |
+|---|------------|
+| K = 1 | Granica decyzyjna podąża za każdym punktem. Zerowy błąd treningowy. Wysoka wariancja. Przeuczenie |
+| Małe K (3-5) | Wrażliwe na lokalną strukturę. Może uchwycić złożone granice |
+| Duże K | Gładsze granice. Bardziej odporne na szum. Może niedouczać |
+| K = N | Predykuje klasę większościową dla każdego punktu. Maksymalny bias |
 
-A common starting point is K = sqrt(N) for a dataset of N points. Use odd K for binary classification to avoid ties.
+Typowym punktem wyjścia jest K = sqrt(N) dla zbioru danych z N punktów. Używaj nieparzystego K dla klasyfikacji binarnej, aby uniknąć remisów.
 
 ```mermaid
 graph LR
-    subgraph "K=1 (overfitting)"
-        A["Jagged boundary<br>follows every point"]
+    subgraph "K=1 (przeuczenie)"
+        A["Postrzępiona granica<br>podąża za każdym punktem"]
     end
-    subgraph "K=15 (good)"
-        B["Smooth boundary<br>captures true pattern"]
+    subgraph "K=15 (dobre)"
+        B["Gładka granica<br>uchwyca prawdziwy wzorzec"]
     end
-    subgraph "K=N (underfitting)"
-        C["Flat boundary<br>predicts majority class"]
+    subgraph "K=N (niedouczenie)"
+        C["Płaska granica<br>predykuje klasę większościową"]
     end
-    A -->|"increase K"| B -->|"increase K"| C
+    A -->|"zwiększ K"| B -->|"zwiększ K"| C
 ```
 
-### Distance metrics
+### Metryki odległości
 
-The distance function defines what "near" means. Different metrics produce different neighbors, different predictions.
+Funkcja odległości definiuje, co oznacza "bliski". Różne metryki produkują różnych sąsiadów, różne predykcje.
 
-**L2 (Euclidean)** is the default. Straight-line distance.
+**L2 (euklidesowa)** jest domyślna. Odległość w linii prostej.
 
 ```
 d(a, b) = sqrt(sum((a_i - b_i)^2))
 ```
 
-Sensitive to feature scale. Always standardize features before using L2 with KNN.
+Wrażliwa na skalę cech. Zawsze standaryzuj cechy przed użyciem L2 z KNN.
 
-**L1 (Manhattan)** sums absolute differences. More robust to outliers than L2 because it does not square the differences.
+**L1 (manhattańska)** sumuje bezwzględne różnice. Bardziej odporna na wartości odstające niż L2, bo nie podnosi różnic do kwadratu.
 
 ```
 d(a, b) = sum(|a_i - b_i|)
 ```
 
-**Cosine distance** measures the angle between vectors, ignoring magnitude. Essential for text and embedding data.
+**Odległość cosinusowa** mierzy kąt między wektorami, ignorując wielkość. Niezbędna dla tekstu i reprezentacji wektorowych.
 
 ```
 d(a, b) = 1 - (a . b) / (||a|| * ||b||)
 ```
 
-**Minkowski** generalizes L1 and L2 with parameter p.
+**Minkowski** uogólnia L1 i L2 z parametrem p.
 
 ```
 d(a, b) = (sum(|a_i - b_i|^p))^(1/p)
 
 p=1: Manhattan
-p=2: Euclidean
-p->inf: Chebyshev (max absolute difference)
+p=2: Euklidesowa
+p->inf: Czebyszew (maksymalna bezwzględna różnica)
 ```
 
-Which metric to use depends on the data:
+Którą metrykę użyć zależy od danych:
 
-| Data type | Best metric | Why |
-|-----------|------------|-----|
-| Numeric features, similar scale | L2 (Euclidean) | Default, works for spatial data |
-| Numeric features, outliers | L1 (Manhattan) | Robust, does not amplify large differences |
-| Text embeddings | Cosine | Magnitude is noise, direction is meaning |
-| High-dimensional sparse | Cosine or L1 | L2 suffers from curse of dimensionality |
-| Mixed types | Custom distance | Combine metrics per feature type |
+| Typ danych | Najlepsza metryka | Dlaczego |
+|-----------|-------------------|----------|
+| Cechy numeryczne, podobna skala | L2 (euklidesowa) | Domyślna, działa dla danych przestrzennych |
+| Cechy numeryczne, wartości odstające | L1 (manhattańska) | Odporna, nie amplifikuje dużych różnic |
+| Reprezentacje tekstowe | Cosine | Magnituda to szum, kierunek to znaczenie |
+| Wysoko wymiarowe, rzadkie | Cosine lub L1 | L2 cierpi od przekleństwa wymiarowości |
+| Mieszane typy | Niestandardowa odległość | Łącz metryki per typ cechy |
 
-### Weighted KNN
+### Ważony KNN
 
-Standard KNN gives equal weight to all K neighbors. But a neighbor at distance 0.1 should matter more than one at distance 5.0.
+Standardowy KNN daje równą wagę wszystkim K sąsiadom. Ale sąsiad w odległości 0.1 powinien mieć większe znaczenie niż ten w odległości 5.0.
 
-**Distance-weighted KNN** weights each neighbor inversely by distance:
+**KNN ważony odległością** nadaje wagę każdemu sąsiadowi odwrotnie proporcjonalnie do odległości:
 
 ```
 weight_i = 1 / (distance_i + epsilon)
 
-For classification: weighted vote
-For regression:     weighted average = sum(w_i * y_i) / sum(w_i)
+Dla klasyfikacji: głosowanie ważone
+Dla regresji:     średnia ważona = sum(w_i * y_i) / sum(w_i)
 ```
 
-The epsilon prevents division by zero when a query point exactly matches a training point.
+Epsilon zapobiega dzieleniu przez zero, gdy punkt zapytania dokładnie pasuje do punktu treningowego.
 
-Weighted KNN is less sensitive to the choice of K because distant neighbors contribute very little regardless.
+Ważony KNN jest mniej wrażliwy na wybór K, bo odlegli sąsiedzi wnoszą bardzo mało niezależnie od K.
 
-### The curse of dimensionality
+### Przekleństwo wymiarowości
 
-KNN performance degrades in high dimensions. This is not a vague concern. It is a mathematical fact.
+Wydajność KNN degraduje w wysokich wymiarach. To nie jest mgliste zmartwienie. To jest matematyczny fakt.
 
-**Problem 1: distances converge.** As dimensionality increases, the ratio of the maximum distance to the minimum distance approaches 1. All points become equally "far" from the query.
+**Problem 1: odległości zbiegają.** Wraz ze wzrostem wymiarowości, stosunek maksymalnej odległości do minimalnej odległości zbliża się do 1. Wszystkie punkty stają się równie "dalekie" od zapytania.
 
 ```
-In d dimensions, for random uniform points:
+W d wymiarach, dla losowych jednorodnych punktów:
 
-d=2:    max_dist / min_dist = varies widely
+d=2:    max_dist / min_dist = bardzo różne
 d=100:  max_dist / min_dist ~ 1.01
 d=1000: max_dist / min_dist ~ 1.001
 
-When all distances are nearly equal, "nearest" is meaningless.
+Gdy wszystkie odległości są prawie równe, "najbliższy" nie ma sensu.
 ```
 
-**Problem 2: volume explodes.** To capture K neighbors within a fixed fraction of the data, you need to extend your search radius to cover a much larger fraction of the feature space. The "neighborhood" in high dimensions encompasses most of the space.
+**Problem 2: objętość eksploduje.** Aby uchwycić K sąsiadów w ustalonej frakcji danych, musisz rozszerzyć promień wyszukiwania, aby objąć znacznie większą frakcję przestrzeni cech. "Sąsiedztwo" w wysokich wymiarach obejmuje większość przestrzeni.
 
-**Problem 3: corners dominate.** In a unit hypercube in d dimensions, most of the volume is concentrated near the corners, not the center. A sphere inscribed in the cube contains a vanishing fraction of the volume as d grows.
+**Problem 3: narożniki dominują.** W jednostkowym hiperkostce w d wymiarach, większość objętości jest skoncentrowana blisko narożników, nie środka. Sfera wpisana w kostkę zawiera zanikającą frakcję objętości w miarę wzrostu d.
 
-Practical consequence: KNN works well up to about 20-50 features. Beyond that, you need dimensionality reduction (PCA, UMAP, t-SNE) before applying KNN, or you need to use tree-based search structures that exploit the data's intrinsic lower dimensionality.
+Praktyczna konsekwencja: KNN działa dobrze do około 20-50 cech. Powyżej tego potrzebujesz redukcji wymiarowości (PCA, UMAP, t-SNE) przed zastosowaniem KNN, lub musisz użyć struktur wyszukiwania opartych na drzewach, które wykorzystują wewnętrzną niższą wymiarowość danych.
 
-### KD-trees: fast nearest neighbor search
+### KD-drzewa: szybkie wyszukiwanie najbliższego sąsiada
 
-Brute-force KNN computes the distance from the query to every training point. That is O(n * d) per query. For large datasets, this is too slow.
+KNN metodą pełnego przeszukiwania oblicza odległość od zapytania do każdego punktu treningowego. To jest O(n * d) na zapytanie. Dla dużych zbiorów danych, to zbyt wolne.
 
-A KD-tree recursively partitions the space along feature axes. At each level, it splits along one dimension at the median value.
+KD-drzewo rekursywnie partitionuje przestrzeń wzdłuż osi cech. Na każdym poziomie dzieli wzdłuż jednego wymiaru przy medianie.
 
 ```mermaid
 graph TD
-    R["Split on x1 at 5.0"] -->|"x1 <= 5.0"| L["Split on x2 at 3.0"]
-    R -->|"x1 > 5.0"| RR["Split on x2 at 7.0"]
-    L -->|"x2 <= 3.0"| LL["Leaf: 3 points"]
-    L -->|"x2 > 3.0"| LR["Leaf: 4 points"]
-    RR -->|"x2 <= 7.0"| RL["Leaf: 2 points"]
-    RR -->|"x2 > 7.0"| RRR["Leaf: 5 points"]
+    R["Podziel na x1 przy 5.0"] -->|"x1 <= 5.0"| L["Podziel na x2 przy 3.0"]
+    R -->|"x1 > 5.0"| RR["Podziel na x2 przy 7.0"]
+    L -->|"x2 <= 3.0"| LL["Liść: 3 punkty"]
+    L -->|"x2 > 3.0"| LR["Liść: 4 punkty"]
+    RR -->|"x2 <= 7.0"| RL["Liść: 2 punkty"]
+    RR -->|"x2 > 7.0"| RRR["Liść: 5 punktów"]
 ```
 
-To find the nearest neighbor, traverse the tree to the leaf containing the query, then backtrack and check neighboring partitions only if they could contain closer points.
+Aby znaleźć najbliższego sąsiada, przechodź drzewo do liścia zawierającego zapytanie, następnie wracaj i sprawdzaj sąsiednie partycje tylko jeśli mogą zawierać bliższe punkty.
 
-Average query time: O(log n) for low dimensions. But KD-trees degrade to O(n) in high dimensions (d > 20) because the backtracking eliminates fewer and fewer branches.
+Średni czas zapytania: O(log n) dla niskich wymiarów. Ale KD-drzewa degradują do O(n) w wysokich wymiarach (d > 20), bo cofanie eliminuje coraz mniej gałęzi.
 
-### Ball trees: better for moderate dimensions
+### Ball trees: lepsze dla umiarkowanych wymiarów
 
-Ball trees partition data into nested hyperspheres instead of axis-aligned boxes. Each node defines a ball (center + radius) that contains all points in that subtree.
+Ball trees partitionują dane na zagnieżdżone hipersfery zamiast pudełek wyrównanych do osi. Każdy węzeł definiuje kulę (środek + promień), która zawiera wszystkie punkty w tym poddrzewie.
 
-Advantages over KD-trees:
-- Work better in moderate dimensions (up to ~50)
-- Handle non-axis-aligned structure
-- Tighter bounding volumes mean more branches are pruned during search
+Zalety nad KD-drzewami:
+- Działają lepiej w umiarkowanych wymiarach (do ~50)
+- Obsługują strukturę niewyrównaną do osi
+- Ciaśniejsze objętości ograniczające oznaczają więcej gałęzi jest przycinanych podczas wyszukiwania
 
-Both KD-trees and ball trees are exact algorithms. For truly large-scale search (millions of points, hundreds of dimensions), approximate nearest neighbor methods (HNSW, IVF, product quantization) are used instead. These are covered in Phase 1 Lesson 14.
+Oba KD-drzewa i drzewa kuliste są algorytmami dokładnymi. Dla naprawdę dużej skali wyszukiwania (miliony punktów, setki wymiarów), używane są przybliżone metody najbliższego sąsiada (HNSW, IVF, kwantyzacja iloczynowa). Te są omówione w Lekcji 14 Fazy 1.
 
-### Lazy learning vs eager learning
+### Leniwe uczenie vs chciwe uczenie
 
-KNN is a lazy learner: it does no work at training time and all work at prediction time. Most other algorithms (linear regression, SVMs, neural networks) are eager learners: they do heavy computation at training time to build a compact model, then predictions are fast.
+KNN jest leniwym uczniem: nie wykonuje pracy w czasie treningu i całą pracę w czasie predykcji. Większość innych algorytmów (regresja liniowa, SVMy, sieci neuronowe) to chciwi uczniowie: wykonują ciężkie obliczenia w czasie treningu, aby zbudować kompaktowy model, potem predykcje są szybkie.
 
-| Aspect | Lazy (KNN) | Eager (SVM, neural net) |
-|--------|------------|------------------------|
-| Training time | O(1) just store data | O(n * epochs) |
-| Prediction time | O(n * d) per query | O(d) or O(parameters) |
-| Memory at prediction | Store entire training set | Store model parameters only |
-| Adapts to new data | Add points instantly | Retrain the model |
-| Decision boundary | Implicit, computed on the fly | Explicit, fixed after training |
+| Aspekt | Leniwy (KNN) | Chciwy (SVM, sieć neuronowa) |
+|--------|------------|---------------------------|
+| Czas treningu | O(1) tylko przechowuj dane | O(n * epoki) |
+| Czas predykcji | O(n * d) na zapytanie | O(d) lub O(parametry) |
+| Pamięć przy predykcji | Przechowuj cały zbiór treningowy | Przechowuj tylko parametry modelu |
+| Adaptacja do nowych danych | Dodawaj punkty natychmiast | Przeucz model |
+| Granica decyzyjna | Niejawna, obliczana w locie | Jawna, ustalona po treningu |
 
-Lazy learning is ideal when:
-- The dataset changes frequently (add/remove points without retraining)
-- You need predictions for very few queries
-- You want zero training time
-- The dataset is small enough that brute-force search is fast
+Leniwe uczenie jest idealne gdy:
+- Zbiór danych zmienia się często (dodawaj/usuwaj punkty bez przeuczania)
+- Potrzebujesz predykcji dla bardzo małej liczby zapytań
+- Chcesz zerowy czas treningu
+- Zbiór danych jest na tyle mały, że wyszukiwanie metodą pełnego przeszukiwania jest szybkie
 
-### KNN for regression
+### KNN dla regresji
 
-Instead of majority voting, KNN for regression averages the target values of the K neighbors.
+Zamiast głosowania większościowego, KNN dla regresji uśrednia wartości docelowe K sąsiadów.
 
 ```
 prediction = (1/K) * sum(y_i for i in K nearest neighbors)
 
-Or with distance weighting:
+Lub z wagowaniem odległości:
 prediction = sum(w_i * y_i) / sum(w_i)
 where w_i = 1 / distance_i
 ```
 
-KNN regression produces piecewise-constant (or piecewise-smooth with weighting) predictions. It cannot extrapolate beyond the range of the training data. If the training targets are all between 0 and 100, KNN will never predict 200.
+KNN regresja produkuje predykcje stałe odcinkowo (lub gładkie odcinkowo z wagowaniem). Nie może extrapolować poza zakres danych treningowych. Jeśli cele treningowe są wszystkie między 0 a 100, KNN nigdy nie predykuje 200.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Distance functions
+### Krok 1: Funkcje odległości
 
-Implement L1, L2, cosine, and Minkowski distances. These connect directly to Phase 1 Lesson 14.
+Zaimplementuj L1, L2, cosinusową i Minkowskiego. Te łączą się bezpośrednio z Lekcją 14 Fazy 1.
 
 ```python
 import math
@@ -252,9 +253,9 @@ def minkowski_distance(a, b, p=2):
     return sum(abs(ai - bi) ** p for ai, bi in zip(a, b)) ** (1 / p)
 ```
 
-### Step 2: KNN classifier and regressor
+### Krok 2: Klasyfikator i regresor KNN
 
-Build the full KNN with configurable K, distance metric, and optional distance weighting.
+Zbuduj pełny KNN z konfigurowalnym K, metryką odległości i opcjonalnym wagowaniem odległości.
 
 ```python
 class KNN:
@@ -275,28 +276,28 @@ class KNN:
         return [self._predict_one(x) for x in X]
 ```
 
-### Step 3: KD-tree for efficient search
+### Krok 3: KD-drzewo dla efektywnego wyszukiwania
 
-Build a KD-tree from scratch that recursively splits on the median of each dimension.
+Zbuduj KD-drzewo od zera, które rekursywnie dzieli na medianie każdego wymiaru.
 
 ```python
 class KDTree:
     def __init__(self, X, indices=None, depth=0):
-        # Recursively partition the data
+        # Rekursywnie dziel dane
         self.axis = depth % len(X[0])
-        # Split on median of the current axis
+        # Podziel na medianie bieżącej osi
         ...
 
     def query(self, point, k=1):
-        # Traverse to leaf, then backtrack
+        # Przejdź do liścia, potem wracaj
         ...
 ```
 
-See `code/knn.py` for the complete implementation with all helper methods and demos.
+Zobacz `code/knn.py` dla pełnej implementacji ze wszystkimi metodami pomocniczymi i demo.
 
-### Step 4: Feature scaling
+### Krok 4: Skalowanie cech
 
-KNN requires feature scaling because distances are sensitive to feature magnitudes. A feature ranging from 0 to 1000 will dominate a feature ranging from 0 to 1.
+KNN wymaga skalowania cech, bo odległości są wrażliwe na magnitudy cech. Cecha mieszcząca się w zakresie 0 do 1000 zdominuje cechę mieszczącą się w zakresie 0 do 1.
 
 ```python
 def standardize(X):
@@ -310,9 +311,9 @@ def standardize(X):
     return [[((X[i][j] - means[j]) / stds[j]) for j in range(d)] for i in range(n)], means, stds
 ```
 
-## Use It
+## Użyj tego
 
-With scikit-learn:
+Z scikit-learn:
 
 ```python
 from sklearn.neighbors import KNeighborsClassifier
@@ -327,9 +328,9 @@ clf.fit(X_train, y_train)
 print(f"Accuracy: {clf.score(X_test, y_test):.4f}")
 ```
 
-Scikit-learn automatically uses KD-trees or ball trees when the dataset is large enough and the dimensionality is low enough. For high-dimensional data, it falls back to brute force. You can control this with the `algorithm` parameter.
+Scikit-learn automatycznie używa KD-drzew lub ball trees, gdy dataset jest wystarczająco duży, a wymiarowość wystarczająco niska. Dla danych wysokowymiarowych wraca do metody pełnego przeszukiwania. Możesz kontrolować to parametrem `algorithm`.
 
-For large-scale nearest neighbor search (millions of vectors), use FAISS, Annoy, or a vector database:
+Dla wysokiej skali wyszukiwania najbliższego sąsiada (miliony wektorów), użyj FAISS, Annoy lub wektorowej bazy danych:
 
 ```python
 import faiss
@@ -339,39 +340,41 @@ index.add(embeddings)
 distances, indices = index.search(query_vectors, k=5)
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. Implement KNN classification on a 2D dataset with 3 classes. Plot the decision boundary for K=1, K=5, K=15, and K=N. Observe the transition from overfitting to underfitting.
+1. Zaimplementuj klasyfikację KNN na 2D dataset z 3 klasami. Narysuj granicę decyzyjną dla K=1, K=5, K=15 i K=N. Obserwuj przejście od przeuczenia do niedouczenia.
 
-2. Generate 1000 random points in 2, 5, 10, 50, 100, and 500 dimensions. For each dimensionality, compute the ratio of the maximum pairwise distance to the minimum pairwise distance. Plot the ratio vs dimensionality to visualize the curse of dimensionality.
+2. Wygeneruj 1000 losowych punktów w 2, 5, 10, 50, 100 i 500 wymiarach. Dla każdej wymiarowości oblicz stosunek maksymalnej parowej odległości do minimalnej parowej odległości. Narysuj wykres stosunku vs wymiarowość, aby zwizualizować przekleństwo wymiarowości.
 
-3. Compare L1, L2, and cosine distance for KNN on a text classification problem (use TF-IDF vectors). Which metric gives the best accuracy? Why does cosine tend to win for text?
+3. Porównaj L1, L2 i cosinusową odległość dla KNN na problemie klasyfikacji tekstu (użyj wektorów TF-IDF). Która metryka daje najlepszą accuracy? Dlaczego cosine zwykle wygrywa dla tekstu?
 
-4. Implement a KD-tree and measure query time vs brute force for datasets of 1k, 10k, and 100k points in 2D, 10D, and 50D. At what dimensionality does the KD-tree stop being faster than brute force?
+4. Zaimplementuj KD-drzewo i zmierz czas zapytania vs metoda pełnego przeszukiwania dla zbiorów danych 1k, 10k i 100k punktów w 2D, 10D i 50D. Przy jakiej wymiarowości KD-drzewo przestaje być szybsze od metody pełnego przeszukiwania?
 
-5. Build a weighted KNN regressor for y = sin(x) + noise. Compare it with unweighted KNN for K=3, 10, 30. Show that weighting produces smoother predictions, especially for large K.
+5. Zbuduj ważony regresor KNN dla y = sin(x) + noise. Porównaj go z nieważonym KNN dla K=3, 10, 30. Pokaż, że wagowanie produkuje gładsze predykcje, zwłaszcza dla dużego K.
 
-## Key Terms
+## Kluczowe pojęcia
 
-| Term | What it actually means |
-|------|----------------------|
-| K-nearest neighbors | Non-parametric algorithm that predicts by finding the K closest training points to a query |
-| Lazy learning | No computation at training time. All work happens at prediction time. KNN is the canonical example |
-| Eager learning | Heavy computation at training time to build a compact model. Most ML algorithms are eager |
-| Curse of dimensionality | In high dimensions, distances converge and neighborhoods expand to cover most of the space, making KNN ineffective |
-| KD-tree | Binary tree that recursively partitions space along feature axes. O(log n) queries in low dimensions |
-| Ball tree | Tree of nested hyperspheres. Works better than KD-trees in moderate dimensions (up to ~50) |
-| Weighted KNN | Neighbors weighted inversely by distance. Closer neighbors have more influence on the prediction |
-| Feature scaling | Normalizing features to comparable ranges. Required for distance-based methods like KNN |
-| Majority vote | Classification by counting which class is most common among K neighbors |
-| Brute force search | Computing distance to every training point. O(n*d) per query. Exact but slow for large n |
-| Approximate nearest neighbor | Algorithms (HNSW, LSH, IVF) that find approximately nearest points much faster than exact search |
-| Voronoi diagram | The partition of space where each region contains all points closer to one training point than any other. K=1 KNN produces Voronoi boundaries |
+| Termin | Co to faktycznie oznacza |
+|--------|----------------------|
+| K-nearest neighbors | Algorytm nieparametryczny, który predysuje przez znalezienie K najbliższych punktów treningowych do zapytania |
+| Lazy learning | Brak obliczeń w czasie treningu. Cała praca dzieje się w czasie predykcji. KNN to kanoniczny przykład |
+| Eager learning | Ciężkie obliczenia w czasie treningu, aby zbudować kompaktowy model. Większość algorytmów ML to eager |
+| Curse of dimensionality | W wysokich wymiarach odległości zbiegają, a sąsiedztwa rozszerzają się, aby objąć większość przestrzeni, czyniąc KNN nieskutecznym |
+| KD-tree | Drzewo binarne, które rekursywnie dzieli przestrzeń wzdłuż osi cech. O(log n) zapytań w niskich wymiarach |
+| Ball tree | Drzewo zagnieżdżonych hipersfer. Działa lepiej niż KD-drzewa w umiarkowanych wymiarach (do ~50) |
+| Weighted KNN | Sąsiedzie ważeni odwrotnie do odległości. Bliżsi sąsiedzi mają większy wpływ na predykcję |
+| Skalowanie cech | Normalizacja cech do porównywalnych zakresów. Wymagane dla metod opartych na odległości jak KNN |
+| Majority vote | Klasyfikacja przez zliczenie, która klasa jest najczęstsza wśród K sąsiadów |
+| Metoda pełnego przeszukiwania | Obliczanie odległości do każdego punktu treningowego. O(n*d) na zapytanie. Dokładne, ale wolne dla dużego n |
+| Approximate nearest neighbor | Algorytmy (HNSW, LSH, IVF), które znajdują przybliżone najbliższe punkty znacznie szybciej niż dokładne wyszukiwanie |
+| Voronoi diagram | Podział przestrzeni, gdzie każdy region zawiera wszystkie punkty bliższe jednemu punktowi treningowemu niż jakemukolwiek innemu. K=1 KNN produkuje granice Voronoi |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Cover & Hart: Nearest Neighbor Pattern Classification (1967)](https://ieeexplore.ieee.org/document/1053964) - the foundational KNN paper proving it has error rate at most twice the Bayes optimal
-- [Friedman, Bentley, Finkel: An Algorithm for Finding Best Matches in Logarithmic Expected Time (1977)](https://dl.acm.org/doi/10.1145/355744.355745) - the original KD-tree paper
-- [Beyer et al.: When Is "Nearest Neighbor" Meaningful? (1999)](https://link.springer.com/chapter/10.1007/3-540-49257-7_15) - formal analysis of the curse of dimensionality for nearest neighbor
-- [scikit-learn Nearest Neighbors documentation](https://scikit-learn.org/stable/modules/neighbors.html) - practical guide with algorithm selection
-- [FAISS: A Library for Efficient Similarity Search](https://github.com/facebookresearch/faiss) - Meta's library for billion-scale approximate nearest neighbor search
+- [Cover & Hart: Nearest Neighbor Pattern Classification (1967)](https://ieeexplore.ieee.org/document/1053964) - fundamentalny artykuł o KNN dowodzący, że ma stopę błędu co najwyżej dwukrotnie większą od optymalnego Bayesa
+- [Friedman, Bentley, Finkel: An Algorithm for Finding Best Matches in Logarithmic Expected Time (1977)](https://dl.acm.org/doi/10.1145/355744.355745) - oryginalny artykuł o KD-drzewie
+- [Beyer et al.: When Is "Nearest Neighbor" Meaningful? (1999)](https://link.springer.com/chapter/10.1007/3-540-49257-7_15) - formalna analiza przekleństwa wymiarowości dla najbliższego sąsiada
+- [scikit-learn Nearest Neighbors documentation](https://scikit-learn.org/stable/modules/neighbors.html) - praktyczny przewodnik z wyborem algorytmu
+- [FAISS: A Library for Efficient Similarity Search](https://github.com/facebookresearch/faiss) - biblioteka Meta do wyszukiwania najbliższego sąsiada w skali miliardów
+
+---

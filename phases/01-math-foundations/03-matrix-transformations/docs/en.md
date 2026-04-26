@@ -1,30 +1,30 @@
-# Matrix Transformations
+# Transformacje macierzowe
 
-> A matrix is a machine that reshapes space. Learn what it does to every point, and you understand the whole transformation.
+> Macierz to maszyna, która przekształca przestrzeń. Naucz się, co robi z każdym punktem, a zrozumiesz całą transformację.
 
 **Type:** Build
 **Languages:** Python, Julia
-**Prerequisites:** Phase 1, Lessons 01-02 (Linear Algebra Intuition, Vectors & Matrices Operations)
+**Prerequisites:** Phase 1, Lessons 01-02 (Intuicja algebry liniowej, Wektory i operacje macierzowe)
 **Time:** ~75 minutes
 
-## Learning Objectives
+## Cele uczenia się
 
-- Construct rotation, scaling, shearing, and reflection matrices and apply them to 2D and 3D points
-- Compose multiple transformations by matrix multiplication and verify that order matters
-- Compute eigenvalues and eigenvectors of 2x2 matrices from the characteristic equation
-- Explain why eigenvalues determine PCA directions, RNN stability, and spectral clustering behavior
+- Konstruuj macierze obrotu, skalowania, ścinania i odbicia oraz stosuj je do punktów 2D i 3D
+- Składaj wiele transformacji przez mnożenie macierzy i weryfikuj, że kolejność ma znaczenie
+- Obliczaj wartości własne i wektory własne macierzy 2x2 z równania charakterystycznego
+- Wyjaśnij, dlaczego wartości własne determinują kierunki PCA, stabilność RNN i zachowanie spectral clustering
 
-## The Problem
+## Problem
 
-You read about PCA and see "find the eigenvectors of the covariance matrix." You read about model stability and see "check if all eigenvalues have magnitude less than 1." You read about data augmentation and see "apply a random rotation." None of this makes sense until you understand what matrices do to space geometrically.
+Czytasz o PCA i widzisz "znajdź wektory własne macierzy kowariancji". Czytasz o stabilności modelu i widzisz "sprawdź, czy wszystkie wartości własne mają magnitude mniejszą niż 1". Czytasz o augmentacji danych i widzisz "zastosuj losowy obrót". Nic z tego nie ma sensu, dopóki nie zrozumiesz, co macierze robią geometrycznie z przestrzenią.
 
-Matrices are not just grids of numbers. They are spatial machines. A rotation matrix spins points. A scaling matrix stretches them. A shearing matrix tilts them. Every transformation a neural network applies to data is one of these operations or a composition of them. This lesson makes those operations concrete.
+Macierze to nie tylko siatki liczb. To maszyny przestrzenne. Macierz obrotu obraca punkty. Macierz skalowania rozciąga je. Macierz ścinania przechyla je. Każda transformacja, którą sieć neuronowa stosuje do danych, to jedna z tych operacji lub ich kombinacja. Ta lekcja czyni te operacje konkretnymi.
 
-## The Concept
+## Koncepcja
 
-### Transformations as matrices
+### Transformacje jako macierze
 
-Every linear transformation in 2D can be written as a 2x2 matrix. The matrix tells you exactly where the basis vectors [1, 0] and [0, 1] end up. Everything else follows.
+Każda transformacja liniowa w 2D może być zapisana jako macierz 2x2. Macierz mówi dokładnie, gdzie lądują wektory bazowe [1, 0] i [0, 1]. Wszystko inne wynika z tego.
 
 ```mermaid
 graph LR
@@ -43,9 +43,9 @@ graph LR
     e2 --> M --> e2p
 ```
 
-### Rotation
+### Obrót
 
-A 2D rotation by angle theta keeps distances and angles intact. It moves every point along a circular arc.
+Obrót 2D o kąt theta zachowuje odległości i kąty. Każdy punkt porusza się po łuku kołowym.
 
 ```mermaid
 graph LR
@@ -64,25 +64,25 @@ graph LR
     B --> R --> Bp
 ```
 
-In 3D, you rotate around an axis. Each axis has its own rotation matrix:
+W 3D obracasz wokół osi. Każda oś ma swoją macierz obrotu:
 
 ```
-Rz(theta) = | cos  -sin  0 |     Rotate around z-axis
-            | sin   cos  0 |     (x-y plane spins, z stays)
+Rz(theta) = | cos  -sin  0 |     Obrót wokół osi z
+            | sin   cos  0 |     (płaszczyzna x-y wiruje, z zostaje)
             |  0     0   1 |
 
-Rx(theta) = | 1   0     0    |   Rotate around x-axis
-            | 0  cos  -sin   |   (y-z plane spins, x stays)
+Rx(theta) = | 1   0     0    |   Obrót wokół osi x
+            | 0  cos  -sin   |   (płaszczyzna y-z wiruje, x zostaje)
             | 0  sin   cos   |
 
-Ry(theta) = |  cos  0  sin |     Rotate around y-axis
-            |   0   1   0  |     (x-z plane spins, y stays)
+Ry(theta) = |  cos  0  sin |     Obrót wokół osi y
+            |   0   1   0  |     (płaszczyzna x-z wiruje, y zostaje)
             | -sin  0  cos |
 ```
 
-### Scaling
+### Skalowanie
 
-Scaling stretches or compresses along each axis independently.
+Skalowanie rozciąga lub ściska niezależnie wzdłuż każdej osi.
 
 ```mermaid
 graph LR
@@ -101,9 +101,9 @@ graph LR
     B --> S --> Bp
 ```
 
-### Shearing
+### Ścinanie
 
-Shearing tilts one axis while keeping the other fixed. It turns rectangles into parallelograms.
+Ścinanie przechyla jedną oś, trzymając drugą nieruchomą. Zamienia prostokąty w równoległoboki.
 
 ```mermaid
 graph LR
@@ -122,13 +122,13 @@ graph LR
     B --> Sh --> Bp
 ```
 
-Shear matrices:
-- `Shx = [[1, k], [0, 1]]` shifts x by k * y
-- `Shy = [[1, 0], [k, 1]]` shifts y by k * x
+Macierze ścinania:
+- `Shx = [[1, k], [0, 1]]` przesuwa x o k * y
+- `Shy = [[1, 0], [k, 1]]` przesuwa y o k * x
 
-### Reflection
+### Odbicie
 
-Reflection mirrors points across an axis or line.
+Odbicie odbija punkty przez oś lub linię.
 
 ```mermaid
 graph LR
@@ -144,13 +144,13 @@ graph LR
     A --> R --> Ap
 ```
 
-Reflection matrices:
-- Reflect across y-axis: `[[-1, 0], [0, 1]]`
-- Reflect across x-axis: `[[1, 0], [0, -1]]`
+Macierze odbicia:
+- Odbicie przez oś y: `[[-1, 0], [0, 1]]`
+- Odbicie przez oś x: `[[1, 0], [0, -1]]`
 
-### Composition: chaining transformations
+### Kompozycja: łączenie transformacji
 
-Applying transformation A then B is the same as multiplying their matrices: `result = B @ A @ point`. Order matters. Rotate then scale gives different results than scale then rotate.
+Zastosowanie transformacji A potem B to to samo, co pomnożenie ich macierzy: `result = B @ A @ point`. Kolejność ma znaczenie. Obrót potem skalowanie daje inne wyniki niż skalowanie potem obrót.
 
 ```mermaid
 graph LR
@@ -159,7 +159,7 @@ graph LR
     end
 ```
 
-Composed: `S @ R = [[0, -2], [0.5, 0]]`
+Złożona: `S @ R = [[0, -2], [0.5, 0]]`
 
 ```mermaid
 graph LR
@@ -168,73 +168,73 @@ graph LR
     end
 ```
 
-Composed: `R @ S = [[0, -0.5], [2, 0]]`
+Złożona: `R @ S = [[0, -0.5], [2, 0]]`
 
-Different results. Matrix multiplication is not commutative.
+Inne wyniki. Mnożenie macierzy nie jest przemienne.
 
-### Eigenvalues and eigenvectors
+### Wartości własne i wektory własne
 
-Most vectors change direction when a matrix hits them. Eigenvectors are special: the matrix only scales them, never rotates them. The scaling factor is the eigenvalue.
+Większość wektorów zmienia kierunek, gdy macierz je uderzy. Wektory własne są specjalne: macierz tylko je skaluje, nigdy nie obraca. Czynnik skalowania to wartość własna.
 
 ```
 A @ v = lambda * v
 
-v is the eigenvector (direction that survives)
-lambda is the eigenvalue (how much it stretches)
+v to wektor własny (kierunek który przetrwa)
+lambda to wartość własna (jak bardzo rozciąga)
 
-Example: A = | 2  1 |
+Przykład: A = | 2  1 |
              | 1  2 |
 
-Eigenvector [1, 1] with eigenvalue 3:
-  A @ [1,1] = [3, 3] = 3 * [1, 1]     (same direction, scaled by 3)
+Wektor własny [1, 1] z wartością własną 3:
+  A @ [1,1] = [3, 3] = 3 * [1, 1]     (ten sam kierunek, skalowany przez 3)
 
-Eigenvector [1, -1] with eigenvalue 1:
-  A @ [1,-1] = [1, -1] = 1 * [1, -1]  (same direction, unchanged)
+Wektor własny [1, -1] z wartością własną 1:
+  A @ [1,-1] = [1, -1] = 1 * [1, -1]  (ten sam kierunek, bez zmian)
 ```
 
-The matrix stretches space by 3x along [1, 1] and keeps [1, -1] unchanged. Every other direction is a mix of these two.
+Macierz rozciąga przestrzeń 3x wzdłuż [1, 1] i pozostawia [1, -1] bez zmian. Każdy inny kierunek to mieszanka tych dwóch.
 
-### Eigendecomposition
+### Dekompozycja własna
 
-If a matrix has n linearly independent eigenvectors, it can be decomposed:
+Jeśli macierz ma n liniowo niezależnych wektorów własnych, może być rozbita:
 
 ```
 A = V @ D @ V^(-1)
 
-V = matrix whose columns are eigenvectors
-D = diagonal matrix of eigenvalues
-V^(-1) = inverse of V
+V = macierz, której kolumny są wektorami własnymi
+D = macierz diagonalna wartości własnych
+V^(-1) = odwrotność V
 
-This says: rotate into eigenvector coordinates, scale along each axis, rotate back.
+To mówi: obróć do współrzędnych wektorów własnych, skaluj wzdłuż każdej osi, obróć z powrotem.
 ```
 
-### Why eigenvalues matter
+### Dlaczego wartości własne mają znaczenie
 
-**PCA.** The eigenvectors of the covariance matrix are the principal components. The eigenvalues tell you how much variance each component captures. Sort by eigenvalue, keep the top k, and you have dimensionality reduction.
+**PCA.** Wektory własne macierzy kowariancji to główne składowe. Wartości własne mówią, ile wariancji każda składowa przechwytuje. Sortuj według wartości własnej, zachowaj top k, i masz redukcję wymiaru.
 
-**Stability.** In recurrent networks and dynamical systems, eigenvalues with magnitude > 1 cause outputs to explode. Magnitude < 1 causes them to vanish. This is the vanishing/exploding gradient problem stated in one sentence.
+**Stabilność.** W sieciach rekurencyjnych i układach dynamicznych wartości własne o magnitudzie > 1 powodują, że wyjścia eksplodują. Magnituda < 1 powoduje, że zanikają. To problem zanikających/eksplodujących gradientów w jednym zdaniu.
 
-**Spectral methods.** Graph neural networks use eigenvalues of the adjacency matrix. Spectral clustering uses eigenvalues of the Laplacian. The eigenvectors reveal the structure of the graph.
+**Metody spektralne.** Grafowe sieci neuronowe używają wartości własnych macierzy sąsiedztwa. Spectral clustering używa wartości własnych Laplacian. Wektory własne ujawniają strukturę grafu.
 
-### Determinant as volume scaling factor
+### Wyznacznik jako współczynnik skalowania objętości
 
-The determinant of a transformation matrix tells you how much it scales area (2D) or volume (3D).
+Wyznacznik macierzy transformacji mówi, jak bardzo skaluje pole (2D) lub objętość (3D).
 
 ```
-det = 1:   area preserved (rotation)
-det = 2:   area doubled
-det = 0:   space crushed to lower dimension (singular)
-det = -1:  area preserved but orientation flipped (reflection)
+det = 1:   pole zachowane (obrót)
+det = 2:   pole podwojone
+det = 0:   przestrzeń zgnieciona do niższego wymiaru (osobliwa)
+det = -1:  pole zachowane ale orientacja odwrócona (odbicie)
 
-| det(Rotation) | = 1        (always)
-| det(Scale sx, sy) | = sx * sy
-| det(Shear) | = 1           (area preserved)
-| det(Reflection) | = -1     (orientation flipped)
+| det(Obrót) | = 1        (zawsze)
+| det(Skalowanie sx, sy) | = sx * sy
+| det(Ścinanie) | = 1           (pole zachowane)
+| det(Odbicie) | = -1     (orientacja odwrócona)
 ```
 
-## Build It
+## Buduj to
 
-### Step 1: Transformation matrices from scratch (Python)
+### Krok 1: Macierze transformacji od zera (Python)
 
 ```python
 import math
@@ -285,7 +285,7 @@ reflected = mat_vec_mul(reflection_y(), [2.0, 1.0])
 print(f"Reflect (2,1) across y: ({reflected[0]:.1f}, {reflected[1]:.1f})")
 ```
 
-### Step 2: Composition of transformations
+### Krok 2: Kompozycja transformacji
 
 ```python
 R = rotation_2d(math.pi / 2)
@@ -303,9 +303,9 @@ print(f"Scale then rotate 90: ({result2[0]:.2f}, {result2[1]:.2f})")
 print(f"Same? {result1 == result2}")
 ```
 
-### Step 3: Eigenvalues from scratch (2x2)
+### Krok 3: Wartości własne od zera (2x2)
 
-For a 2x2 matrix `[[a, b], [c, d]]`, eigenvalues solve the characteristic equation: `lambda^2 - (a+d)*lambda + (ad - bc) = 0`.
+Dla macierzy 2x2 `[[a, b], [c, d]]`, wartości własne rozwiązują równanie charakterystyczne: `lambda^2 - (a+d)*lambda + (ad - bc) = 0`.
 
 ```python
 def eigenvalues_2x2(matrix):
@@ -350,7 +350,7 @@ for val in vals:
     print(f"    l*v = {[round(x,4) for x in scaled]}")
 ```
 
-### Step 4: Determinant as volume scaling factor
+### Krok 4: Wyznacznik jako współczynnik skalowania objętości
 
 ```python
 def det_2x2(matrix):
@@ -366,9 +366,9 @@ print(f"det(singular)     = {det_2x2(singular):.1f}")
 print("Singular: columns are proportional, space collapses to a line.")
 ```
 
-## Use It
+## Użyj tego
 
-NumPy handles all of this with optimized routines.
+NumPy obsługuje to wszystko ze zoptymalizowanymi procedurami.
 
 ```python
 import numpy as np
@@ -407,7 +407,7 @@ print(f"Original:\n{B}")
 print(f"Reconstructed:\n{reconstructed}")
 ```
 
-### 3D rotations with NumPy
+### Obróty 3D z NumPy
 
 ```python
 def rotation_3d_z(theta):
@@ -427,35 +427,35 @@ print(f"Rotate 90 around z: {np.round(rotated_z, 4)}")
 print(f"Rotate 90 around x: {np.round(rotated_x, 4)}")
 ```
 
-## Ship It
+## Wyślij to
 
-This lesson builds the geometric foundation for PCA (Phase 2) and neural network weight analysis. The eigenvalue/eigenvector code built here is the same algorithm that powers dimensionality reduction, spectral clustering, and stability analysis in production ML systems.
+Ta lekcja buduje geometryczny fundament dla PCA (Faza 2) i analizy wag sieci neuronowych. Kod wartości własnych/wektorów własnych zbudowany tutaj to ten sam algorytm, który napędza redukcję wymiaru, spectral clustering i analizę stabilności w produkcyjnych systemach ML.
 
-## Exercises
+## Ćwiczenia
 
-1. Apply rotation, scaling, and shearing to a unit square (corners at [0,0], [1,0], [1,1], [0,1]). Print the transformed corners for each. Verify that rotation preserves distances between corners.
+1. Zastosuj obrót, skalowanie i ścinanie do kwadratu jednostkowego (wierzchołki w [0,0], [1,0], [1,1], [0,1]). Wydrukuj przekształcone wierzchołki dla każdego. Zweryfikuj, że obrót zachowuje odległości między wierzchołkami.
 
-2. Find the eigenvalues of the matrix [[4, 2], [1, 3]] by hand using the characteristic equation. Then verify with your from-scratch function and with NumPy.
+2. Znajdź wartości własne macierzy [[4, 2], [1, 3]] ręcznie używając równania charakterystycznego. Następnie zweryfikuj z funkcją od zera i z NumPy.
 
-3. Create a composition of three transformations (rotate 30 degrees, scale by [1.5, 0.8], shear with kx=0.3) and apply it to 8 points arranged in a circle. Print before and after coordinates. Compute the determinant of the composed matrix and verify it equals the product of the individual determinants.
+3. Stwórz kompozycję trzech transformacji (obrót o 30 stopni, skalowanie przez [1.5, 0.8], ścinanie z kx=0.3) i zastosuj do 8 punktów ułożonych w okrąg. Wydrukuj współrzędne przed i po. Oblicz wyznacznik złożonej macierzy i zweryfikuj, że equals iloczynowi indywidualnych wyznaczników.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Rotation matrix | "Spins things" | An orthogonal matrix that moves points along circular arcs while preserving distances and angles. Determinant is always 1. |
-| Scaling matrix | "Makes things bigger" | A diagonal matrix that stretches or compresses independently along each axis. Determinant is the product of scale factors. |
-| Shearing matrix | "Slants things" | A matrix that shifts one coordinate proportionally to another, turning rectangles into parallelograms. Determinant is 1. |
-| Reflection | "Mirrors things" | A matrix that flips space across an axis or plane. Determinant is -1. |
-| Composition | "Do two things" | Multiplying transformation matrices to chain operations. Order matters: B @ A means apply A first, then B. |
-| Eigenvector | "Special direction" | A direction that the matrix only scales, never rotates. The transformation's fingerprint. |
-| Eigenvalue | "How much it stretches" | The scalar factor by which the matrix scales its eigenvector. Can be negative (flip) or complex (rotation). |
-| Eigendecomposition | "Break the matrix apart" | Writing a matrix as V @ D @ V^(-1), separating it into its fundamental scaling directions and magnitudes. |
-| Determinant | "A single number from a matrix" | The factor by which the transformation scales area (2D) or volume (3D). Zero means the transformation is irreversible. |
-| Characteristic equation | "Where eigenvalues come from" | det(A - lambda * I) = 0. The polynomial whose roots are the eigenvalues. |
+| Macierz obrotu | "Obraca rzeczy" | Macierz ortogonalna, która porusza punkty po łukach kołowych, zachowując odległości i kąty. Wyznacznik zawsze 1. |
+| Macierz skalowania | "Powiększa rzeczy" | Macierz diagonalna, która rozciąga lub ściska niezależnie wzdłuż każdej osi. Wyznacznik to iloczyn czynników skalowania. |
+| Macierz ścinania | "Pochyla rzeczy" | Macierz, która przesuwa jedną współrzędną proporcjonalnie do drugiej, zamieniając prostokąty w równoległoboki. Wyznacznik to 1. |
+| Odbicie | "Odbija rzeczy" | Macierz, która odbija przestrzeń przez oś lub płaszczyznę. Wyznacznik to -1. |
+| Kompozycja | "Zrób dwa rzeczy" | Mnożenie macierzy transformacji, żeby łączyć operacje. Kolejność ma znaczenie: B @ A oznacza zastosuj A pierwsze, potem B. |
+| Wektor własny | "Specjalny kierunek" | Kierunek, który macierz tylko skaluje, nigdy nie obraca. Odcisk palca transformacji. |
+| Wartość własna | "Jak bardzo rozciąga" | Czynnik skalarny, przez który macierz skaluje swój wektor własny. Może być ujemny (odbicie) lub zespolony (obrót). |
+| Dekompozycja własna | "Rozbij macierz na części" | Zapisywanie macierzy jako V @ D @ V^(-1), rozdzielanie na jej fundamentalne kierunki i magnitudy skalowania. |
+| Wyznacznik | "Pojedyncza liczba z macierzy" | Czynnik, przez który transformacja skaluje pole (2D) lub objętość (3D). Zero oznacza, że transformacja jest nieodwracalna. |
+| Równanie charakterystyczne | "Skąd pochodzą wartości własne" | det(A - lambda * I) = 0. Wielomian, którego pierwiastkami są wartości własne. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [3Blue1Brown: Linear Transformations](https://www.3blue1brown.com/lessons/linear-transformations) -- visual intuition for how matrices reshape space
-- [3Blue1Brown: Eigenvectors and Eigenvalues](https://www.3blue1brown.com/lessons/eigenvalues) -- the best visual explanation of what eigenvectors mean geometrically
-- [MIT 18.06 Lecture 21: Eigenvalues and Eigenvectors](https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/) -- Gilbert Strang's classic treatment
+- [3Blue1Brown: Linear Transformations](https://www.3blue1brown.com/lessons/linear-transformations) -- wizualna intuicja dla tego, jak macierze przekształcają przestrzeń
+- [3Blue1Brown: Eigenvectors and Eigenvalues](https://www.3blue1brown.com/lessons/eigenvalues) -- najlepsze wizualne wyjaśnienie, co wektory własne oznaczają geometrycznie
+- [MIT 18.06 Lecture 21: Eigenvalues and Eigenvectors](https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/) -- klasyczne potraktowanie Gilberta Stranga

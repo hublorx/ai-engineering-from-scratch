@@ -1,42 +1,42 @@
-# Support Vector Machines
+# Maszyny Wektorów Nośnych
 
-> Find the widest street between two classes. That is the entire idea.
+> Znajdź najszerszą ulicę między dwiema klasami. To jest cała idea.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 1 (Lessons 08 Optimization, 14 Norms and Distances, 18 Convex Optimization)
-**Time:** ~90 minutes
+**Typ:** Budowanie
+**Język:** Python
+**Wymagania wstępne:** Faza 1 (Lekcje 08 Optymalizacja, 14 Normy i Odległości, 18 Optymalizacja Wypukła)
+**Czas:** około 90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement a linear SVM from scratch using hinge loss and gradient descent on the primal formulation
-- Explain the maximum margin principle and identify support vectors from a trained model
-- Compare linear, polynomial, and RBF kernels and explain how the kernel trick avoids explicit high-dimensional mapping
-- Evaluate the tradeoff controlled by the C parameter between margin width and classification errors
+- Zaimplementuj liniowy SVM od podstaw używając funkcji straty hinge i spadku gradientu na formulacji prymalnej
+- Wyjaśnij zasadę maksymalnego marginesu i identyfikuj wektory nośne z wytrenowanego modelu
+- Porównaj jądra liniowe, wielomianowe i RBF oraz wyjaśnij, jak sztuczka jądrowa pozwala uniknąć jawnego odwzorowania w przestrzeń wysokowymiarową
+- Oceń kompromis kontrolowany przez parametr C między szerokością marginesu a błędami klasyfikacji
 
-## The Problem
+## Problem
 
-You have two classes of data points and need to draw a line (or hyperplane) separating them. Infinitely many lines could work. Which one should you pick?
+Masz dwie klasy punktów danych i musisz narysować linię (lub hiperplaszczyznę) je rozdzielającą. Nieskończenie wiele linii może się sprawdzić. Którą powinieneś wybrać?
 
-The one with the biggest margin. The margin is the distance between the decision boundary and the nearest data points on each side. A wider margin means the classifier is more confident and generalizes better to unseen data.
+Tę z największym marginesem. Margines to odległość między granicą decyzyjną a najbliższymi punktami danych po obu stronach. Szerszy margines oznacza, że klasyfikator jest bardziej pewny siebie i lepiej uogólnia na niewidziane dane.
 
-This intuition leads to Support Vector Machines, one of the most mathematically elegant algorithms in ML. SVMs were the dominant classification method before deep learning and remain the best choice for small datasets, high-dimensional data, and problems where you need a principled, well-understood model with theoretical guarantees.
+Ta intuicja prowadzi do Maszyn Wektorów Nośnych (SVM), jednego z najbardziej matematycznie eleganckich algorytmów w ML. SVM-y były dominującą metodą klasyfikacji przed erą głębokiego uczenia i pozostają najlepszym wyborem dla małych zbiorów danych, danych wysokowymiarowych oraz problemów, gdzie potrzebujesz principled, dobrze zrozumianego modelu z teoretycznymi gwarancjami.
 
-SVMs connect directly to Phase 1: the optimization is convex (Lesson 18), the margin is measured with norms (Lesson 14), and the kernel trick exploits dot products to handle nonlinear boundaries without ever computing in the high-dimensional space.
+SVM-y łączą się bezpośrednio z Fazą 1: optymalizacja jest wypukła (Lekcja 18), margines jest mierzony normami (Lekcja 14), a sztuczka jądrowa wykorzystuje iloczyny skalarne do obsługi nieliniowych granic bez nigdy wykonywania obliczeń w przestrzeni wysokowymiarowej.
 
-## The Concept
+## Koncepcja
 
-### The maximum margin classifier
+### Klasyfikator maksymalnego marginesu
 
-Given linearly separable data with labels y_i in {-1, +1} and feature vectors x_i, we want a hyperplane w^T x + b = 0 that separates the classes.
+Mając liniowo separowalne dane z etykietami y_i w zbiorze {-1, +1} i wektorami cech x_i, chcemy hiperplaszczyznę w^T x + b = 0, która rozdziela klasy.
 
-The distance from a point x_i to the hyperplane is:
+Odległość punktu x_i od hiperplaszczyzny wynosi:
 
 ```
 distance = |w^T x_i + b| / ||w||
 ```
 
-For a correctly classified point: y_i * (w^T x_i + b) > 0. The margin is twice the distance from the hyperplane to the nearest point on either side.
+Dla poprawnie sklasyfikowanego punktu: y_i * (w^T x_i + b) > 0. Margines to dwukrotność odległości od hiperplaszczyzny do najbliższego punktu po każdej stronie.
 
 ```mermaid
 graph LR
@@ -49,23 +49,23 @@ graph LR
     B --- F["Decision boundary"]
 ```
 
-The optimization problem:
+Problem optymalizacyjny:
 
 ```
 maximize    2 / ||w||     (the margin width)
 subject to  y_i * (w^T x_i + b) >= 1  for all i
 ```
 
-Equivalently (minimizing ||w||^2 is easier to optimize):
+Równoważnie (minimalizowanie ||w||^2 jest łatwiejsze do optymalizacji):
 
 ```
 minimize    (1/2) ||w||^2
 subject to  y_i * (w^T x_i + b) >= 1  for all i
 ```
 
-This is a convex quadratic program. It has a unique global solution. The data points that sit exactly on the margin boundaries (where y_i * (w^T x_i + b) = 1) are the support vectors. They are the only points that determine the decision boundary. Move or remove any non-support-vector point, and the boundary does not change.
+To jest wypukły problem kwadratowy. Ma jedyne globalne rozwiązanie. Punkty danych, które leżą dokładnie na granicach marginesu (gdzie y_i * (w^T x_i + b) = 1) są wektorami nośnymi. To jedyne punkty, które determinują granicę decyzyjną. Przesuń lub usuń dowolny punkt niebędący wektorem nośnym, a granica się nie zmieni.
 
-### Support vectors: the critical few
+### Wektory nośne: krytyczna niewielka część
 
 ```mermaid
 graph TD
@@ -77,13 +77,13 @@ graph TD
     O2["Other - points<br>(do not affect boundary)"] -.-> SV2
 ```
 
-Most training points are irrelevant. Only the support vectors matter. This is why SVMs are memory-efficient at prediction time: you only need to store the support vectors, not the entire training set.
+Większość punktów treningowych jest nieistotna. Tylko wektory nośne mają znaczenie. Dlatego SVM-y są efektywne pamięciowo podczas predykcji: musisz przechowywać tylko wektory nośne, a nie cały zbiór treningowy.
 
-The number of support vectors also gives a bound on generalization error. Fewer support vectors relative to the dataset size means better generalization.
+Liczba wektorów nośnych daje również ograniczenie na błąd uogólnienia. Mniej wektorów nośnych w stosunku do rozmiaru zbioru danych oznacza lepsze uogólnienie.
 
-### Soft margin: handling noise with the C parameter
+### Miękki margines: obsługa szumu z parametrem C
 
-Real data is rarely perfectly separable. Some points may be on the wrong side of the boundary, or inside the margin. The soft margin formulation allows violations by introducing slack variables.
+Prawdziwe dane rzadko są idealnie separowalne. Niektóre punkty mogą być po złej stronie granicy lub wewnątrz marginesu. Formulacja miękkiego marginesu pozwala na naruszenia przez wprowadzenie zmiennych relaksacyjnych.
 
 ```
 minimize    (1/2) ||w||^2 + C * sum(xi_i)
@@ -91,27 +91,27 @@ subject to  y_i * (w^T x_i + b) >= 1 - xi_i
             xi_i >= 0  for all i
 ```
 
-The slack variable xi_i measures how much point i violates the margin. C controls the trade-off:
+Zmienna relaksacyjna xi_i mierzy, ile punkt i narusza margines. C kontroluje kompromis:
 
-| C value | Behavior |
+| Wartość C | Zachowanie |
 |---------|----------|
-| Large C | Penalizes violations heavily. Narrow margin, fewer misclassifications. Overfits |
-| Small C | Allows more violations. Wide margin, more misclassifications. Underfits |
+| Duże C | Silnie karze za naruszenia. Wąski margines, mniej błędów klasyfikacji. Przeuczenie |
+| Małe C | Pozwala na więcej naruszeń. Szeroki margines, więcej błędów klasyfikacji. Niedouczenie |
 
-C is the regularization strength, inverted. Large C = less regularization. Small C = more regularization.
+C to siła regularyzacji odwrócona. Duże C = mniej regularyzacji. Małe C = więcej regularyzacji.
 
-### Hinge loss: the SVM loss function
+### Funkcja straty hinge: funkcja straty SVM
 
-The soft margin SVM can be rewritten as an unconstrained optimization:
+Miękki margines SVM może być przepisany jako optymalizacja bez ograniczeń:
 
 ```
 minimize    (1/2) ||w||^2 + C * sum(max(0, 1 - y_i * (w^T x_i + b)))
 ```
 
-The term max(0, 1 - y_i * f(x_i)) is the hinge loss. It is zero when the point is correctly classified and beyond the margin. It is linear when the point is inside the margin or misclassified.
+Term max(0, 1 - y_i * f(x_i)) to funkcja straty hinge. Jest zerowa, gdy punkt jest poprawnie sklasyfikowany i poza marginesem. Jest liniowa, gdy punkt jest wewnątrz marginesu lub błędnie sklasyfikowany.
 
 ```
-Hinge loss for a single point:
+Funkcja straty hinge dla pojedynczego punktu:
 
 loss
   |
@@ -124,40 +124,40 @@ loss
   +-----|-----|-------->  y * f(x)
        0     1
 
-Zero loss when y*f(x) >= 1 (correctly classified, outside margin).
-Linear penalty when y*f(x) < 1.
+Strata zero gdy y*f(x) >= 1 (poprawnie sklasyfikowany, poza marginesem).
+Kara liniowa gdy y*f(x) < 1.
 ```
 
-Compare with logistic loss (logistic regression):
+Porównaj z funkcją straty logistyczną (regresja logistyczna):
 
 ```
-Hinge:     max(0, 1 - y*f(x))          Hard cutoff at margin
-Logistic:  log(1 + exp(-y*f(x)))        Smooth, never exactly zero
+Hinge:     max(0, 1 - y*f(x))          Ostre odcięcie na marginesie
+Logistic:  log(1 + exp(-y*f(x)))        Gładka, nigdy dokładnie zero
 ```
 
-Hinge loss produces sparse solutions (only support vectors have nonzero contribution). Logistic loss uses all data points. This makes SVMs more memory-efficient at prediction time.
+Funkcja straty hinge tworzy rzadkie rozwiązania (tylko wektory nośne mają niezerowy wkład). Funkcja straty logistyczna używa wszystkich punktów danych. To czyni SVM-y bardziej efektywnymi pamięciowo podczas predykcji.
 
-### Training a linear SVM with gradient descent
+### Trenowanie liniowego SVM-a spadkiem gradientu
 
-You can train a linear SVM using gradient descent on the hinge loss plus L2 regularization, without solving the constrained QP:
+Możesz trenować liniowy SVM używając spadku gradientu na funkcji straty hinge plus regularyzacja L2, bez rozwiązywania ograniczonego QP:
 
 ```
 L(w, b) = (lambda/2) * ||w||^2 + (1/n) * sum(max(0, 1 - y_i * (w^T x_i + b)))
 
-Gradient with respect to w:
-  If y_i * (w^T x_i + b) >= 1:  dL/dw = lambda * w
-  If y_i * (w^T x_i + b) < 1:   dL/dw = lambda * w - y_i * x_i
+Gradient względem w:
+  Jeśli y_i * (w^T x_i + b) >= 1:  dL/dw = lambda * w
+  Jeśli y_i * (w^T x_i + b) < 1:   dL/dw = lambda * w - y_i * x_i
 
-Gradient with respect to b:
-  If y_i * (w^T x_i + b) >= 1:  dL/db = 0
-  If y_i * (w^T x_i + b) < 1:   dL/db = -y_i
+Gradient względem b:
+  Jeśli y_i * (w^T x_i + b) >= 1:  dL/db = 0
+  Jeśli y_i * (w^T x_i + b) < 1:   dL/db = -y_i
 ```
 
-This is called the primal formulation. It runs in O(n * d) per epoch, where n is the number of samples and d is the number of features. For large, sparse, high-dimensional data (text classification), this is fast.
+To nazywa się formulacją prymalną. Działa w O(n * d) na epokę, gdzie n to liczba próbek, a d to liczba cech. Dla dużych, rzadkich, wysokowymiarowych danych (klasyfikacja tekstu), to jest szybkie.
 
-### The dual formulation and the kernel trick
+### Formulacja dualna i sztuczka jądrowa
 
-The Lagrangian dual of the SVM problem (from Phase 1 Lesson 18, KKT conditions) is:
+Dual Lagrangian problemu SVM (z Fazy 1 Lekcja 18, warunki KKT) to:
 
 ```
 maximize    sum(alpha_i) - (1/2) * sum_ij(alpha_i * alpha_j * y_i * y_j * (x_i . x_j))
@@ -165,15 +165,15 @@ subject to  0 <= alpha_i <= C
             sum(alpha_i * y_i) = 0
 ```
 
-The dual only involves dot products x_i . x_j between data points. This is the key insight. Replace every dot product with a kernel function K(x_i, x_j) and the SVM can learn nonlinear boundaries without ever computing the transformation explicitly.
+Dualny dotyczy tylko iloczynów skalarnych x_i . x_j między punktami danych. To jest kluczowy wgląd. Zastąp każdy iloczyn skalarny funkcją jądrową K(x_i, x_j), a SVM może uczyć się nieliniowych granic bez nigdy jawnego obliczania transformacji.
 
 ```
-Linear kernel:      K(x, z) = x . z
-Polynomial kernel:  K(x, z) = (x . z + c)^d
-RBF (Gaussian):     K(x, z) = exp(-gamma * ||x - z||^2)
+Liniowe jądro:      K(x, z) = x . z
+Wielomianowe jądro:  K(x, z) = (x . z + c)^d
+RBF (Gaussowskie):     K(x, z) = exp(-gamma * ||x - z||^2)
 ```
 
-The RBF kernel maps data into an infinite-dimensional space. Points that are close in input space have kernel value near 1. Points that are far apart have kernel value near 0. It can learn any smooth decision boundary.
+Jądro RBF mapuje dane w przestrzeń nieskończenie wymiarową. Punkty bliskie w przestrzeni wejściowej mają wartość jądra bliską 1. Punkty odległe mają wartość jądra bliską 0. Może nauczyć się dowolnej gładkiej granicy decyzyjnej.
 
 ```mermaid
 graph LR
@@ -186,11 +186,11 @@ graph LR
     A -->|"Kernel trick<br>K(x,z) = phi(x).phi(z)"| B
 ```
 
-The kernel trick computes the dot product in the high-dimensional space without ever going there. For the polynomial kernel of degree d in D dimensions, the explicit feature space has O(D^d) dimensions. But K(x, z) is computed in O(D) time.
+Sztuczka jądrowa oblicza iloczyn skalarny w przestrzeni wysokowymiarowej bez nigdy tam wchodzenia. Dla jądra wielomianowego stopnia d w wymiarze D, jawna przestrzeń cech ma O(D^d) wymiarów. Ale K(x, z) jest obliczane w czasie O(D).
 
-### SVM for regression (SVR)
+### SVM dla regresji (SVR)
 
-Support Vector Regression fits a tube of width epsilon around the data. Points inside the tube have zero loss. Points outside the tube are penalized linearly.
+Regresja Wektorów Nośnych dopasowuje rurkę o szerokości epsilon wokół danych. Punkty wewnątrz rurki mają stratę zero. Punkty poza rurką są karane liniowo.
 
 ```
 minimize    (1/2) ||w||^2 + C * sum(xi_i + xi_i*)
@@ -199,33 +199,33 @@ subject to  y_i - (w^T x_i + b) <= epsilon + xi_i
             xi_i, xi_i* >= 0
 ```
 
-The epsilon parameter controls the tube width. Wider tube = fewer support vectors = smoother fit. Narrower tube = more support vectors = tighter fit.
+Parametr epsilon kontroluje szerokość rurki. Szersza rurka = mniej wektorów nośnych = gładsze dopasowanie. Węższa rurka = więcej wektorów nośnych = ciaśniejsze dopasowanie.
 
-### Why SVMs lost to deep learning (and when they still win)
+### Dlaczego SVM-y przegrały z głębokim uczeniem (i kiedy nadal wygrywają)
 
-SVMs dominated ML from the late 1990s through the early 2010s. Deep learning surpassed them for several reasons:
+SVM-y dominowały w ML od końca lat 90. do początku lat 2010. Głębokie uczenie je przegoniło z kilku powodów:
 
-| Factor | SVMs | Deep learning |
+| Czynnik | SVM-y | Głębokie uczenie |
 |--------|------|---------------|
-| Feature engineering | Requires it | Learns features |
-| Scalability | O(n^2) to O(n^3) for kernel | O(n) per epoch with SGD |
-| Image/text/audio | Needs handcrafted features | Learns from raw data |
-| Large datasets (>100k) | Slow | Scales well |
-| GPU acceleration | Limited benefit | Massive speedup |
+| Inżynieria cech | Wymaga jej | Uczy się cech |
+| Skalowalność | O(n^2) do O(n^3) dla jądra | O(n) na epokę z SGD |
+| Obrazy/tekst/audio | Wymaga ręcznie tworzonych cech | Uczy się z surowych danych |
+| Duże zbiory danych (>100k) | Wolne | Skaluje się dobrze |
+| Przyspieszenie GPU | Ograniczone korzyści | Ogromne przyspieszenie |
 
-SVMs still win in these situations:
-- Small datasets (hundreds to low thousands of samples)
-- High-dimensional sparse data (text with TF-IDF features)
-- When you need mathematical guarantees (margin bounds)
-- When training time must be minimal (linear SVM is very fast)
-- Binary classification with clear margin structure
-- Anomaly detection (one-class SVM)
+SVM-y nadal wygrywają w tych sytuacjach:
+- Małe zbiory danych (setki do niskich tysięcy próbek)
+- Wysokowymiarowe rzadkie dane (tekst z cechami TF-IDF)
+- Gdy potrzebujesz matematycznych gwarancji (ograniczenia marginesu)
+- Gdy czas treningu musi być minimalny (liniowy SVM jest bardzo szybki)
+- Klasyfikacja binarna z wyraźną strukturą marginesu
+- Wykrywanie anomalii (SVM jednoklasowy)
 
-## Build It
+## Zbuduj to
 
-### Step 1: Hinge loss and gradient
+### Krok 1: Funkcja straty hinge i gradient
 
-The foundation. Compute hinge loss for a batch and its gradient.
+Fundament. Oblicz funkcję straty hinge dla wsadu i jej gradient.
 
 ```python
 def hinge_loss(X, y, w, b):
@@ -237,9 +237,9 @@ def hinge_loss(X, y, w, b):
     return total_loss / n
 ```
 
-### Step 2: Linear SVM via gradient descent
+### Krok 2: Liniowy SVM przez spadek gradientu
 
-Train by minimizing regularized hinge loss. No QP solver needed.
+Trenuj przez minimalizację regularyzowanej funkcji straty hinge. Nie potrzebujesz solvera QP.
 
 ```python
 class LinearSVM:
@@ -270,9 +270,9 @@ class LinearSVM:
         return [1 if dot(self.w, x) + self.b >= 0 else -1 for x in X]
 ```
 
-### Step 3: Kernel functions
+### Krok 3: Funkcje jądrowe
 
-Implement linear, polynomial, and RBF kernels.
+Zaimplementuj jądra liniowe, wielomianowe i RBF.
 
 ```python
 def linear_kernel(x, z):
@@ -286,9 +286,9 @@ def rbf_kernel(x, z, gamma=0.5):
     return math.exp(-gamma * dot(diff, diff))
 ```
 
-### Step 4: Margin and support vector identification
+### Krok 4: Identyfikacja marginesu i wektorów nośnych
 
-After training, identify which points are support vectors and compute the margin width.
+Po treningu zidentyfikuj, które punkty są wektorami nośnymi i oblicz szerokość marginesu.
 
 ```python
 def find_support_vectors(X, y, w, b, tol=1e-3):
@@ -300,11 +300,11 @@ def find_support_vectors(X, y, w, b, tol=1e-3):
     return support_vectors
 ```
 
-See `code/svm.py` for the complete implementation with all demos.
+Zobacz `code/svm.py` dla pełnej implementacji ze wszystkimi demonstracjami.
 
-## Use It
+## Użyj tego
 
-With scikit-learn:
+Z scikit-learn:
 
 ```python
 from sklearn.svm import SVC, LinearSVC, SVR
@@ -320,9 +320,9 @@ print(f"Accuracy: {clf.score(X_test, y_test):.4f}")
 print(f"Support vectors: {clf['svm'].n_support_}")
 ```
 
-Important: always scale your features before training an SVM. SVMs are sensitive to feature magnitudes because the margin depends on ||w||, and unscaled features distort the geometry.
+Ważne: zawsze skaluj cechy przed treningiem SVM-a. SVM-y są wrażliwe na wielkości cech, bo margines zależy od ||w||, a nieskalowane cechy zniekształcają geometrię.
 
-For large datasets, use `LinearSVC` (primal formulation, O(n) per epoch) instead of `SVC` (dual formulation, O(n^2) to O(n^3)):
+Dla dużych zbiorów danych używaj `LinearSVC` (formulacja prymalna, O(n) na epokę) zamiast `SVC` (formulacja dualna, O(n^2) do O(n^3)):
 
 ```python
 from sklearn.svm import LinearSVC
@@ -333,40 +333,40 @@ clf = Pipeline([
 ])
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. Generate a 2D linearly separable dataset. Train your LinearSVM and identify the support vectors. Verify that the support vectors are the points closest to the decision boundary.
+1. Wygeneruj dwuwymiarowy liniowo separowalny zbiór danych. Wytrenuj swój liniowy SVM i zidentyfikuj wektory nośne. Zweryfikuj, że wektory nośne to punkty najbliższe granicy decyzyjnej.
 
-2. Vary C from 0.001 to 1000 on a noisy dataset. Plot the decision boundary for each C value. Observe the transition from wide margin (underfitting) to narrow margin (overfitting).
+2. Zmieniaj C od 0.001 do 1000 na zaszumionym zbiorze danych. Zrób wykres granicy decyzyjnej dla każdej wartości C. Obserwuj przejście od szerokiego marginesu (niedouczenie) do wąskiego marginesu (przeuczenie).
 
-3. Create a dataset where class boundaries are circular (not linear). Show that a linear SVM fails. Compute the RBF kernel matrix and show that the classes become separable in the kernel-induced feature space.
+3. Stwórz zbiór danych, gdzie granice klas są koliste (nieliniowe). Pokaż, że liniowy SVM zawodzi. Oblicz macierz jądra RBF i pokaż, że klasy stają się separowalne w przestrzeni cech indukowanej przez jądro.
 
-4. Compare hinge loss vs logistic loss on the same dataset. Train a linear SVM and logistic regression. Count how many training points contribute to each model's decision boundary (support vectors vs all points).
+4. Porównaj funkcję straty hinge z funkcją straty logistyczną na tym samym zbiorze danych. Wytrenuj liniowy SVM i regresję logistyczną. Policz, ile punktów treningowych przyczynia się do granicy decyzyjnej każdego modelu (wektory nośne vs wszystkie punkty).
 
-5. Implement SVR (epsilon-insensitive loss). Fit it to y = sin(x) + noise. Plot the epsilon tube around the predictions and highlight the support vectors (points outside the tube).
+5. Zaimplementuj SVR (strata epsilon-niewrażliwa). Dopasuj do y = sin(x) + szum. Zrób wykres rurki epsilon wokół predykcji i podświetl wektory nośne (punkty poza rurką).
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What it actually means |
+| Termin | Co to faktycznie oznacza |
 |------|----------------------|
-| Support vectors | The training points closest to the decision boundary. The only points that determine the hyperplane |
-| Margin | The distance between the decision boundary and the nearest support vectors. SVMs maximize this |
-| Hinge loss | max(0, 1 - y*f(x)). Zero when correctly classified and outside the margin. Linear penalty otherwise |
-| C parameter | Trade-off between margin width and classification errors. Large C = narrow margin, small C = wide margin |
-| Soft margin | SVM formulation that allows margin violations via slack variables. Handles non-separable data |
-| Kernel trick | Computing dot products in a high-dimensional feature space without explicitly mapping to that space |
-| Linear kernel | K(x, z) = x . z. Equivalent to standard dot product. For linearly separable data |
-| RBF kernel | K(x, z) = exp(-gamma * \|\|x-z\|\|^2). Maps to infinite dimensions. Learns any smooth boundary |
-| Polynomial kernel | K(x, z) = (x . z + c)^d. Maps to a feature space of polynomial combinations |
-| Dual formulation | Reformulation of the SVM problem that depends only on dot products between data points. Enables kernels |
-| SVR | Support Vector Regression. Fits an epsilon-tube around the data. Points inside the tube have zero loss |
-| Slack variables | xi_i: measures how much a point violates the margin. Zero for correctly classified points outside margin |
-| Maximum margin | The principle of choosing the hyperplane that maximizes the distance to the nearest points of each class |
+| Wektory nośne | Punkty treningowe najbliższe granicy decyzyjnej. Jedyne punkty determinujące hiperplaszczyznę |
+| Margines | Odległość między granicą decyzyjną a najbliższymi wektorami nośnymi. SVM-y to maksymalizują |
+| Funkcja straty hinge | max(0, 1 - y*f(x)). Zero gdy poprawnie sklasyfikowany i poza marginesem. Kara liniowa w przeciwnym razie |
+| Parametr C | Kompromis między szerokością marginesu a błędami klasyfikacji. Duże C = wąski margines, małe C = szeroki margines |
+| Miękki margines | Formulacja SVM pozwalająca na naruszenia marginesu przez zmienne relaksacyjne. Obsługuje dane nieseparowalne |
+| Sztuczka jądrowa | Obliczanie iloczynów skalarnych w przestrzeni cech wysokowymiarowej bez jawnego odwzorowania do tej przestrzeni |
+| Liniowe jądro | K(x, z) = x . z. Równoważne standardowemu iloczynowi skalarnemu. Dla liniowo separowalnych danych |
+| Jądro RBF | K(x, z) = exp(-gamma * \|\|x-z\|\|^2). Mapuje do wymiaru nieskończonego. Uczy się dowolnej gładkiej granicy |
+| Wielomianowe jądro | K(x, z) = (x . z + c)^d. Mapuje do przestrzeni cech kombinacji wielomianowych |
+| Formulacja dualna | Przeformułowanie problemu SVM zależne tylko od iloczynów skalarnych między punktami danych. Umożliwia jądra |
+| SVR | Regresja Wektorów Nośnych. Dopasowuje rurkę epsilon wokół danych. Punkty wewnątrz rurki mają stratę zero |
+| Zmienne relaksacyjne | xi_i: mierzy, ile punkt narusza margines. Zero dla poprawnie sklasyfikowanych punktów poza marginesem |
+| Maksymalny margines | Zasada wybierania hiperplaszczyzny maksymalizującej odległość do najbliższych punktów każdej klasy |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Vapnik: The Nature of Statistical Learning Theory (1995)](https://link.springer.com/book/10.1007/978-1-4757-3264-1) - the foundational text on SVMs and statistical learning
-- [Cortes & Vapnik: Support-vector networks (1995)](https://link.springer.com/article/10.1007/BF00994018) - the original SVM paper
-- [Platt: Sequential Minimal Optimization (1998)](https://www.microsoft.com/en-us/research/publication/sequential-minimal-optimization-a-fast-algorithm-for-training-support-vector-machines/) - the SMO algorithm that made SVM training practical
-- [scikit-learn SVM documentation](https://scikit-learn.org/stable/modules/svm.html) - practical guide with implementation details
-- [LIBSVM: A Library for Support Vector Machines](https://www.csie.ntu.edu.tw/~cjlin/libsvm/) - the C++ library behind most SVM implementations
+- [Vapnik: The Nature of Statistical Learning Theory (1995)](https://link.springer.com/book/10.1007/978-1-4757-3264-1) - fundamentalny tekst o SVM-ach i statystycznym uczeniu
+- [Cortes & Vapnik: Support-vector networks (1995)](https://link.springer.com/article/10.1007/BF00994018) - oryginalny artykuł o SVM
+- [Platt: Sequential Minimal Optimization (1998)](https://www.microsoft.com/en-us/research/publication/sequential-minimal-optimization-a-fast-algorithm-for-training-support-vector-machines/) - algorytm SMO, który uczynił trening SVM praktycznym
+- [dokumentacja SVM scikit-learn](https://scikit-learn.org/stable/modules/svm.html) - praktyczny przewodnik z szczegółami implementacji
+- [LIBSVM: Biblioteka dla Maszyn Wektorów Nośnych](https://www.csie.ntu.edu.tw/~cjlin/libsvm/) - biblioteka C++ stojąca za większością implementacji SVM

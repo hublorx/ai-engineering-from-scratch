@@ -1,78 +1,78 @@
-# Dimensionality Reduction
+# Redukcja wymiarowości
 
-> High-dimensional data has structure. You find it by looking from the right angle.
+> Dane wysokowymiarowe mają strukturę. Znajdziesz ją, patrząc pod odpowiednim kątem.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 1, Lessons 01 (Linear Algebra Intuition), 02 (Vectors, Matrices & Operations), 03 (Eigenvalues & Eigenvectors), 06 (Probability & Distributions)
-**Time:** ~90 minutes
+**Typ:** Budowanie
+**Język:** Python
+**Wymagania wstępne:** Phase 1, Lekcje 01 (Intuicja algebry liniowej), 02 (Wektory, Macierze & Operacje), 03 (Wartości własne & Wektory własne), 06 (Prawdopodobieństwo & Rozkłady)
+**Czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement PCA from scratch: center data, compute the covariance matrix, eigendecompose, and project
-- Use explained variance ratio and the elbow method to choose the number of principal components
-- Compare PCA, t-SNE, and UMAP for visualizing MNIST digits in 2D and explain their tradeoffs
-- Apply kernel PCA with an RBF kernel to separate nonlinear data structures that standard PCA cannot handle
+- Implementuj PCA od podstaw: centruj dane, oblicz macierz kowariancji, przeprowadź dekompozycję własną i projektuj
+- Używaj współczynnika wyjaśnionej wariancji i metody łokcia, aby wybrać liczbę głównych składowych
+- Porównaj PCA, t-SNE i UMAP do wizualizacji cyfr MNIST w 2D i wyjaśnij ich kompromisy
+- Zastosuj jądrowe PCA z jądrem RBF, aby rozdzielić nieliniowe struktury danych, których standardowe PCA nie może obsłużyć
 
-## The Problem
+## Problem
 
-You have a dataset with 784 features per sample. Maybe it is pixel values of handwritten digits. Maybe it is gene expression levels. Maybe it is user behavior signals. You cannot visualize 784 dimensions. You cannot plot them. You cannot even think about them.
+Masz zbiór danych z 784 cechami na próbkę. Może to być wartości pikseli odręcznych cyfr. Może to być poziomy ekspresji genów. Może to być sygnały zachowań użytkowników. Nie możesz wizualizować 784 wymiarów. Nie możesz ich wykreślić. Nie możesz nawet o nich myśleć.
 
-But most of those 784 features are redundant. The actual information lives on a much smaller surface. A handwritten "7" does not need 784 independent numbers to describe it. It needs a few: the angle of the stroke, the length of the crossbar, how much it leans. The rest is noise.
+Ale większość tych 784 cech jest redundantna. Rzeczywista informacja znajduje się na znacznie mniejszej powierzchni. Odręczna "7" nie potrzebuje 784 niezależnych liczb do jej opisania. Potrzebuje tylko kilku: kąta pociągnięcia, długości poprzeczki, jak bardzo się przechyla. Reszta to szum.
 
-Dimensionality reduction finds that smaller surface. It takes your 784-dimensional data and compresses it to 2, 10, or 50 dimensions while keeping the structure that matters.
+Redukcja wymiarowości znajduje tę mniejszą powierzchnię. Pobiera twoje dane 784-wymiarowe i kompresuje je do 2, 10 lub 50 wymiarów, zachowując strukturę, która ma znaczenie.
 
-## The Concept
+## Koncepcja
 
-### The curse of dimensionality
+### Przekleństwo wymiarowości
 
-High-dimensional spaces are unintuitive. Three things break as dimensions grow.
+Przestrzenie wysokowymiarowe są nieintuicyjne. Trzy rzeczy się psują, gdy wymiary rosną.
 
-**Distance becomes meaningless.** In high dimensions, the distance between any two random points converges to the same value. If every point is roughly the same distance from every other point, nearest-neighbor search stops working.
+**Odległość staje się bez znaczenia.** W wysokich wymiarach, odległość między dowolnymi dwoma losowymi punktami zbiega do tej samej wartości. Jeśli każdy punkt jest w przybliżeniu w równej odległości od każdego innego punktu, wyszukiwanie najbliższego sąsiada przestaje działać.
 
 ```
-Dimension    Avg distance ratio (max/min between random points)
+Wymiar    Średni stosunek odległości (maks/min między losowymi punktami)
 2            ~5.0
 10           ~1.8
 100          ~1.2
 1000         ~1.02
 ```
 
-**Volume concentrates in corners.** A unit hypercube in d dimensions has 2^d corners. In 100 dimensions, nearly all the volume is in the corners, far from the center. Data points spread to the edges and your models starve for data in the interior.
+**Objętość koncentruje się w rogach.** Hiperkostka jednostkowa w d wymiarach ma 2^d rogów. W 100 wymiarach prawie cała objętość znajduje się w rogach, daleko od centrum. Punkty danych rozprzestrzeniają się do krawędzi, a twoje modele głodują danych w środku.
 
-**You need exponentially more data.** To maintain the same density of samples in a space, going from 2D to 20D means you need 10^18 times more data. You never have enough. Reducing dimensions brings the data density back to something workable.
+**Potrzebujesz wykładniczo więcej danych.** Aby utrzymać tę samą gęstość próbek w przestrzeni, przejście z 2D do 20D oznacza, że potrzebujesz 10^18 razy więcej danych. Nigdy nie masz wystarczająco dużo. Zmniejszenie wymiarów przywraca gęstość danych do czegoś wykonalnego.
 
-### PCA: find the directions that matter
+### PCA: znajdź kierunki, które mają znaczenie
 
-Principal Component Analysis (PCA) finds the axes along which your data varies the most. It rotates your coordinate system so the first axis captures the most variance, the second captures the next most, and so on.
+Analiza głównych składowych (PCA) znajduje osie, wzdłuż których twoje dane najbardziej się zmieniają. Obraca twój układ współrzędnych tak, że pierwsza oś przechwytuje największą wariancję, druga przechwytuje następną co do wielkości, i tak dalej.
 
-The algorithm:
+Algorytm:
 
 ```
-1. Center the data        (subtract the mean from each feature)
-2. Compute covariance     (how features move together)
-3. Eigendecomposition     (find the principal directions)
-4. Sort by eigenvalue     (biggest variance first)
-5. Project               (keep top k eigenvectors, drop the rest)
+1. Wycentruj dane        (odejmij średnią od każdej cechy)
+2. Oblicz kowariancję    (jak cechy poruszają się razem)
+3. Dekompozycja własna   (znajdź główne kierunki)
+4. Sortuj według wartości własnych (największa wariancja pierwsza)
+5. Projektuj             (zachowaj górne k wektorów własnych, upuść resztę)
 ```
 
-Why eigendecomposition? The covariance matrix is symmetric and positive semi-definite. Its eigenvectors are orthogonal directions in feature space. The eigenvalues tell you how much variance each direction captures. The eigenvector with the largest eigenvalue points along the direction of maximum variance.
+Dlaczego dekompozycja własna? Macierz kowariancji jest symetryczna i półokreślona dodatnio. Jej wektory własne są ortogonalnymi kierunkami w przestrzeni cech. Wartości własne mówią ci, ile wariancji przechwytuje każdy kierunek. Wektor własny z największą wartością własną wskazuje kierunek maksymalnej wariancji.
 
 ```mermaid
 graph LR
-    A["Original data (2D)\nData spread in both\nx and y directions"] -->|"PCA rotation"| B["After PCA\nPC1 captures the elongated spread\nPC2 captures the narrow spread\nDrop PC2 and you lose little info"]
+    A["Oryginalne dane (2D)\nDane rozproszone w obu\nkierunkach x i y"] -->|"Obrót PCA"| B["Po PCA\nPC1 przechwytuje wydłużone rozproszenie\nPC2 przechwytuje wąskie rozproszenie\nUpuszczenie PC2 traci mało informacji"]
 ```
 
-- **Before PCA:** Data cloud is spread diagonally across both x and y axes
-- **After PCA:** Coordinate system is rotated so PC1 aligns with the direction of maximum variance (elongated spread) and PC2 aligns with the direction of minimum variance (narrow spread)
-- **Dimensionality reduction:** Dropping PC2 projects the data onto PC1, losing very little information
+- **Przed PCA:** Chmura danych rozpostarta po przekątnej na obu osiach x i y
+- **Po PCA:** Układ współrzędnych jest obrócony tak, że PC1 wyrównuje się z kierunkiem maksymalnej wariancji (wydłużone rozproszenie), a PC2 wyrównuje się z kierunkiem minimalnej wariancji (wąskie rozproszenie)
+- **Redukcja wymiarowości:** Upuszczenie PC2 projektuje dane na PC1, tracąc bardzo mało informacji
 
-### Explained variance ratio
+### Współczynnik wyjaśnionej wariancji
 
-Each principal component captures a fraction of the total variance. The explained variance ratio tells you how much.
+Każda główna składowa przechwytuje ułamek całkowitej wariancji. Współczynnik wyjaśnionej wariancji mówi ci, ile.
 
 ```
-Component    Eigenvalue    Explained ratio    Cumulative
+Składowa    Wartość własna    Wyjaśniony ułamek    Skumulowany
 PC1          4.73          0.473              0.473
 PC2          2.51          0.251              0.724
 PC3          1.12          0.112              0.836
@@ -80,119 +80,119 @@ PC4          0.89          0.089              0.925
 ...
 ```
 
-When the cumulative explained variance reaches 0.95, you know that many components capture 95% of the information. Everything after that is mostly noise.
+Gdy skumulowana wyjaśniona wariancja osiąga 0.95, wiesz, że wiele składowych przechwytuje 95% informacji. Wszystko po tym to głównie szum.
 
-### Choosing the number of components
+### Wybór liczby składowych
 
-Three strategies:
+Trzy strategie:
 
-1. **Threshold.** Keep enough components to explain 90-95% of the variance.
-2. **Elbow method.** Plot explained variance per component. Look for a sharp drop-off.
-3. **Downstream performance.** Use PCA as preprocessing. Sweep k and measure your model's accuracy. The best k is wherever accuracy plateaus.
+1. **Próg.** Zachowaj wystarczającą liczbę składowych, aby wyjaśnić 90-95% wariancji.
+2. **Metoda łokcia.** Wykreśl wyjaśnioną wariancję na składową. Szukaj ostrego spadku.
+3. **Wydajność downstream.** Użyj PCA jako preprocessingu. Przeglądaj k i mierz dokładność modelu. Najlepsze k jest tam, gdzie dokładność się stabilizuje.
 
-### t-SNE: preserve neighborhoods
+### t-SNE: zachowaj sąsiedztwa
 
-t-Distributed Stochastic Neighbor Embedding (t-SNE) is designed for visualization. It maps high-dimensional data to 2D (or 3D) while preserving which points are near each other.
+t-Distributed Stochastic Neighbor Embedding (t-SNE) jest zaprojektowane do wizualizacji. Mapuje dane wysokowymiarowe do 2D (lub 3D), zachowując, które punkty są blisko siebie.
 
-The intuition: in the original space, compute a probability distribution over pairs of points based on their distances. Near points get high probability. Far points get low probability. Then find a 2D arrangement where the same probability distribution holds. Points that were neighbors in 784 dimensions stay neighbors in 2D.
+Intuicja: w oryginalnej przestrzeni oblicz rozkład prawdopodobieństwa nad parami punktów na podstawie ich odległości. Bliskie punkty dostają wysokie prawdopodobieństwo. Dalekie punkty dostają niskie prawdopodobieństwo. Następnie znajdź układ 2D, gdzie ten sam rozkład prawdopodobieństwa zachodzi. Punkty, które były sąsiadami w 784 wymiarach, pozostają sąsiadami w 2D.
 
-Key properties of t-SNE:
-- Non-linear. It can unfold complex manifolds that PCA cannot.
-- Stochastic. Different runs produce different layouts.
-- Perplexity parameter controls how many neighbors to consider (typical range: 5-50).
-- Distances between clusters in the output are not meaningful. Only the clusters themselves are.
-- Slow on large datasets. O(n^2) by default.
+Kluczowe właściwości t-SNE:
+- Nieliniowe. Może rozwinąć złożone rozmaitości, których PCA nie może.
+- Stochastyczne. Różne uruchomienia produkują różne układy.
+- Parametr perplexity kontroluje, ilu sąsiadów rozważać (typowy zakres: 5-50).
+- Odległości między klastrami w wyniku nie są znaczące. Tylko same klastry są.
+- Wolne na dużych zbiorach danych. O(n^2) domyślnie.
 
-### UMAP: faster, better global structure
+### UMAP: szybsze, lepsza globalna struktura
 
-Uniform Manifold Approximation and Projection (UMAP) works similarly to t-SNE but with two advantages:
-- Faster. It uses approximate nearest-neighbor graphs instead of computing all pairwise distances.
-- Better global structure. The relative positions of clusters in the output tend to be more meaningful than in t-SNE.
+Uniform Manifold Approximation and Projection (UMAP) działa podobnie do t-SNE, ale z dwoma zaletami:
+- Szybsze. Używa przybliżonych grafów najbliższych sąsiadów zamiast obliczać wszystkie parami odległości.
+- Lepsza globalna struktura. Względne pozycje klastrów w wyniku mają tendencję do bycia bardziej znaczącymi niż w t-SNE.
 
-UMAP builds a weighted graph in high-dimensional space (the "fuzzy topological representation") and then finds a low-dimensional layout that preserves this graph as well as possible.
+UMAP buduje ważony graf w przestrzeni wysokowymiarowej ("rozmyta reprezentacja topologiczna"), a następnie znajduje układ niskowymiarowy, który zachowuje ten graf jak najlepiej.
 
-Key parameters:
-- `n_neighbors`: how many neighbors define local structure (similar to perplexity). Higher values preserve more global structure.
-- `min_dist`: how tightly points pack together in the output. Lower values create denser clusters.
+Kluczowe parametry:
+- `n_neighbors`: ilu sąsiadów definiuje lokalną strukturę (podobnie do perplexity). Wyższe wartości zachowują więcej globalnej struktury.
+- `min_dist`: jak ciasno punkty upakowują się w wyniku. Niższe wartości tworzą gęstsze klastry.
 
-### When to use which
+### Kiedy używać czego
 
-| Method | Use case | Preserves | Speed |
+| Metoda | Przypadek użycia | Zachowuje | Szybkość |
 |--------|----------|-----------|-------|
-| PCA | Preprocessing before training | Global variance | Fast (exact), works on millions of samples |
-| PCA | Quick exploratory visualization | Linear structure | Fast |
-| t-SNE | Publication-quality 2D plots | Local neighborhoods | Slow (< 10k samples ideal) |
-| UMAP | 2D visualization at scale | Local + some global structure | Medium (handles millions) |
-| PCA | Feature reduction for models | Variance-ranked features | Fast |
-| t-SNE / UMAP | Understanding cluster structure | Cluster separation | Medium to slow |
+| PCA | Preprocessing przed treningiem | Globalną wariancję | Szybka (dokładna), działa na milionach próbek |
+| PCA | Szybka eksploracyjna wizualizacja | Liniową strukturę | Szybka |
+| t-SNE | Publikacyjnej jakości wykresy 2D | Lokalne sąsiedztwa | Wolna (< 10k próbek idealna) |
+| UMAP | Wizualizacja 2D na dużą skalę | Lokalną + pewną globalną strukturę | Średnia (obsługuje miliony) |
+| PCA | Redukcja cech dla modeli | Cecha rangowane wariancją | Szybka |
+| t-SNE / UMAP | Rozumienie struktury klastrów | Separację klastrów | Średnia do wolnej |
 
-Rule of thumb: use PCA for preprocessing and data compression. Use t-SNE or UMAP when you need to visualize structure in 2D.
+Zasada kciuka: używaj PCA do preprocessingu i kompresji danych. Używaj t-SNE lub UMAP, gdy potrzebujesz wizualizować strukturę w 2D.
 
-### Kernel PCA
+### Jądrowe PCA
 
-Standard PCA finds linear subspaces. It rotates your coordinate system and drops axes. But what if the data lies on a nonlinear manifold? A circle in 2D cannot be separated by any line. Standard PCA will not help.
+Standardowe PCA znajduje liniowe podprzestrzenie. Obraca twój układ współrzędnych i upuszcza osie. Ale co, jeśli dane leżą na nieliniowej rozmaitości? Okrąg w 2D nie może być oddzielony żadną linią. Standardowe PCA nie pomoże.
 
-Kernel PCA applies PCA in a high-dimensional feature space induced by a kernel function, without explicitly computing the coordinates in that space. This is the kernel trick -- the same idea behind SVMs.
+Jądrowe PCA stosuje PCA w przestrzeni cech wysokowymiarowej indukowanej przez funkcję jądra, bez jawnego obliczania współrzędnych w tej przestrzeni. To jest sztuczka jądra -- ta sama idea stojąca za SVMami.
 
-The algorithm:
-1. Compute the kernel matrix K where K_ij = k(x_i, x_j)
-2. Center the kernel matrix in feature space
-3. Eigendecompose the centered kernel matrix
-4. The top eigenvectors (scaled by 1/sqrt(eigenvalue)) are the projections
+Algorytm:
+1. Oblicz macierz jądra K, gdzie K_ij = k(x_i, x_j)
+2. Wycentruj macierz jądra w przestrzeni cech
+3. Przeprowadź dekompozycję własną wycentrowanej macierzy jądra
+4. Górne wektory własne (skalowane przez 1/sqrt(wartość własna)) są projekcjami
 
-Common kernel functions:
+Popularne funkcje jądra:
 
-| Kernel | Formula | Good for |
+| Jądro | Formuła | Dobre dla |
 |--------|---------|----------|
-| RBF (Gaussian) | exp(-gamma * \|\|x - y\|\|^2) | Most nonlinear data, smooth manifolds |
-| Polynomial | (x . y + c)^d | Polynomial relationships |
-| Sigmoid | tanh(alpha * x . y + c) | Neural network-like mappings |
+| RBF (Gaussowskie) | exp(-gamma * \|\|x - y\|\|^2) | Większość nieliniowych danych, gładkie rozmaitości |
+| Wielomianowe | (x . y + c)^d | Wielomianowe relacje |
+| Sigmoidalne | tanh(alpha * x . y + c) | Mapowania podobne do sieci neuronowych |
 
-When to use kernel PCA vs standard PCA:
+Kiedy używać jądrowego PCA vs standardowego PCA:
 
-| Criterion | Standard PCA | Kernel PCA |
+| Kryterium | Standardowe PCA | Jądrowe PCA |
 |-----------|-------------|------------|
-| Data structure | Linear subspace | Nonlinear manifold |
-| Speed | O(min(n^2 d, d^2 n)) | O(n^2 d + n^3) |
-| Interpretability | Components are linear combinations of features | Components lack direct feature interpretation |
-| Scalability | Works on millions of samples | Kernel matrix is n x n, memory-limited |
-| Reconstruction | Direct inverse transform | Requires pre-image approximation |
+| Struktura danych | Liniowa podprzestrzeń | Nieliniowa rozmaitość |
+| Szybkość | O(min(n^2 d, d^2 n)) | O(n^2 d + n^3) |
+| Interpretowalność | Składowe są liniowymi kombinacjami cech | Składowe nie mają bezpośredniej interpretacji cech |
+| Skalowalność | Działa na milionach próbek | Macierz jądra jest n x n, ograniczona pamięcią |
+| Rekonstrukcja | Bezpośrednia odwrotna transformacja | Wymaga przybliżenia pre-obrazu |
 
-The classic example: concentric circles in 2D. Two rings of points, one inside the other. Standard PCA projects both onto the same line -- useless for classification. Kernel PCA with an RBF kernel maps the inner circle and outer circle to different regions, making them linearly separable.
+Klasyczny przykład: współśrodkowe okręgi w 2D. Dwa pierścienie punktów, jeden wewnątrz drugiego. Standardowe PCA projektuje oba na tę samą linię -- bezużyteczne dla klasyfikacji. Jądrowe PCA z jądrem RBF mapuje wewnętrzny i zewnętrzny okrąg do różnych regionów, czyniąc je liniowo separowalnymi.
 
-### Reconstruction Error
+### Błąd rekonstrukcji
 
-How good is your dimensionality reduction? You compressed 784 dimensions to 50. What did you lose?
+Jak dobra jest twoja redukcja wymiarowości? Skompresowałeś 784 wymiary do 50. Co straciłeś?
 
-Measure reconstruction error:
-1. Project data to k dimensions: X_reduced = X @ W_k
-2. Reconstruct: X_hat = X_reduced @ W_k^T
-3. Compute MSE: mean((X - X_hat)^2)
+Zmierz błąd rekonstrukcji:
+1. Projektuj dane do k wymiarów: X_reduced = X @ W_k
+2. Rekonstruuj: X_hat = X_reduced @ W_k^T
+3. Oblicz MSE: mean((X - X_hat)^2)
 
-For PCA, reconstruction error has a clean relationship to explained variance:
+Dla PCA, błąd rekonstrukcji ma czysty związek z wyjaśnioną wariancją:
 
 ```
-Reconstruction error = sum of eigenvalues NOT included
-Total variance = sum of ALL eigenvalues
-Fraction lost = (sum of dropped eigenvalues) / (sum of all eigenvalues)
+Błąd rekonstrukcji = suma wartości własnych NIE uwzględnionych
+Całkowita wariancja = suma WSZYSTKICH wartości własnych
+Utracony ułamek = (suma upuszczonych wartości własnych) / (suma wszystkich wartości własnych)
 ```
 
-The explained variance ratio for each component is:
+Współczynnik wyjaśnionej wariancji dla każdej składowej to:
 
 ```
 explained_ratio_k = eigenvalue_k / sum(all eigenvalues)
 ```
 
-Plotting cumulative explained variance against number of components gives you the "elbow" curve. The right number of components is where:
-- The curve flattens out (diminishing returns)
-- Cumulative variance crosses your threshold (usually 0.90 or 0.95)
-- Downstream task performance plateaus
+Wykres skumulowanej wyjaśnionej wariancji w zależności od liczby składowych daje krzywą "łokcia". Właściwa liczba składowych jest tam, gdzie:
+- Krzywa spłaszcza się (malejące korzyści)
+- Skumulowana wariancja przekracza twój próg (zwykle 0.90 lub 0.95)
+- Wydajność downstream zadania się stabilizuje
 
-Reconstruction error is useful beyond choosing k. You can use it for anomaly detection: samples with high reconstruction error are outliers that do not fit the learned subspace. This is the basis of PCA-based anomaly detection in production systems.
+Błąd rekonstrukcji jest użyteczny poza wyborem k. Możesz go użyć do wykrywania anomalii: próbki z wysokim błędem rekonstrukcji to wartości odstające, które nie pasują do nauczonej podprzestrzeni. To jest podstawa wykrywania anomalii opartego na PCA w systemach produkcyjnych.
 
-## Build It
+## Zbuduj to
 
-### Step 1: PCA from scratch
+### Krok 1: PCA od podstaw
 
 ```python
 import numpy as np
@@ -233,7 +233,7 @@ class PCA:
         return self.transform(X)
 ```
 
-### Step 2: Test on synthetic data
+### Krok 2: Testuj na danych syntetycznych
 
 ```python
 np.random.seed(42)
@@ -255,7 +255,7 @@ print(f"Explained variance ratios: {pca.explained_variance_ratio_}")
 print(f"Total variance captured: {sum(pca.explained_variance_ratio_):.4f}")
 ```
 
-### Step 3: MNIST digits in 2D
+### Krok 3: Cyfry MNIST w 2D
 
 ```python
 from sklearn.datasets import fetch_openml
@@ -273,7 +273,7 @@ X_pca2d = pca_2d.fit_transform(X_mnist)
 print(f"2 components capture {sum(pca_2d.explained_variance_ratio_):.2%} of variance")
 ```
 
-### Step 4: Compare with sklearn
+### Krok 4: Porównaj ze sklearn
 
 ```python
 from sklearn.decomposition import PCA as SklearnPCA
@@ -293,7 +293,7 @@ X_tsne = tsne.fit_transform(X_mnist)
 print(f"\nt-SNE output shape: {X_tsne.shape}")
 ```
 
-### Step 5: UMAP comparison
+### Krok 5: Porównanie UMAP
 
 ```python
 try:
@@ -306,9 +306,9 @@ except ImportError:
     print("Install umap-learn: pip install umap-learn")
 ```
 
-## Use It
+## Użyj tego
 
-PCA as preprocessing before a classifier:
+PCA jako preprocessing przed klasyfikatorem:
 
 ```python
 from sklearn.decomposition import PCA as SklearnPCA
@@ -334,37 +334,37 @@ for k in [10, 30, 50, 100, 200]:
     print(f"k={k:>3d}  accuracy={acc:.4f}  variance={var_captured:.4f}")
 ```
 
-Performance plateaus well before 784 dimensions. That plateau is your operating point.
+Wydajność stabilizuje się daleko przed 784 wymiarami. Ten punkt stabilizacji to twoje miejsce operacyjne.
 
-## Ship It
+## Wdróż to
 
-This lesson produces:
-- `outputs/skill-dimensionality-reduction.md` - a skill for choosing the right dimensionality reduction technique for a given task
+Ta lekcja tworzy:
+- `outputs/skill-dimensionality-reduction.md` - umiejętność wyboru właściwej techniki redukcji wymiarowości dla danego zadania
 
-## Exercises
+## Ćwiczenia
 
-1. Modify the PCA class to support `inverse_transform`. Reconstruct MNIST digits from 10, 50, and 200 components. Print the reconstruction error (mean squared difference from the original) for each.
+1. Zmodyfikuj klasę PCA, aby obsługiwała `inverse_transform`. Zrekonstruuj cyfry MNIST z 10, 50 i 200 składowych. Wydrukuj błąd rekonstrukcji (średnią kwadratową różnicę od oryginału) dla każdej.
 
-2. Run t-SNE on the same MNIST subset with perplexity values of 5, 30, and 100. Describe how the output changes. Why does perplexity affect cluster tightness?
+2. Uruchom t-SNE na tym samym podzbiorze MNIST z wartościami perplexity 5, 30 i 100. Opisz, jak zmienia się wynik. Dlaczego perplexity wpływa na ciasność klastrów?
 
-3. Take a dataset with 50 features where only 5 are informative (generate one with `sklearn.datasets.make_classification`). Apply PCA and check whether the explained variance curve correctly identifies that the data is effectively 5-dimensional.
+3. Weź zbiór danych z 50 cechami, gdzie tylko 5 jest informacyjnych (wygeneruj jeden za pomocą `sklearn.datasets.make_classification`). Zastosuj PCA i sprawdź, czy krzywa wyjaśnionej wariancji poprawnie identyfikuje, że dane są efektywnie 5-wymiarowe.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Curse of dimensionality | "Too many features" | Distances, volumes, and data density all behave counterintuitively as dimensions grow. Models need exponentially more data to compensate. |
-| PCA | "Reduce dimensions" | Rotate your coordinate system so the axes align with the directions of maximum variance, then drop the low-variance axes. |
-| Principal component | "An important direction" | An eigenvector of the covariance matrix. The direction in feature space along which the data varies most. |
-| Explained variance ratio | "How much info this component has" | The fraction of total variance captured by one principal component. Sum the top k ratios to see how much k components preserve. |
-| Covariance matrix | "How features correlate" | A symmetric matrix where entry (i,j) measures how feature i and feature j move together. Diagonal entries are individual variances. |
-| t-SNE | "That cluster plot" | A nonlinear method that maps high-dimensional data to 2D by preserving pairwise neighborhood probabilities. Good for visualization, not for preprocessing. |
-| UMAP | "Faster t-SNE" | A nonlinear method based on topological data analysis. Preserves both local and some global structure. Scales better than t-SNE. |
-| Perplexity | "A t-SNE knob" | Controls the effective number of neighbors each point considers. Low perplexity focuses on very local structure. High perplexity captures broader patterns. |
-| Manifold | "The surface the data lives on" | A lower-dimensional surface embedded in a higher-dimensional space. A sheet of paper crumpled in 3D is a 2D manifold. |
+| Przekleństwo wymiarowości | "Zbyt wiele cech" | Odległości, objętości i gęstość danych zachowują się all counterintuitive w miarę wzrostu wymiarów. Modele potrzebują wykładniczo więcej danych, aby to zrekompensować. |
+| PCA | "Zmniejsz wymiary" | Obróć swój układ współrzędnych tak, aby osie wyrównały się z kierunkami maksymalnej wariancji, a następnie upuść osie niskiej wariancji. |
+| Główna składowa | "Ważny kierunek" | Wektor własny macierzy kowariancji. Kierunek w przestrzeni cech, wzdłuż którego dane najbardziej się zmieniają. |
+| Współczynnik wyjaśnionej wariancji | "Ile informacji ma ta składowa" | Ułamek całkowitej wariancji przechwycony przez jedną główną składową. Zsumuj górne k współczynniki, aby zobaczyć, ile k składowych zachowuje. |
+| Macierz kowariancji | "Jak cechy korelują" | Symetryczna macierz, gdzie wpis (i,j) mierzy, jak cecha i i cecha j poruszają się razem. Wpisy diagonalne to indywidualne wariancje. |
+| t-SNE | "Ten wykres klastrów" | Nieliniowa metoda, która mapuje dane wysokowymiarowe do 2D, zachowując prawdopodobieństwa sąsiedztwa parami. Dobre do wizualizacji, nie do preprocessingu. |
+| UMAP | "Szybsze t-SNE" | Nieliniowa metoda oparta na topologicznej analizie danych. Zachowuje zarówno lokalną, jak i pewną globalną strukturę. Skaluje się lepiej niż t-SNE. |
+| Perplexity | "Pokrętło t-SNE" | Kontroluje efektywną liczbę sąsiadów, których każdy punkt rozważa. Niska perplexity skupia się na bardzo lokalnej strukturze. Wysoka perplexity przechwytuje szersze wzorce. |
+| Rozmaitość | "Powierzchnia, na której żyją dane" | Powierzchnia niskowymiarowa osadzona w przestrzeni wyżej wymiarowej. Kartka papieru zgnieciona w 3D to rozmaitość 2D. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [A Tutorial on Principal Component Analysis](https://arxiv.org/abs/1404.1100) (Shlens) - clear derivation of PCA from the ground up
-- [How to Use t-SNE Effectively](https://distill.pub/2016/misread-tsne/) (Wattenberg et al.) - interactive guide to t-SNE pitfalls and parameter choices
-- [UMAP documentation](https://umap-learn.readthedocs.io/) - theory and practical guidance from the UMAP authors
+- [A Tutorial on Principal Component Analysis](https://arxiv.org/abs/1404.1100) (Shlens) - jasne wyprowadzenie PCA od podstaw
+- [How to Use t-SNE Effectively](https://distill.pub/2016/misread-tsne/) (Wattenberg et al.) - interaktywny przewodnik po pułapkach t-SNE i wyborze parametrów
+- [UMAP documentation](https://umap-learn.readthedocs.io/) - teoria i praktyczne wskazówki od autorów UMAP

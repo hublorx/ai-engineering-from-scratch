@@ -1,58 +1,58 @@
-# APIs & Keys
+# API i klucze
 
-> Every AI API works the same way: send a request, get a response. The details change, the pattern doesn't.
+> Każde AI API działa tak samo: wyślij request, dostajesz response. Szczegóły się zmieniają, wzorzec nie.
 
-**Type:** Build
-**Languages:** Python, TypeScript
-**Prerequisites:** Phase 0, Lesson 01
-**Time:** ~30 minutes
+**Typ:** Budowa
+**Języki:** Python, TypeScript
+**Wymagania wstępne:** Phase 0, Lesson 01
+**Czas:** ~30 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Store API keys securely using environment variables and `.env` files
-- Make an LLM API call using both the Anthropic Python SDK and raw HTTP
-- Compare SDK-based and raw HTTP request/response formats for debugging
-- Identify and handle common API errors including authentication and rate limits
+- Przechowuj klucze API bezpiecznie używając zmiennych środowiskowych i plików `.env`
+- Wykonaj wywołanie LLM API używając zarówno Anthropic Python SDK jak i raw HTTP
+- Porównaj formaty request/response SDK i raw HTTP dla debugowania
+- Identyfikuj i obsługuj typowe błędy API w tym autentykację i rate limity
 
-## The Problem
+## Problem
 
-Starting from Phase 11, you'll call LLM APIs (Anthropic, OpenAI, Google). In Phase 13-16 you'll build agents that use these APIs in loops. You need to know how API keys work, how to store them safely, and how to make your first API call.
+Od Fazy 11 będziesz wywoływać LLM API (Anthropic, OpenAI, Google). W Fazach 13-16 zbudujesz agentów którzy używają tych API w pętlach. Musisz wiedzieć jak działają klucze API, jak je bezpiecznie przechowywać i jak wykonać pierwsze wywołanie API.
 
-## The Concept
+## Koncepcja
 
 ```mermaid
 sequenceDiagram
-    participant C as Your Code
-    participant S as API Server
-    C->>S: HTTP Request (with API key)
+    participant C as Twoj kod
+    participant S as Serwer API
+    C->>S: HTTP Request (z kluczem API)
     S->>C: HTTP Response (JSON)
 ```
 
-Every API call has:
-1. An endpoint (URL)
-2. An API key (authentication)
-3. A request body (what you want)
-4. A response body (what you get back)
+Każde wywołanie API ma:
+1. Endpoint (URL)
+2. Klucz API (autentykacja)
+3. Ciało requestu (czego chcesz)
+4. Ciało response (co dostajesz)
 
-## Build It
+## Zbuduj to
 
-### Step 1: Store API keys safely
+### Krok 1: Bezpiecznie przechowuj klucze API
 
-Never put API keys in code. Use environment variables.
+Nigdy nie umieszczaj kluczy API w kodzie. Używaj zmiennych środowiskowych.
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 export OPENAI_API_KEY="sk-..."
 ```
 
-Or use a `.env` file (add it to `.gitignore`):
+Lub użyj pliku `.env` (dodaj go do `.gitignore`):
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 ```
 
-### Step 2: First API call (Python)
+### Krok 2: Pierwsze wywołanie API (Python)
 
 ```python
 import anthropic
@@ -68,7 +68,7 @@ response = client.messages.create(
 print(response.content[0].text)
 ```
 
-### Step 3: First API call (TypeScript)
+### Krok 3: Pierwsze wywołanie API (TypeScript)
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
@@ -84,7 +84,7 @@ const response = await client.messages.create({
 console.log(response.content[0].text);
 ```
 
-### Step 4: Raw HTTP (no SDK)
+### Krok 4: Raw HTTP (bez SDK)
 
 ```python
 import os
@@ -109,36 +109,36 @@ with urllib.request.urlopen(req) as resp:
     print(result["content"][0]["text"])
 ```
 
-This is what the SDKs do under the hood. Understanding the raw HTTP call helps when debugging.
+To jest to co SDK robią "pod maską". Rozumienie raw HTTP pomaga przy debugowaniu.
 
-## Use It
+## Użyj tego
 
-For this course:
+Dla tego kursu:
 
-| API | When you need it | Free tier |
+| API | Kiedy potrzebujesz | Darmowy tier |
 |-----|-----------------|-----------|
-| Anthropic (Claude) | Phases 11-16 (agents, tools) | $5 credit on signup |
-| OpenAI | Phase 11 (comparison) | $5 credit on signup |
-| Hugging Face | Phases 4-10 (models, datasets) | Free |
+| Anthropic (Claude) | Fazy 11-16 (agenci, narzędzia) | $5 kredytu przy rejestracji |
+| OpenAI | Faza 11 (porównanie) | $5 kredytu przy rejestracji |
+| Hugging Face | Fazy 4-10 (modele, datasety) | Darmowe |
 
-You don't need all of them right now. Set them up when the lesson requires it.
+Nie potrzebujesz ich wszystkich teraz. Skonfiguruj je gdy lekcja tego wymaga.
 
-## Ship It
+## Dystrybuuj to
 
-This lesson produces:
-- `outputs/prompt-api-troubleshooter.md` - diagnose common API errors
+Ta lekcja wytwarza:
+- `outputs/prompt-api-troubleshooter.md` - diagnozuj typowe błędy API
 
-## Exercises
+## Ćwiczenia
 
-1. Get an Anthropic API key and make your first API call
-2. Try the raw HTTP version and compare the response format to the SDK version
-3. Intentionally use a wrong API key and read the error message
+1. Weź klucz API Anthropic i wykonaj pierwsze wywołanie API
+2. Wypróbuj raw HTTP i porównaj format response z wersją SDK
+3. Celowo użyj złego klucza API i przeczytaj komunikat błędu
 
-## Key Terms
+## Kluczowe pojęcia
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| API key | "Password for the API" | A unique string that identifies your account and authorizes requests |
-| Rate limit | "They're throttling me" | Maximum requests per minute/hour to prevent abuse and ensure fair usage |
-| Token | "A word" (in API context) | A billing unit: input and output tokens are counted and charged separately |
-| Streaming | "Real-time responses" | Getting the response word by word instead of waiting for the full response |
+| Termin | Co ludzie mówią | Co to naprawdę oznacza |
+|--------|-----------------|----------------------|
+| API key | "Hasło do API" | Unikalny ciąg znaków identyfikujący twoje konto i autoryzujący requesty |
+| Rate limit | "Throttling" | Maksymalna liczba requestów na minutę/godzinę żeby zapobiec nadużyciom |
+| Token | "Słowo" (w kontekście API) | Jednostka rozliczeniowa: tokeny wejściowe i wyjściowe liczone i rozliczane osobno |
+| Streaming | "Odpowiedzi w czasie rzeczywistym" | Otrzymywanie odpowiedzi słowo po słowie zamiast czekać na całą |

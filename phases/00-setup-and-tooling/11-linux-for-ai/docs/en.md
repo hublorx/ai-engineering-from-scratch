@@ -1,135 +1,135 @@
-# Linux for AI
+# Linux dla AI
 
-> Most AI runs on Linux. You need to know enough to not be stuck.
+> Większość AI działa na Linux. Musisz znać wystarczająco dużo, żeby się nie zablokować.
 
-**Type:** Learn
-**Languages:** --
-**Prerequisites:** Phase 0, Lesson 01
-**Time:** ~30 minutes
+**Typ:** Nauka
+**Języki:** --
+**Wymagania wstępne:** Faza 0, Lekcja 01
+**Czas:** ~30 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Navigate the Linux file system and perform essential file operations from the command line
-- Manage file permissions with `chmod` and `chown` to resolve "Permission denied" errors
-- Install system packages with `apt` and set up a fresh GPU box for AI work
-- Identify macOS-to-Linux differences that commonly trip up developers working on remote machines
+- Nawiguj po systemie plików Linux i wykonuj podstawowe operacje na plikach z linii poleceń
+- Zarządzaj uprawnieniami do plików za pomocą `chmod` i `chown`, aby rozwiązywać błędy "Permission denied"
+- Instaluj pakiety systemowe za pomocą `apt` i skonfiguruj świeżą maszynę GPU do pracy z AI
+- Rozpoznaj różnice między macOS a Linux, które często sprawiają problemy programistom pracującym na zdalnych maszynach
 
-## The Problem
+## Problem
 
-You develop on macOS or Windows. But the moment you SSH into a cloud GPU box, rent a Lambda instance, or spin up an EC2 machine, you land in Ubuntu. The terminal is your only interface. There is no Finder, no Explorer, no GUI. If you can't navigate the file system, install packages, and manage processes from the command line, you're stuck paying for idle GPU hours while googling "how to unzip a file in Linux."
+Tworzysz na macOS lub Windows. Ale w chwili, gdy SSH-ujesz się do maszyny GPU w chmurze, wynajmujesz instancję Lambda lub uruchamiasz maszynę EC2, lądujesz w Ubuntu. Terminal jest twoim jedynym interfejsem. Nie ma Findera, nie ma Eksploratora, nie ma GUI. Jeśli nie potrafisz nawigować po systemie plików, instalować pakietów i zarządzać procesami z linii poleceń, utkniesz, płacąc za bezczynne godziny GPU, podczas gdy googlasz "jak rozpakować plik w Linux".
 
-This is a survival guide. It covers exactly what you need to operate on a remote Linux machine for AI work. Nothing more.
+To jest przewodnik przetrwania. Obejmuje dokładnie to, czego potrzebujesz, żeby operować na zdalnej maszynie Linux do pracy z AI. Nic więcej.
 
-## File System Layout
+## Struktura systemu plików
 
-Linux organizes everything under a single root `/`. There is no `C:\` or `/Volumes`. The directories you'll actually touch:
+Linux organizuje wszystko pod jednym root `/`. Nie ma `C:\` ani `/Volumes`. Katalogi, których faktycznie będziesz używać:
 
 ```mermaid
 graph TD
-    root["/"] --> home["home/your-username/<br/>Your files — clone repos, run training"]
-    root --> tmp["tmp/<br/>Temporary files, cleared on reboot"]
-    root --> usr["usr/<br/>System programs and libraries"]
-    root --> etc["etc/<br/>Config files"]
-    root --> varlog["var/log/<br/>Logs — check when something breaks"]
-    root --> mnt["mnt/ or /media/<br/>External drives and volumes"]
-    root --> proc["proc/ and /sys/<br/>Virtual files — kernel and hardware info"]
+    root["/"] --> home["home/your-username/<br/>Twoje pliki — klonuj repozytoria, uruchamiaj trening"]
+    root --> tmp["tmp/<br/>Pliki tymczasowe, czyszczone przy restarcie"]
+    root --> usr["usr/<br/>Programy systemowe i biblioteki"]
+    root --> etc["etc/<br/>Pliki konfiguracyjne"]
+    root --> varlog["var/log/<br/>Logi — sprawdzaj, gdy coś się psuje"]
+    root --> mnt["mnt/ lub /media/<br/>Zewnętrzne dyski i woluminy"]
+    root --> proc["proc/ i /sys/<br/>Pliki wirtualne — info o kernelu i sprzęcie"]
 ```
 
-Your home directory is `~` or `/home/your-username`. Almost everything you do happens here.
+Twój katalog domowy to `~` lub `/home/your-username`. Prawie wszystko, co robisz, odbywa się tutaj.
 
-## Essential Commands
+## Podstawowe polecenia
 
-These are the 15 commands that cover 95% of what you'll do on a remote GPU box.
+To są 15 poleceń, które pokrywają 95% tego, co będziesz robić na zdalnej maszynie GPU.
 
-### Moving Around
+### Poruszanie się
 
 ```bash
-pwd                         # Where am I?
-ls                          # What's here?
-ls -la                      # What's here, including hidden files with details?
-cd /path/to/dir             # Go there
-cd ~                        # Go home
-cd ..                       # Go up one level
+pwd                         # Gdzie jestem?
+ls                          # Co tutaj jest?
+ls -la                      # Co tutaj jest, łącznie z ukrytymi plikami i szczegółami?
+cd /path/to/dir             # Idź tam
+cd ~                        # Idź do domu
+cd ..                       # Idź o jeden poziom wyżej
 ```
 
-### Files and Directories
+### Pliki i katalogi
 
 ```bash
-mkdir my-project            # Create a directory
-mkdir -p a/b/c              # Create nested directories in one shot
+mkdir my-project            # Utwórz katalog
+mkdir -p a/b/c              # Utwórz zagnieżdżone katalogi jednocześnie
 
-cp file.txt backup.txt      # Copy a file
-cp -r src/ src-backup/      # Copy a directory (recursive)
+cp file.txt backup.txt      # Skopiuj plik
+cp -r src/ src-backup/      # Skopiuj katalog (rekursywnie)
 
-mv old.txt new.txt          # Rename a file
-mv file.txt /tmp/           # Move a file
+mv old.txt new.txt          # Zmień nazwę pliku
+mv file.txt /tmp/           # Przenieś plik
 
-rm file.txt                 # Delete a file (no trash, it's gone)
-rm -rf my-dir/              # Delete a directory and everything inside
+rm file.txt                 # Usuń plik (bez kosza, znika)
+rm -rf my-dir/              # Usuń katalog i wszystko w nim
 ```
 
-`rm -rf` is permanent. There is no undo. Double-check the path before hitting enter.
+`rm -rf` jest trwałe. Nie ma cofnięcia. Sprawdź ścieżkę przed naciśnięciem Enter.
 
-### Reading Files
+### Czytanie plików
 
 ```bash
-cat file.txt                # Print entire file
-head -20 file.txt           # First 20 lines
-tail -20 file.txt           # Last 20 lines
-tail -f log.txt             # Follow a log file in real time (Ctrl+C to stop)
-less file.txt               # Scroll through a file (q to quit)
+cat file.txt                # Wydrukuj cały plik
+head -20 file.txt           # Pierwsze 20 linii
+tail -20 file.txt           # Ostatnie 20 linii
+tail -f log.txt             # Śledź plik logów w czasie rzeczywistym (Ctrl+C żeby zatrzymać)
+less file.txt               # Przewijaj plik (q żeby wyjść)
 ```
 
-### Searching
+### Wyszukiwanie
 
 ```bash
-grep "error" training.log           # Find lines containing "error"
-grep -r "learning_rate" .           # Search all files in current directory
-grep -i "cuda" config.yaml          # Case-insensitive search
+grep "error" training.log           # Znajdź linie zawierające "error"
+grep -r "learning_rate" .           # Przeszukaj wszystkie pliki w bieżącym katalogu
+grep -i "cuda" config.yaml          # Wyszukiwanie bez rozróżniania wielkości liter
 
-find . -name "*.py"                 # Find all Python files under current dir
-find . -name "*.ckpt" -size +1G     # Find checkpoint files larger than 1GB
+find . -name "*.py"                 # Znajdź wszystkie pliki Python w bieżącym katalogu
+find . -name "*.ckpt" -size +1G     # Znajdź pliki checkpoint większe niż 1GB
 ```
 
-## Permissions
+## Uprawnienia
 
-Every file in Linux has an owner and permission bits. You'll run into this when scripts won't execute or you can't write to a directory.
+Każdy plik w Linux ma właściciela i bity uprawnień. Spotkasz się z tym, gdy skrypty nie będą się wykonywać lub nie będziesz mógł zapisywać do katalogu.
 
 ```bash
 ls -l train.py
 # -rwxr-xr-- 1 user group 2048 Mar 19 10:00 train.py
-#  ^^^             owner permissions: read, write, execute
-#     ^^^          group permissions: read, execute
-#        ^^        everyone else: read only
+#  ^^^             uprawnienia właściciela: odczyt, zapis, wykonanie
+#     ^^^          uprawnienia grupy: odczyt, wykonanie
+#        ^^        wszyscy inni: tylko odczyt
 ```
 
-Common fixes:
+Częste poprawki:
 
 ```bash
-chmod +x train.sh           # Make a script executable
-chmod 755 deploy.sh         # Owner: full, others: read+execute
-chmod 644 config.yaml       # Owner: read+write, others: read only
+chmod +x train.sh           # Zrób skrypt wykonywalnym
+chmod 755 deploy.sh         # Właściciel: pełne, inni: odczyt+wykonanie
+chmod 644 config.yaml       # Właściciel: odczyt+zapis, inni: tylko odczyt
 
-chown user:group file.txt   # Change who owns a file (needs sudo)
+chown user:group file.txt   # Zmień właściciela pliku (wymaga sudo)
 ```
 
-When something says "Permission denied," it's almost always a permissions issue. `chmod +x` or `sudo` will fix most cases.
+Gdy pojawia się błąd "Permission denied", prawie zawsze jest to problem z uprawnieniami. `chmod +x` lub `sudo` rozwiąże większość przypadków.
 
-## Package Management (apt)
+## Zarządzanie pakietami (apt)
 
-Ubuntu uses `apt`. This is how you install system-level software.
+Ubuntu używa `apt`. Tak instaluje się oprogramowanie na poziomie systemu.
 
 ```bash
-sudo apt update             # Refresh the package list (always do this first)
-sudo apt install -y htop    # Install a package (-y skips confirmation)
-sudo apt install -y build-essential  # C compiler, make, etc. Needed by many Python packages
-sudo apt install -y tmux    # Terminal multiplexer (keep sessions alive after disconnect)
+sudo apt update             # Odśwież listę pakietów (zawsze rób to najpierw)
+sudo apt install -y htop    # Zainstaluj pakiet (-y pomija potwierdzenie)
+sudo apt install -y build-essential  # Kompilator C, make itp. Potrzebne przez wiele pakietów Python
+sudo apt install -y tmux    # Multiplekser terminala (utrzymuje sesje przy życiu po rozłączeniu)
 
-apt list --installed        # What's installed?
-sudo apt remove htop        # Uninstall
+apt list --installed        # Co jest zainstalowane?
+sudo apt remove htop        # Odinstaluj
 ```
 
-Common packages you'll install on a fresh GPU box:
+Pakiety, które zazwyczaj instalujesz na świeżej maszynie GPU:
 
 ```bash
 sudo apt update && sudo apt install -y \
@@ -143,161 +143,161 @@ sudo apt update && sudo apt install -y \
     python3-venv
 ```
 
-## Users and sudo
+## Użytkownicy i sudo
 
-You're usually logged in as a regular user. Some operations need root (admin) access.
+Zazwyczaj jesteś zalogowany jako zwykły użytkownik. Niektóre operacje wymagają dostępu root (admin).
 
 ```bash
-whoami                      # What user am I?
-sudo command                # Run a single command as root
-sudo su                     # Become root (exit to go back, use sparingly)
+whoami                      # Jakim użytkownikiem jestem?
+sudo command                # Uruchom pojedyncze polecenie jako root
+sudo su                     # Zostań root (exit żeby wrócić, używaj oszczędnie)
 ```
 
-On cloud GPU instances, you're typically the only user and already have sudo access. Don't run everything as root. Use sudo only when needed.
+Na instancjach GPU w chmurze zazwyczaj jesteś jedynym użytkownikiem i masz już dostęp sudo. Nie uruchamiaj wszystkiego jako root. Używaj sudo tylko wtedy, gdy jest to potrzebne.
 
-## Processes and systemd
+## Procesy i systemd
 
-When your training hangs, or you need to check what's running:
+Gdy twój trening się zawiesi lub musisz sprawdzić, co jest uruchomione:
 
 ```bash
-htop                        # Interactive process viewer (q to quit)
-ps aux | grep python        # Find running Python processes
-kill 12345                  # Gracefully stop process with PID 12345
-kill -9 12345               # Force kill (use when graceful doesn't work)
-nvidia-smi                  # GPU processes and memory usage
+htop                        # Interaktywny podgląd procesów (q żeby wyjść)
+ps aux | grep python        # Znajdź uruchomione procesy Python
+kill 12345                  # Delikatnie zatrzymaj proces z PID 12345
+kill -9 12345               # Wymuś zabicie (użyj, gdy delikatne nie działa)
+nvidia-smi                  # Procesy GPU i użycie pamięci
 ```
 
-systemd manages services (background daemons). You'll use it if you run inference servers:
+systemd zarządza usługami (demonami w tle). Użyjesz go, jeśli uruchamiasz serwery inferencji:
 
 ```bash
-sudo systemctl start nginx          # Start a service
-sudo systemctl stop nginx           # Stop it
-sudo systemctl restart nginx        # Restart it
-sudo systemctl status nginx         # Check if it's running
-sudo systemctl enable nginx         # Start automatically on boot
+sudo systemctl start nginx          # Uruchom usługę
+sudo systemctl stop nginx           # Zatrzymaj ją
+sudo systemctl restart nginx        # Zrestartuj ją
+sudo systemctl status nginx         # Sprawdź, czy działa
+sudo systemctl enable nginx         # Uruchamiaj automatycznie przy starcie
 ```
 
-## Disk Space
+## Miejsce na dysku
 
-GPU boxes often have limited disk space. Models and datasets fill it fast.
+Maszyny GPU często mają ograniczoną przestrzeń dyskową. Modele i zestawy danych szybko ją wypełniają.
 
 ```bash
-df -h                       # Disk usage for all mounted drives
-df -h /home                 # Disk usage for /home specifically
+df -h                       # Użycie dysku dla wszystkich zamontowanych dysków
+df -h /home                 # Użycie dysku dla /home konkretnie
 
-du -sh *                    # Size of each item in current directory
-du -sh ~/.cache             # Size of your cache (pip, huggingface models land here)
-du -sh /data/checkpoints/   # Check how big your checkpoints are
+du -sh *                    # Rozmiar każdego elementu w bieżącym katalogu
+du -sh ~/.cache             # Rozmiar twojej pamięci podręcznej (pip, modele huggingface trafiają tutaj)
+du -sh /data/checkpoints/   # Sprawdź, jak duże są twoje checkpoints
 
-# Find the biggest space hogs
+# Znajdź największe pożeracze miejsca
 du -h --max-depth=1 / 2>/dev/null | sort -hr | head -20
 ```
 
-Common space savers:
+Typowe sposoby na oszczędzanie miejsca:
 
 ```bash
-# Clear pip cache
+# Wyczyść pamięćć podręczną pip
 pip cache purge
 
-# Clear apt cache
+# Wyczyść pamięćć podręczną apt
 sudo apt clean
 
-# Remove old checkpoints you don't need
+# Usuń stare checkpoints, których nie potrzebujesz
 rm -rf checkpoints/epoch_01/ checkpoints/epoch_02/
 ```
 
-## Networking
+## Sieć
 
-You'll download models, transfer files, and hit APIs from the command line.
+Będziesz pobierać modele, transferować pliki i wywoływać API z linii poleceń.
 
 ```bash
-# Download files
-wget https://example.com/model.bin                   # Download a file
-curl -O https://example.com/data.tar.gz              # Same thing with curl
-curl -s https://api.example.com/health | python3 -m json.tool  # Hit an API, pretty-print JSON
+# Pobierz pliki
+wget https://example.com/model.bin                   # Pobierz plik
+curl -O https://example.com/data.tar.gz              # To samo z curl
+curl -s https://api.example.com/health | python3 -m json.tool  # Wywołaj API, ładnie sformatuj JSON
 
-# Transfer files between machines
-scp model.bin user@remote:/data/                     # Copy file to remote machine
-scp user@remote:/data/results.csv .                  # Copy file from remote to local
-scp -r user@remote:/data/checkpoints/ ./local-dir/   # Copy directory
+# Transferuj pliki między maszynami
+scp model.bin user@remote:/data/                     # Kopiuj plik na zdalną maszynę
+scp user@remote:/data/results.csv .                  # Kopiuj plik ze zdalnej na lokalną
+scp -r user@remote:/data/checkpoints/ ./local-dir/   # Kopiuj katalog
 
-# Sync directories (faster than scp for large transfers, resumes on failure)
+# Synchronizuj katalogi (szybsze niż scp dla dużych transferów, wznawia się po awarii)
 rsync -avz --progress ./data/ user@remote:/data/
 rsync -avz --progress user@remote:/results/ ./results/
 ```
 
-Use `rsync` over `scp` for anything large. It only transfers changed bytes and handles interrupted connections.
+Używaj `rsync` zamiast `scp` do czegokolwiek dużego. Przesyła tylko zmienione bajty i obsługuje przerwane połączenia.
 
-## tmux: Keep Sessions Alive
+## tmux: Utrzymuj sesje przy życiu
 
-When you SSH into a remote box, closing your laptop kills your training run. tmux prevents this.
+Gdy SSH-ujesz się do zdalnej maszyny, zamknięcie laptopa zabija twój trening. tmux temu zapobiega.
 
 ```bash
-tmux new -s train           # Start a new session named "train"
-# ... start your training, then:
-# Ctrl+B, then D            # Detach (training keeps running)
+tmux new -s train           # Rozpocznij nową sesję o nazwie "train"
+# ... uruchom swój trening, potem:
+# Ctrl+B, następnie D            # Odłącz (trening nadal działa)
 
-tmux ls                     # List sessions
-tmux attach -t train        # Reattach to session
+tmux ls                     # Lista sesji
+tmux attach -t train        # Ponownie podłącz do sesji
 
-# Inside tmux:
-# Ctrl+B, then %            # Split pane vertically
-# Ctrl+B, then "            # Split pane horizontally
-# Ctrl+B, then arrow keys   # Switch between panes
+# Wewnątrz tmux:
+# Ctrl+B, następnie %            # Podziel pane wertykalnie
+# Ctrl+B, następnie "            # Podziel pane horyzontalnie
+# Ctrl+B, następnie klawisze strzałek   # Przełączaj między pane
 ```
 
-Always run long training jobs inside tmux. Always.
+Zawsze uruchamiaj długie treningi w tmux. Zawsze.
 
-## WSL2 for Windows Users
+## WSL2 dla użytkowników Windows
 
-If you're on Windows, WSL2 gives you a real Linux environment without dual-booting.
+Jeśli jesteś na Windows, WSL2 daje ci prawdziwe środowisko Linux bez dual-bootu.
 
 ```bash
-# In PowerShell (admin)
+# W PowerShell (admin)
 wsl --install -d Ubuntu-24.04
 
-# After restart, open Ubuntu from Start menu
+# Po restarcie otwórz Ubuntu z menu Start
 sudo apt update && sudo apt upgrade -y
 ```
 
-WSL2 runs a real Linux kernel. Everything in this lesson works inside it. Your Windows files are at `/mnt/c/Users/YourName/` from inside WSL.
+WSL2 uruchamia prawdziwy kernel Linux. Wszystko w tej lekcji działa w nim. Twoje pliki Windows są w `/mnt/c/Users/YourName/` z wnętrza WSL.
 
-GPU passthrough works with NVIDIA drivers installed on the Windows side. Install the Windows NVIDIA driver (not the Linux one), and CUDA will be available inside WSL2.
+GPU passthrough działa ze sterownikami NVIDIA zainstalowanymi po stronie Windows. Zainstaluj sterownik NVIDIA dla Windows (nie ten dla Linux), a CUDA będzie dostępna w WSL2.
 
-## Gotchas: macOS to Linux
+## Pułapki: macOS do Linux
 
-Things that will trip you up if you're coming from macOS:
+Rzeczy, które sprawią ci problem, jeśli przechodzisz z macOS:
 
-| macOS | Linux | Notes |
+| macOS | Linux | Uwagi |
 |-------|-------|-------|
-| `brew install` | `sudo apt install` | Different package names sometimes. `brew install htop` vs `sudo apt install htop` works the same, but `brew install readline` vs `sudo apt install libreadline-dev` does not. |
-| `open file.txt` | `xdg-open file.txt` | But you won't have a GUI on a remote box. Use `cat` or `less`. |
-| `pbcopy` / `pbpaste` | Not available | Pipe to/from clipboard doesn't exist over SSH. |
-| `~/.zshrc` | `~/.bashrc` | macOS defaults to zsh. Most Linux servers use bash. |
-| `/opt/homebrew/` | `/usr/bin/`, `/usr/local/bin/` | Binaries live in different places. |
-| `sed -i '' 's/a/b/' file` | `sed -i 's/a/b/' file` | macOS sed needs an empty string after `-i`. Linux does not. |
-| Case-insensitive filesystem | Case-sensitive filesystem | `Model.py` and `model.py` are two different files on Linux. |
-| Line endings `\n` | Line endings `\n` | Same. But Windows uses `\r\n`, which breaks bash scripts. Run `dos2unix` to fix. |
+| `brew install` | `sudo apt install` | Różne nazwy pakietów czasem. `brew install htop` vs `sudo apt install htop` działa tak samo, ale `brew install readline` vs `sudo apt install libreadline-dev` nie. |
+| `open file.txt` | `xdg-open file.txt` | Ale nie będziesz mieć GUI na zdalnej maszynie. Użyj `cat` lub `less`. |
+| `pbcopy` / `pbpaste` | Niedostępne | Przesyłanie do/ze schowka nie istnieje przez SSH. |
+| `~/.zshrc` | `~/.bashrc` | macOS domyślnie używa zsh. Większość serwerów Linux używa bash. |
+| `/opt/homebrew/` | `/usr/bin/`, `/usr/local/bin/` | Binarki żyją w różnych miejscach. |
+| `sed -i '' 's/a/b/' file` | `sed -i 's/a/b/' file` | sed na macOS wymaga pustego ciągu po `-i`. Linux nie. |
+| System plików bez rozróżniania wielkości liter | System plików z rozróżnianiem wielkości liter | `Model.py` i `model.py` to dwa różne pliki na Linux. |
+| Końce linii `\n` | Końce linii `\n` | Takie same. Ale Windows używa `\r\n`, co psuje skrypty bash. Uruchom `dos2unix`, żeby naprawić. |
 
-## Quick Reference Card
+## Karta szybkiego dostępu
 
 ```
-Navigation:     pwd, ls, cd, find
-Files:          cp, mv, rm, mkdir, cat, head, tail, less
-Search:         grep, find
-Permissions:    chmod, chown, sudo
-Packages:       apt update, apt install
-Processes:      htop, ps, kill, nvidia-smi
-Services:       systemctl start/stop/restart/status
-Disk:           df -h, du -sh
-Network:        curl, wget, scp, rsync
-Sessions:       tmux new/attach/detach
+Nawigacja:     pwd, ls, cd, find
+Pliki:         cp, mv, rm, mkdir, cat, head, tail, less
+Wyszukiwanie:  grep, find
+Uprawnienia:   chmod, chown, sudo
+Pakiety:       apt update, apt install
+Procesy:       htop, ps, kill, nvidia-smi
+Usługi:        systemctl start/stop/restart/status
+Dysk:          df -h, du -sh
+Sieć:          curl, wget, scp, rsync
+Sesje:         tmux new/attach/detach
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. SSH into any Linux machine (or open WSL2) and navigate to your home directory. Create a project folder, create three empty files inside it with `touch`, then list them with `ls -la`.
-2. Install `htop` with apt, run it, and identify which process is using the most memory.
-3. Start a tmux session, run `sleep 300` inside it, detach, list sessions, and reattach.
-4. Use `df -h` to check available disk space, then use `du -sh ~/.cache/*` to find what's taking up space in your cache.
-5. Transfer a file from your local machine to a remote one using `scp`, then do the same transfer with `rsync` and compare the experience.
+1. SSH do dowolnej maszyny Linux (lub otwórz WSL2) i przejdź do katalogu domowego. Utwórz folder projektu, utwórz trzy puste pliki w nim za pomocą `touch`, a następnie wyświetl je za pomocą `ls -la`.
+2. Zainstaluj `htop` za pomocą apt, uruchom go i zidentyfikuj, który proces zużywa najwięcej pamięci.
+3. Rozpocznij sesję tmux, uruchom w niej `sleep 300`, odłącz się, wyświetl listę sesji i ponownie podłącz.
+4. Użyj `df -h`, żeby sprawdzić dostępne miejsce na dysku, a następnie użyj `du -sh ~/.cache/*`, żeby znaleźć, co zajmuje miejsce w twojej pamięci podręcznej.
+5. Transferuj plik z komputera lokalnego na zdalny za pomocą `scp`, a następnie wykonaj ten sam transfer za pomocą `rsync` i porównaj doświadczenie.

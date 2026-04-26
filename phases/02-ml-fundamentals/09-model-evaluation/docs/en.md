@@ -1,28 +1,28 @@
-# Model Evaluation
+# Ocena Modelu
 
-> A model is only as good as the way you measure it.
+> Model jest tylko tak dobry, jak sposób jego pomiaru.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 1 (Probability & Distributions, Statistics for ML), Phase 2 Lessons 1-8
-**Time:** ~90 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 1 (Prawdopodobieństwo i Rozkłady, Statystyka dla ML), Phase 2 Lessons 1-8
+**Szacowany czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement K-fold and stratified K-fold cross-validation from scratch and explain why stratification matters for imbalanced data
-- Compute precision, recall, F1, AUC-ROC, and regression metrics (MSE, RMSE, MAE, R-squared) from scratch
-- Interpret learning curves to diagnose whether a model suffers from high bias or high variance
-- Identify common evaluation mistakes including data leakage, wrong metric selection, and test set contamination
+- Zaimplementuj walidację krzyżową K-fold i stratified K-fold od zera i wyjaśnij, dlaczego stratyfikacja ma znaczenie dla niezbalansowanych danych
+- Oblicz precision, recall, F1, AUC-ROC oraz metryki regresji (MSE, RMSE, MAE, R-squared) od zera
+- Interpretuj krzywe uczenia się, aby diagnozować, czy model cierpi na wysokie bias czy wysoką wariancję
+- Identyfikuj typowe błędy w ewaluacji, w tym przeciek danych, zły dobór metryki i kontaminację zbioru testowego
 
-## The Problem
+## Problem
 
-You trained a model. It gets 95% accuracy on your data. Is it good?
+Wytrenowałeś model. Osiąga 95% dokładności na twoich danych. Czy to jest dobre?
 
-Maybe. Maybe not. If 95% of your data belongs to one class, a model that always predicts that class gets 95% accuracy while being completely useless. If you evaluated on the same data you trained on, the 95% number is meaningless because the model just memorized the answers. If your dataset has a time component and you randomly shuffled before splitting, your model might be using future data to predict the past.
+Może. Może nie. Jeśli 95% twoich danych należy do jednej klasy, model, który zawsze przewiduje tę klasę, osiąga 95% dokładności, będąc całkowicie bezużytecznym. Jeśli ewaluowałeś na tych samych danych, na których trenowałeś, liczba 95% jest bez znaczenia, ponieważ model po prostu zapamiętał odpowiedzi. Jeśli twój zbiór danych ma komponent czasowy i losowo przetasowałeś przed podziałem, twój model może używać przyszłych danych do przewidywania przeszłości.
 
-Model evaluation is where most ML projects go wrong. The wrong metric makes a bad model look good. The wrong split lets a model cheat. The wrong comparison makes you pick the worse model. Getting evaluation right is not optional. It is the difference between a model that works in production and one that fails the moment it sees real data.
+Ewaluacja modelu to miejsce, gdzie większość projektów ML popełnia błędy. Zła metryka sprawia, że zły model wygląda dobrze. Zły podział pozwala modelowi oszukiwać. Złe porównanie sprawia, że wybierasz gorszy model. Prawidłowa ewaluacja nie jest opcjonalna. To jest różnica między modelem, który działa w produkcji, a takim, który zawodzi w momencie, gdy zobaczy prawdziwe dane.
 
-## The Concept
+## Koncepcja
 
 ### Train, Validation, Test
 
@@ -40,17 +40,17 @@ flowchart LR
     D --> H[Report Performance]
 ```
 
-Three splits, three purposes:
+Trzy podziały, trzy cele:
 
-- **Training set**: the model learns from this data. It sees these examples during training.
-- **Validation set**: used to tune hyperparameters and select between models. The model never trains on this data, but your decisions are influenced by it.
-- **Test set**: touched exactly once, at the very end, to report final performance. If you look at test performance and then go back to change your model, it is no longer a test set. It has become a second validation set.
+- **Training set**: model uczy się z tych danych. Widzi te przykłady podczas treningu.
+- **Validation set**: służy do dostrajania hiperparametrów i wyboru między modelami. Model nigdy nie trenuje na tych danych, ale twoje decyzje są przez nie kształtowane.
+- **Test set**: dotknięty dokładnie raz, na samym końcu, aby zgłosić ostateczną wydajność. Jeśli spojrzysz na wydajność testową, a potem wrócisz, żeby zmienić model, nie jest to już zbiór testowy. Stał się drugim zbiorem walidacyjnym.
 
-The test set is your hold-out guarantee that the reported performance reflects how the model will do on truly unseen data.
+Zbiór testowy to twoja gwarancja hold-out, że zgłoszona wydajność odzwierciedla to, jak model poradzi sobie z naprawdę niewidzianymi danymi.
 
 ### K-Fold Cross-Validation
 
-With small datasets, a single train/validation split wastes data and gives noisy estimates. K-fold cross-validation uses all the data for both training and validation:
+Przy małych zbiorach danych, pojedynczy podział train/validation marnuje dane i daje zaszumione oszacowania. K-fold cross-validation wykorzystuje wszystkie dane zarówno do treningu, jak i walidacji:
 
 ```mermaid
 flowchart TB
@@ -81,70 +81,70 @@ flowchart TB
     Fold5 --> R
 ```
 
-1. Split data into K equal-sized folds
-2. For each fold, train on K-1 folds and validate on the remaining fold
-3. Average the K validation scores
+1. Podziel dane na K równych części
+2. Dla każdej części, trenuj na K-1 częściach i waliduj na pozostałej
+3. Uśrednij K wyników walidacji
 
-K=5 or K=10 are standard choices. Every data point gets used for validation exactly once. The average score is a more stable estimate than any single split.
+K=5 lub K=10 to standardowe wybory. Każdy punkt danych jest używany do walidacji dokładnie raz. Wynik średni jest stabilniejszym oszacowaniem niż jakikolwiek pojedynczy podział.
 
-**Stratified K-fold**: preserves the class distribution in each fold. If your dataset is 70% class A and 30% class B, each fold will have roughly the same ratio. This is important for imbalanced datasets where a random split might put all minority samples in one fold.
+**Stratified K-fold**: zachowuje rozkład klas w każdej części. Jeśli twój zbiór danych to 70% klasa A i 30% klasa B, każda część będzie miała mniej więcej taki sam stosunek. To jest ważne dla niezbalansowanych zbiorów danych, gdzie losowy podział może umieścić wszystkie próbki mniejszościowe w jednej części.
 
-### Classification Metrics
+### Metryki Klasyfikacji
 
-**Confusion matrix**: the foundation. For binary classification:
+**Confusion matrix**: fundament. Dla klasyfikacji binarnej:
 
 |  | Predicted Positive | Predicted Negative |
 |--|---|---|
 | Actually Positive | True Positive (TP) | False Negative (FN) |
 | Actually Negative | False Positive (FP) | True Negative (TN) |
 
-From this matrix, all other metrics follow:
+Z tej macierzy wynikają wszystkie inne metryki:
 
-- **Accuracy** = (TP + TN) / (TP + TN + FP + FN). Fraction of correct predictions. Misleading when classes are imbalanced.
-- **Precision** = TP / (TP + FP). Of all things predicted positive, how many actually were? Use when false positives are costly (e.g., spam filter marking real email as spam).
-- **Recall** (sensitivity) = TP / (TP + FN). Of all actual positives, how many did we catch? Use when false negatives are costly (e.g., cancer screening missing a tumor).
-- **F1 score** = 2 * precision * recall / (precision + recall). Harmonic mean of precision and recall. Balances both when neither clearly dominates.
-- **AUC-ROC**: Area Under the Receiver Operating Characteristic curve. Plots true positive rate vs false positive rate at various classification thresholds. AUC = 0.5 means random guessing, AUC = 1.0 means perfect separation. Threshold-independent: it measures how well the model ranks positives above negatives, regardless of the cutoff you pick.
+- **Accuracy** = (TP + TN) / (TP + TN + FP + FN). Frakcja poprawnych przewidywań. Myląca, gdy klasy są niezbalansowane.
+- **Precision** = TP / (TP + FP). Z wszystkich rzeczy przewidzianych jako pozytywne, ile rzeczywiście było pozytywnych? Używaj, gdy fałszywie pozytywne są kosztowne (np. filtr spamu oznaczający prawdziwy email jako spam).
+- **Recall** (sensitivity) = TP / (TP + FN). Z wszystkich rzeczywistych pozytywów, ile złapaliśmy? Używaj, gdy fałszywie negatywne są kosztowne (np. badanie przesiewowe na raka pomijające guz).
+- **F1 score** = 2 * precision * recall / (precision + recall). Średnia harmoniczna precision i recall. Balansuje obie, gdy żadna nie dominuje wyraźnie.
+- **AUC-ROC**: Pole Pod Krzywą Characterystyki Operacyjnej Odbiornika. Rysuje prawdziwie pozytywny wskaźnik vs fałszywie pozytywny wskaźnik przy różnych progach klasyfikacji. AUC = 0.5 oznacza losowe zgadywanie, AUC = 1.0 oznacza idealne rozdzielenie. Niezależny od progu: mierzy, jak dobrze model rankuje pozytywy powyżej negatywów, niezależnie od wybranego odcięcia.
 
-### Regression Metrics
+### Metryki Regresji
 
-- **MSE** (Mean Squared Error) = mean((y_true - y_pred)^2). Penalizes large errors quadratically. Sensitive to outliers.
-- **RMSE** (Root Mean Squared Error) = sqrt(MSE). Same units as the target variable. Easier to interpret than MSE.
-- **MAE** (Mean Absolute Error) = mean(|y_true - y_pred|). Treats all errors linearly. More robust to outliers than MSE.
-- **R-squared** = 1 - SS_res / SS_tot, where SS_res = sum((y_true - y_pred)^2) and SS_tot = sum((y_true - y_mean)^2). Fraction of variance explained by the model. R^2 = 1.0 is perfect. R^2 = 0.0 means the model is no better than always predicting the mean. R^2 can be negative if the model is worse than the mean.
+- **MSE** (Mean Squared Error) = mean((y_true - y_pred)^2). Kara za duże błędy kwadratowo. Wrażliwy na outliers.
+- **RMSE** (Root Mean Squared Error) = sqrt(MSE). Te same jednostki co zmienna docelowa. Łatwiejszy do interpretacji niż MSE.
+- **MAE** (Mean Absolute Error) = mean(|y_true - y_pred|). Traktuje wszystkie błędy liniowo. Bardziej odporny na outliers niż MSE.
+- **R-squared** = 1 - SS_res / SS_tot, gdzie SS_res = sum((y_true - y_pred)^2) i SS_tot = sum((y_true - y_mean)^2). Frakcja wyjaśnionej wariancji przez model. R^2 = 1.0 to perfekcja. R^2 = 0.0 oznacza, że model nie jest lepszy niż zawsze przewidywanie średniej. R^2 może być ujemny, jeśli model jest gorszy niż średnia.
 
 ### Learning Curves
 
-Plot training and validation scores as a function of training set size:
+Wykres wyników treningowych i walidacyjnych jako funkcja rozmiaru zbioru treningowego:
 
-- **High bias (underfitting)**: both curves converge to a low score. Adding more data will not help. You need a more complex model.
-- **High variance (overfitting)**: training score is high but validation score is much lower. The gap between them is large. Adding more data should help.
+- **High bias (underfitting)**: obie krzywe zbiegają się do niskiego wyniku. Dodanie większej ilości danych nie pomoże. Potrzebujesz bardziej złożonego modelu.
+- **High variance (overfitting)**: wynik treningowy jest wysoki, ale wynik walidacyjny jest dużo niższy. Przerwa między nimi jest duża. Dodanie większej ilości danych powinno pomóc.
 
 ### Validation Curves
 
-Plot training and validation scores as a function of a hyperparameter:
+Wykres wyników treningowych i walidacyjnych jako funkcja hiperparametru:
 
-- At low complexity: both scores are low (underfitting)
-- At the right complexity: both scores are high and close together
-- At high complexity: training score stays high but validation score drops (overfitting)
+- Przy niskiej złożoności: oba wyniki są niskie (underfitting)
+- Przy odpowiedniej złożoności: oba wyniki są wysokie i blisko siebie
+- Przy wysokiej złożoności: wynik treningowy pozostaje wysoki, ale wynik walidacyjny spada (overfitting)
 
-The optimal hyperparameter value is where the validation score peaks.
+Optymalna wartość hiperparametru to miejsce, gdzie wynik walidacyjny osiąga szczyt.
 
-### Common Evaluation Mistakes
+### Typowe Błędy Ewaluacji
 
-**Data leakage**: information from the test set leaks into training. Examples: fitting a scaler on the full dataset before splitting, including future data in time series prediction, using a feature that is derived from the target. Always split first, then preprocess.
+**Data leakage**: informacja ze zbioru testowego przedostaje się do treningu. Przykłady: dopasowanie skalera na całym zbiorze danych przed podziałem, włączenie przyszłych danych w predykcji szeregów czasowych, użycie cechy pochodzącej ze zmiennej docelowej. Zawsze najpierw dziel, potem preprocessuj.
 
-**Class imbalance**: 99% of transactions are legitimate, 1% are fraud. A model that always predicts "legitimate" gets 99% accuracy. Use precision, recall, F1, or AUC-ROC instead.
+**Class imbalance**: 99% transakcji jest legitymacyjnych, 1% to oszustwa. Model, który zawsze przewiduje "legitymacyjne", osiąga 99% dokładności. Używaj precision, recall, F1 lub AUC-ROC zamiast.
 
-**Wrong metric**: optimizing accuracy when you should optimize recall (medical diagnosis), or optimizing RMSE when your data has heavy outliers (use MAE instead).
+**Wrong metric**: optymalizowanie accuracy, gdy powinieneś optymalizować recall (diagnoza medyczna), lub optymalizowanie RMSE, gdy twoje dane mają silne outliers (użyj MAE).
 
-**Not using stratified splits**: with imbalanced data, a random split might put very few minority samples in the validation fold, giving unstable estimates.
+**Not using stratified splits**: przy niezbalansowanych danych, losowy podział może umieścić bardzo mało próbek mniejszościowych w części walidacyjnej, dając niestabilne oszacowania.
 
-**Testing too often**: every time you look at test performance and adjust, you overfit to the test set. The test set is single-use.
+**Testing too often**: za każdym razem, gdy patrzysz na wydajność testową i dostosowujesz, overfittingujesz do zbioru testowego. Zbiór testowy jest jednorazowego użytku.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Train/validation/test split
+### Krok 1: Train/validation/test split
 
 ```python
 import random
@@ -174,7 +174,7 @@ def train_val_test_split(X, y, train_ratio=0.6, val_ratio=0.2, seed=42):
     return X_train, y_train, X_val, y_val, X_test, y_test
 ```
 
-### Step 2: K-fold and stratified K-fold cross-validation
+### Krok 2: K-fold and stratified K-fold cross-validation
 
 ```python
 def kfold_split(n, k=5, seed=42):
@@ -248,7 +248,7 @@ def cross_validate(X, y, model_fn, k=5, metric_fn=None, stratified=False):
     return scores
 ```
 
-### Step 3: Confusion matrix and classification metrics
+### Krok 3: Confusion matrix and classification metrics
 
 ```python
 def confusion_matrix(y_true, y_pred):
@@ -319,7 +319,7 @@ def auc_roc(y_true, y_scores):
     return area
 ```
 
-### Step 4: Regression metrics
+### Krok 4: Regression metrics
 
 ```python
 def mse(y_true, y_pred):
@@ -345,7 +345,7 @@ def r_squared(y_true, y_pred):
     return 1.0 - ss_res / ss_tot
 ```
 
-### Step 5: Learning curves
+### Krok 5: Learning curves
 
 ```python
 def learning_curve(X, y, model_fn, metric_fn, train_sizes=None, val_ratio=0.2, seed=42):
@@ -384,7 +384,7 @@ def learning_curve(X, y, model_fn, metric_fn, train_sizes=None, val_ratio=0.2, s
     return train_sizes, train_scores, val_scores
 ```
 
-### Step 6: A simple classifier for testing, plus the full demo
+### Krok 6: A simple classifier for testing, plus the full demo
 
 ```python
 class SimpleLogistic:
@@ -625,9 +625,9 @@ if __name__ == "__main__":
     print(f"  (|t| > 2.78 for significance at p<0.05 with df=4)")
 ```
 
-## Use It
+## Użyj tego
 
-With scikit-learn, evaluation is built into the workflow:
+Z scikit-learn, ewaluacja jest wbudowana w workflow:
 
 ```python
 from sklearn.model_selection import cross_val_score, StratifiedKFold, learning_curve
@@ -641,35 +641,35 @@ model = LogisticRegression()
 scores = cross_val_score(model, X, y, cv=StratifiedKFold(5), scoring="f1")
 ```
 
-The from-scratch versions show exactly what cross-validation does (no magic, just for-loops and index tracking), how each metric is computed (just counting TP/FP/TN/FN), and why stratification matters (preserving class ratios in each fold). The library versions add parallelism, more scoring options, and integration with pipelines.
+Wersje od zera pokazują dokładnie, co robi cross-validation (żadna magia, tylko for-loops i śledzenie indeksów), jak każda metryka jest obliczana (po prostu liczenie TP/FP/TN/FN), i dlaczego stratyfikacja ma znaczenie (zachowanie proporcji klas w każdej części). Wersje biblioteczne dodają parallelism, więcej opcji scoringu i integrację z pipelines.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/skill-evaluation.md` - a skill covering evaluation strategy for classification and regression models
+Ta lekcja tworzy:
+- `outputs/skill-evaluation.md` - skill obejmujący strategię ewaluacji dla modeli klasyfikacji i regresji
 
-## Exercises
+## Ćwiczenia
 
-1. Implement precision-recall curves: plot precision vs recall at different thresholds. Compute the average precision (area under the PR curve). Compare the PR curve to the ROC curve on an imbalanced dataset and explain when each is more informative.
-2. Build a nested cross-validation loop: the outer loop evaluates model performance, the inner loop tunes hyperparameters. Use it to compare two models fairly without leaking validation data into the evaluation.
-3. Implement a permutation test for model comparison: shuffle the labels, retrain, and measure performance. Repeat 100 times to build a null distribution. Compute the p-value for the observed model performance against this distribution.
+1. Zaimplementuj precision-recall curves: wykreśl precision vs recall przy różnych progach. Oblicz average precision (pole pod krzywą PR). Porównaj krzywą PR do ROC curve na niezbalansowanym zbiorze danych i wyjaśnij, kiedy każda z nich jest bardziej informacyjna.
+2. Zbuduj zagnieżdżoną pętlę cross-validation: zewnętrzna pętla ewaluuje wydajność modelu, wewnętrzna dostraja hiperparametry. Użyj jej do uczciwego porównania dwóch modeli bez przecieku danych walidacyjnych do ewaluacji.
+3. Zaimplementuj permutation test do porównania modeli: przetasuj etykiety, ponownie trenuj i zmierz wydajność. Powtórz 100 razy, aby zbudować rozkład zerowy. Oblicz p-value dla obserwowanej wydajności modelu wobec tego rozkładu.
 
-## Key Terms
+## Kluczowe pojęcia
 
-| Term | What people say | What it actually means |
+| Term | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Overfitting | "Memorizing the training data" | The model captures noise in the training data, performing well on training but poorly on unseen data |
-| Cross-validation | "Testing on different subsets" | Systematically rotating which portion of data is used for validation, averaging results across all rotations |
-| Precision | "How many predicted positives are correct" | TP / (TP + FP): the fraction of positive predictions that are actually positive |
-| Recall | "How many actual positives we found" | TP / (TP + FN): the fraction of actual positives that were correctly identified |
-| AUC-ROC | "How well the model separates classes" | The area under the curve of true positive rate vs false positive rate across all thresholds, from 0.5 (random) to 1.0 (perfect) |
-| R-squared | "How much variance is explained" | 1 - (sum of squared residuals / total sum of squares): the fraction of target variance captured by the model |
-| Data leakage | "The model cheated" | Using information during training that would not be available at prediction time, leading to optimistic evaluation |
-| Learning curve | "How performance changes with more data" | A plot of training and validation scores vs training set size, revealing underfitting or overfitting |
-| Stratified split | "Keeping class ratios balanced" | Splitting data so each subset has the same proportion of each class as the full dataset |
+| Overfitting | "Zapamiętywanie danych treningowych" | Model łapie szum w danych treningowych, dobrze radząc sobie na treningu, ale słabo na niewidzianych danych |
+| Cross-validation | "Testowanie na różnych podzbiorach" | Systematyczne rotowanie, która część danych jest używana do walidacji, uśrednianie wyników ze wszystkich rotacji |
+| Precision | "Ile przewidzianych pozytywów jest poprawnych" | TP / (TP + FP): frakcja pozytywnych przewidywań, które są rzeczywiście pozytywne |
+| Recall | "Ile rzeczywistych pozytywów znaleźliśmy" | TP / (TP + FN): frakcja rzeczywistych pozytywów, które zostały poprawnie zidentyfikowane |
+| AUC-ROC | "Jak dobrze model rozdziela klasy" | Pole pod krzywą prawdziwie pozytywnego wskaźnika vs fałszywie pozytywnego wskaźnika przy wszystkich progach, od 0.5 (losowy) do 1.0 (idealny) |
+| R-squared | "Ile wariancji jest wyjaśnione" | 1 - (suma kwadratów residuów / całkowita suma kwadratów): frakcja wariancji zmiennej docelowej uchwycona przez model |
+| Data leakage | "Model oszukiwał" | Używanie informacji podczas treningu, która nie byłaby dostępna w czasie predykcji, prowadzące do optymistycznej ewaluacji |
+| Learning curve | "Jak wydajność zmienia się z większą ilością danych" | Wykres wyników treningowych i walidacyjnych vs rozmiar zbioru treningowego, ujawniający underfitting lub overfitting |
+| Stratified split | "Utrzymywanie zbalansowanych proporcji klas" | Podział danych tak, aby każdy podzbiór miał taką samą proporcję każdej klasy jak cały zbiór danych |
 
-## Further Reading
+## Dalsze czytanie
 
-- [scikit-learn Model Selection Guide](https://scikit-learn.org/stable/model_selection.html) - comprehensive reference on cross-validation, metrics, and hyperparameter tuning
-- [Beyond Accuracy: Precision and Recall (Google ML Crash Course)](https://developers.google.com/machine-learning/crash-course/classification/precision-and-recall) - clear explanation with interactive examples
-- [A Survey of Cross-Validation Procedures (Arlot & Celisse, 2010)](https://projecteuclid.org/journals/statistics-surveys/volume-4/issue-none/A-survey-of-cross-validation-procedures-for-model-selection/10.1214/09-SS054.full) - rigorous treatment of when and why different CV strategies work
+- [scikit-learn Model Selection Guide](https://scikit-learn.org/stable/model_selection.html) - kompleksowe źródło na temat cross-validation, metryk i dostrajania hiperparametrów
+- [Beyond Accuracy: Precision and Recall (Google ML Crash Course)](https://developers.google.com/machine-learning/crash-course/classification/precision-and-recall) - jasne wyjaśnienie z interaktywnymi przykładami
+- [A Survey of Cross-Validation Procedures (Arlot & Celisse, 2010)](https://projecteuclid.org/journals/statistics-surveys/volume-4/issue-none/A-survey-of-cross-validation-procedures-for-model-selection/10.1214/09-SS054.full) - rygorystyczne omówienie, kiedy i dlaczego różne strategie CV działają

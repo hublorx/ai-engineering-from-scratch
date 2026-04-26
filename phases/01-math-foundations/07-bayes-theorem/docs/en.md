@@ -1,80 +1,80 @@
-# Bayes' Theorem
+# Twierdzenie Bayesa
 
-> Probability is about what you expect. Bayes' theorem is about what you learn.
+> Prawdopodobieństwo dotyczy tego, czego oczekujesz. Twierdzenie Bayesa dotyczy tego, czego się uczysz.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 1, Lesson 06 (Probability Fundamentals)
-**Time:** ~75 minutes
+**Typ:** Build
+**Język:** Python
+**Wymagania wstępne:** Phase 1, Lesson 06 (Podstawy Prawdopodobieństwa)
+**Czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Apply Bayes' theorem to compute posterior probabilities from priors, likelihoods, and evidence
-- Build a Naive Bayes text classifier from scratch with Laplace smoothing and log-space computation
-- Compare MLE and MAP estimation and explain how MAP corresponds to L2 regularization
-- Implement sequential Bayesian updating using Beta-Binomial conjugate priors for A/B testing
+- Zastosować twierdzenie Bayesa do obliczania prawdopodobieństw posterior z priors, likelihoods i evidence
+- Zbudować od zera klasyfikator tekstowy Naive Bayes z wygładzaniem Laplace'a i obliczeniami w przestrzeni logarytmicznej
+- Porównać estymację MLE i MAP oraz wyjaśnić, jak MAP odpowiada regularyzacji L2
+- Zaimplementować sekwencyjną aktualizację bayesowską przy użyciu sprzężonych priorów Beta-Binomial do testowania A/B
 
-## The Problem
+## Problem
 
-A medical test is 99% accurate. You test positive. What are the chances you actually have the disease?
+Test medyczny ma dokładność 99%. Otrzymujesz wynik pozytywny. Jakie są szanse, że naprawdę masz chorobę?
 
-Most people say 99%. The real answer depends on how rare the disease is. If 1 in 10,000 people have it, a positive result only gives you about a 1% chance of being sick. The other 99% of positive results are false alarms from healthy people.
+Większość ludzi mówi 99%. Prawdziwa odpowiedź zależy od tego, jak rzadka jest choroba. Jeśli 1 na 10 000 osób ją ma, pozytywny wynik daje ci tylko około 1% szans na chorobę. Pozostałe 99% pozytywnych wyników to fałszywe alarmy od zdrowych ludzi.
 
-This is not a trick question. It is Bayes' theorem. Every spam filter, every medical diagnostic, every machine learning model that quantifies uncertainty uses this exact reasoning. You start with a belief. You see evidence. You update.
+To nie jest podchwytliwe pytanie. To twierdzenie Bayesa. Każdy filtr spamu, każda diagnoza medyczna, każdy model uczenia maszynowego, który kwantyfikuje niepewność, używa dokładnie tego rozumowania. Zaczynasz od przekonania. Widzisz dowód. Aktualizujesz.
 
-If you build ML systems without understanding this, you will misinterpret model outputs, set bad thresholds, and ship overconfident predictions.
+Jeśli budujesz systemy ML bez zrozumienia tego, będziesz błędnie interpretować wyniki modeli, ustawiać złe progi i wysyłać zbyt pewne prognozy.
 
-## The Concept
+## Koncepcja
 
-### From joint probability to Bayes
+### Od prawdopodobieństwa łącznego do Bayesa
 
-You already know from Lesson 06 that conditional probability is:
+Wiesz już z Lesson 06, że prawdopodobieństwo warunkowe to:
 
 ```
 P(A|B) = P(A and B) / P(B)
 ```
 
-And symmetrically:
+I symetrycznie:
 
 ```
 P(B|A) = P(A and B) / P(A)
 ```
 
-Both expressions share the same numerator: P(A and B). Set them equal and rearrange:
+Oba wyrażenia mają ten sam licznik: P(A and B). Przyrównaj je i przekształć:
 
 ```
 P(A and B) = P(A|B) * P(B) = P(B|A) * P(A)
 
-Therefore:
+Dlatego:
 
 P(A|B) = P(B|A) * P(A) / P(B)
 ```
 
-That is Bayes' theorem. Four quantities, one equation.
+To jest twierdzenie Bayesa. Cztery wielkości, jedno równanie.
 
-### The four parts
+### Cztery części
 
-| Part | Name | What it means |
-|------|------|---------------|
-| P(A\|B) | Posterior | Your updated belief about A after seeing evidence B |
-| P(B\|A) | Likelihood | How probable the evidence B is if A is true |
-| P(A) | Prior | Your belief about A before seeing any evidence |
-| P(B) | Evidence | Total probability of seeing B under all possibilities |
+| Część | Nazwa | Co to oznacza |
+|------|------|--------------------|
+| P(A|B) | Posterior | Twoja zaktualizowana wiedza o A po zobaczeniu dowodu B. |
+| P(B|A) | Likelihood | Jak prawdopodobny jest dowód B, jeśli A jest prawdziwe |
+| P(A) | Prior | Twoja wiedza o A przed zobaczeniem jakichkolwiek dowodów |
+| P(B) | Evidence | Całkowite prawdopodobieństwo zobaczenia B przy wszystkich możliwościach |
 
-The evidence term P(B) acts as a normalizer. You can expand it using the law of total probability:
+Termin evidence P(B) działa jako normalizator. Możesz go rozwinąć używając prawa całkowitego prawdopodobieństwa:
 
 ```
 P(B) = P(B|A) * P(A) + P(B|not A) * P(not A)
 ```
 
-### Medical test example
+### Przykład testu medycznego
 
-A disease affects 1 in 10,000 people. The test is 99% accurate (catches 99% of sick people, gives false positives 1% of the time).
+Choroba dotyka 1 na 10 000 osób. Test ma dokładność 99% (wykrywa 99% chorych, daje fałszywe pozytywy w 1% przypadków).
 
 ```
-P(sick)          = 0.0001     (prior: disease is rare)
-P(positive|sick) = 0.99       (likelihood: test catches it)
-P(positive|healthy) = 0.01    (false positive rate)
+P(sick)          = 0.0001     (prior: choroba jest rzadka)
+P(positive|sick) = 0.99       (likelihood: test ją wykrywa)
+P(positive|healthy) = 0.01    (współczynnik fałszywych pozytywów)
 
 P(positive) = P(positive|sick) * P(sick) + P(positive|healthy) * P(healthy)
             = 0.99 * 0.0001 + 0.01 * 0.9999
@@ -87,16 +87,16 @@ P(sick|positive) = P(positive|sick) * P(sick) / P(positive)
                  = 0.98%
 ```
 
-Less than 1%. The prior dominates. When a condition is rare, even accurate tests produce mostly false positives. This is why doctors order confirmation tests.
+Mniej niż 1%. Prior dominuje. Gdy stan jest rzadki, nawet dokładne testy produkują głównie fałszywe pozytywy. Dlatego lekarze zlecają testy potwierdzające.
 
-### Spam filter example
+### Przykład filtra spamu
 
-You receive an email containing the word "lottery". Is it spam?
+Czy to spam? Otrzymujesz e-mail zawierający słowo "lottery". Czy to spam?
 
 ```
-P(spam)                = 0.3      (30% of email is spam)
-P("lottery"|spam)      = 0.05     (5% of spam emails contain "lottery")
-P("lottery"|not spam)  = 0.001    (0.1% of legitimate emails contain "lottery")
+P(spam)                = 0.3      (30% e-maili to spam)
+P("lottery"|spam)      = 0.05     (5% spam e-maili zawiera "lottery")
+P("lottery"|not spam)  = 0.001    (0.1% legalnych e-maili zawiera "lottery")
 
 P("lottery") = 0.05 * 0.3 + 0.001 * 0.7
              = 0.015 + 0.0007
@@ -107,11 +107,11 @@ P(spam|"lottery") = 0.05 * 0.3 / 0.0157
                   = 95.5%
 ```
 
-One word shifts the probability from 30% to 95.5%. A real spam filter applies Bayes across hundreds of words simultaneously.
+Jedno słowo przesuwa prawdopodobieństwo z 30% do 95.5%. Prawdziwy filtr spamu stosuje Bayesa jednocześnie do setek słów.
 
-### Naive Bayes: independence assumption
+### Naive Bayes: założenie niezależności
 
-Naive Bayes extends this to multiple features by assuming all features are conditionally independent given the class:
+Naive Bayes rozszerza to na wiele cech zakładając, że wszystkie cechy są warunkowo niezależne przy danej klasie:
 
 ```
 P(class | feature_1, feature_2, ..., feature_n)
@@ -119,85 +119,85 @@ P(class | feature_1, feature_2, ..., feature_n)
     / P(feature_1, feature_2, ..., feature_n)
 ```
 
-The "naive" part is the independence assumption. In text, word occurrences are not independent ("New" and "York" are correlated). But the assumption works surprisingly well in practice because the classifier only needs to rank classes, not produce calibrated probabilities.
+"Cząstkowa" (naive) część to założenie niezależności. W tekście wystąpienia słów nie są niezależne przy danej klasie ("New" i "York" są skorelowane). Ale założenie działa zaskakująco dobrze w praktyce, ponieważ klasyfikator musi tylko klasyfikować klasy, a nie produkować **skalibrowane** prawdopodobieństwa.
 
-Since the denominator is the same for all classes, you can skip it and just compare numerators:
-
-```
-score(class) = P(class) * product of P(feature_i | class)
-```
-
-Pick the class with the highest score.
-
-### Maximum likelihood estimation (MLE)
-
-How do you get P(feature|class) from training data? Count.
+Ponieważ mianownik jest taki sam dla wszystkich klas, możesz go pominąć i porównywać tylko liczniki:
 
 ```
-P("free"|spam) = (number of spam emails containing "free") / (total spam emails)
+score(class) = P(class) * iloczyn P(feature_i | class)
 ```
 
-This is MLE: choose the parameter values that make the observed data most likely. You are maximizing the likelihood function, which for discrete counts reduces to relative frequency.
+Wybierz klasę z najwyższym wynikiem.
 
-Problem: if a word never appears in spam during training, MLE gives it probability zero. One unseen word kills the entire product. Fix this with Laplace smoothing:
+### Maximum Likelihood Estimation (MLE)
+
+Skąd wziąć P(feature|class) z danych treningowych? Policz.
+
+```
+P("free"|spam) = (liczba spam e-maili zawierających "free") / (wszystkie spam e-maile)
+```
+
+To jest MLE: wybierz wartości parametrów, które czynią obserwowane dane najbardziej prawdopodobnymi. Maksymalizujesz funkcję likelihood, która dla dyskretnych zliczeń redukuje się do częstości względnej.
+
+Problem: jeśli słowo nigdy nie pojawi się w spamie podczas treningu, MLE daje mu prawdopodobieństwo zero. Jedno nieznane słowo zabija cały iloczyn. Napraw to wygładzaniem Laplace'a:
 
 ```
 P(word|class) = (count(word, class) + 1) / (total_words_in_class + vocabulary_size)
 ```
 
-Adding 1 to every count ensures no probability is ever zero.
+Dodanie 1 do każdego zliczenia zapewnia, że żadne prawdopodobieństwo nie będzie nigdy zero.
 
-### Maximum a posteriori (MAP)
+### Maximum A Posteriori (MAP)
 
-MLE asks: what parameters maximize P(data|parameters)?
+MLE pyta: jakie parametry maksymalizują P(data|parameters)?
 
-MAP asks: what parameters maximize P(parameters|data)?
+MAP pyta: jakie parametry maksymalizują P(parameters|data)?
 
-By Bayes' theorem:
+Z twierdzenia Bayesa:
 
 ```
 P(parameters|data) proportional to P(data|parameters) * P(parameters)
 ```
 
-MAP adds a prior over the parameters themselves. If you believe parameters should be small, you encode that as a prior that penalizes large values. This is identical to L2 regularization in ML. The "ridge" penalty in ridge regression is literally a Gaussian prior on the weights.
+MAP dodaje prior nad parametrami. Jeśli wierzysz, że parametry powinny być małe, kodujesz to jako prior, który kara za duże wartości. Jest to identyczne z regularyzacją L2 w ML.
 
-| Estimation | Optimizes | ML equivalent |
+| Estymacja | Optymalizuje | Odpowiednik ML |
 |------------|-----------|---------------|
-| MLE | P(data\|params) | Unregularized training |
-| MAP | P(data\|params) * P(params) | L2 / L1 regularization |
+| MLE | P(data|params) | Netrening bez regularyzacji |
+| MAP | P(data|params) * P(params) | Regularyzacja L2 / L1 |
 
-### Bayesian vs frequentist: the practical difference
+### Podejście bayesowskie vs. częstościowe: praktyczna różnica
 
-Frequentists treat parameters as fixed unknowns. They ask: "If I repeated this experiment many times, what would happen?"
+Częstościowcy traktują parametry jako ustalone nieznane. Pytają: gdybyś powtórzył ten eksperyment wiele razy, co by się stało?
 
-Bayesians treat parameters as distributions. They ask: "Given what I have observed, what do I believe about the parameters?"
+Bayesianie traktują parametry jako rozkłady. Pytają: "Biorąc pod uwagę to, co zaobserwowałem, co wierzę o parametrach?"
 
-For building ML systems, the practical difference:
+Praktyczna różnica dla budowania systemów ML:
 
-| Aspect | Frequentist | Bayesian |
-|--------|-------------|----------|
-| Output | Point estimate | Distribution over values |
-| Uncertainty | Confidence intervals (about procedure) | Credible intervals (about parameter) |
-| Small data | Can overfit | Prior acts as regularization |
-| Computation | Usually faster | Often requires sampling (MCMC) |
+| Aspekt | Częstościowy | Bayesowski |
+|--------|-------------|-------------|
+| Wynik | Pojedyncza estymacja | Rozkład nad wartościami |
+| Niepewność | Przedziały ufności (o procedurze) | Przedziały wiarygodne (o parametrze) |
+| Małe dane | Może przeuczać | Prior działa jak regularyzacja |
+| Obliczenia | Zwykle szybsze | Często wymaga próbkowania (MCMC) |
 
-Most production ML is frequentist (SGD, point estimates). Bayesian methods shine when you need calibrated uncertainty (medical decisions, safety-critical systems) or when data is scarce (few-shot learning, cold start).
+Większość produkcyjnego ML jest częstościowa (SGD, pojedyncze estymacje). Metody bayesowskie błyszczą, gdy potrzebujesz **skalibrowanej** niepewności (decyzje medyczne, systemy krytyczne dla bezpieczeństwa) lub gdy danych jest mało (few-shot learning, cold start).
 
-### Why Bayesian thinking matters for ML
+### Dlaczego myślenie bayesowskie ma znaczenie dla ML
 
-The connection is deeper than analogy:
+Powiązanie jest głębsze niż analogia:
 
-**Priors are regularization.** A Gaussian prior on weights is L2 regularization. A Laplace prior is L1. Every time you add a regularization term, you are making a Bayesian statement about what parameter values you expect.
+**Prior to regularyzacja.** Prior Gaussowski na wagach to regularyzacja L2. Prior Laplace'a to L1. Za każdym razem, gdy dodajesz termin regularyzacyjny, składasz bayesowskie oświadczenie o tym, jakich wartości parametrów oczekujesz.
 
-**Posteriors are uncertainty.** A single predicted probability tells you nothing about how confident the model is in that estimate. Bayesian methods give you a distribution: "I think P(spam) is between 0.8 and 0.95."
+**Posterior to niepewność.** Pojedyncze przewidywane prawdopodobieństwo nie mówi ci nic o tym, jak pewny jest model tej estymacji. Metody bayesowskie dają ci rozkład: "Myślę, że P(spam) jest między 0.8 a 0.95."
 
-**Bayes updates are online learning.** Today's posterior becomes tomorrow's prior. When your model sees new data, it updates its beliefs incrementally instead of retraining from scratch.
+**Aktualizacje Bayesa to online learning.** Dzisiejszy posterior staje się jutrzejszym priorem. Gdy twój model widzi nowe dane, aktualizuje swoje przekonania inkrementalnie zamiast uczyć od zera.
 
-**Model comparison is Bayesian.** Bayesian information criterion (BIC), marginal likelihood, and Bayes factors all use Bayesian reasoning to choose between models without overfitting.
+**Porównywanie modeli jest bayesowskie.** Kryterium informacyjne Bayesa (BIC), marginal likelihood i czynniki Bayesa wszystkie używają rozumowania bayesowskiego do wybierania między modelami bez przeuczania.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Bayes theorem function
+### Krok 1: Funkcja twierdzenia Bayesa
 
 ```python
 def bayes(prior, likelihood, false_positive_rate):
@@ -209,7 +209,7 @@ result = bayes(prior=0.0001, likelihood=0.99, false_positive_rate=0.01)
 print(f"P(sick|positive) = {result:.4f}")
 ```
 
-### Step 2: Naive Bayes classifier
+### Krok 2: Klasyfikator Naive Bayes
 
 ```python
 import math
@@ -250,9 +250,9 @@ class NaiveBayes:
         return best_class
 ```
 
-Log probabilities prevent underflow. Multiplying many small probabilities produces numbers too tiny for floating point. Summing log-probabilities is numerically stable and mathematically equivalent.
+Logarytmy prawdopodobieństw zapobiegają underflow. Mnożenie wielu małych prawdopodobieństw produkuje liczby zbyt małe dla floating point. Sumowanie logarytmów prawdopodobieństw jest numerycznie stabilne i matematycznie równoważne.
 
-### Step 3: Train on spam data
+### Krok 3: Trenuj na danych spam
 
 ```python
 train_docs = [
@@ -289,7 +289,7 @@ for msg in test_messages:
     print(f"  '{msg}' -> {classifier.predict(msg)}")
 ```
 
-### Step 4: Inspect the learned probabilities
+### Krok 4: Sprawdź nauczone prawdopodobieństwa
 
 ```python
 def show_top_words(classifier, cls, n=5):
@@ -309,9 +309,9 @@ print("\nTop ham words:")
 show_top_words(classifier, "ham")
 ```
 
-## Use It
+## Użyj tego
 
-Scikit-learn ships production-ready naive Bayes implementations:
+Scikit-learn dostarcza produkcyjne implementacje naive Bayes:
 
 ```python
 from sklearn.feature_extraction.text import CountVectorizer
@@ -329,63 +329,63 @@ for msg, pred in zip(test_messages, predictions):
     print(f"  '{msg}' -> {pred}")
 ```
 
-Same algorithm. CountVectorizer handles tokenization and vocabulary building. MultinomialNB handles smoothing and log-probabilities internally. Your from-scratch version does the same thing in 40 lines.
+Ten sam algorytm. CountVectorizer zajmuje się tokenizacją i budowaniem słownika. MultinomialNB zajmuje się wygładzaniem i logarytmami prawdopodobieństw wewnętrznie. Twoja wersja od zera robi to samo w 40 liniach.
 
-## Ship It
+## Wdroż to
 
-The NaiveBayes class built here demonstrates the full pipeline: tokenization, probability estimation with Laplace smoothing, log-space prediction. The code in `code/bayes.py` runs end-to-end with no dependencies beyond Python's standard library.
+Klasa NaiveBayes zbudowana tutaj demonstruje pełny pipeline: tokenizację, estymację prawdopodobieństw z wygładzaniem Laplace'a, predykcję w przestrzeni logarytmicznej. Kod w `code/bayes.py` działa end-to-end bez zależności poza standardową biblioteką Pythona.
 
-### Conjugate Priors
+### Sprzężone Priory (Conjugate Priors)
 
-When the prior and posterior belong to the same family of distributions, the prior is called "conjugate." This makes Bayesian updating algebraically clean -- you get a closed-form posterior without numerical integration.
+Gdy prior i posterior należą do tej samej rodziny rozkładów, prior nazywa się "sprzężonym". To sprawia, że aktualizacja bayesowska jest algebraicznie czysta -- otrzymujesz posterior w formie zamkniętej bez całkowania numerycznego.
 
-| Likelihood | Conjugate Prior | Posterior | Example |
-|-----------|----------------|-----------|---------|
-| Bernoulli | Beta(a, b) | Beta(a + successes, b + failures) | Coin flip bias estimation |
-| Normal (known variance) | Normal(mu_0, sigma_0) | Normal(weighted mean, smaller variance) | Sensor calibration |
-| Poisson | Gamma(a, b) | Gamma(a + sum of counts, b + n) | Modeling arrival rates |
-| Multinomial | Dirichlet(alpha) | Dirichlet(alpha + counts) | Topic modeling, language models |
+| Likelihood | Sprzężony Prior | Posterior | Przykład |
+|-----------|----------------|-----------|----------|
+| Bernoulli | Beta(a, b) | Beta(a + successes, b + failures) | Estymacja obciążenia rzutu monetą |
+| Normalny (znana wariancja) | Normal(mu_0, sigma_0) | Normal(ważona średnia, mniejsza wariancja) | Kalibracja czujników |
+| Poisson | Gamma(a, b) | Gamma(a + suma zliczeń, b + n) | Modelowanie współczynników przybycia |
+| Multinomial | Dirichlet(alpha) | Dirichlet(alpha + zliczenia) | Topic modeling, modele językowe |
 
-Why this matters: without conjugate priors, you need Monte Carlo sampling or variational inference to approximate the posterior. With conjugate priors, you just update two numbers.
+Dlaczego to ma znaczenie: bez sprzężonych priorów potrzebujesz próbkowania Monte Carlo lub wnioskowania wariacyjnego, aby przybliżyć posterior. Ze sprzężonymi priorami wystarczy zaktualizować dwie liczby.
 
-The Beta distribution is the most common conjugate prior in practice. Beta(a, b) represents your belief about a probability parameter. The mean is a/(a+b). The larger a+b, the more concentrated (confident) the distribution.
+Rozkład Beta jest najczęściej używanym sprzężonym priorem w praktyce. Beta(a, b) reprezentuje twoje przekonanie o parametrze prawdopodobieństwa. Średnia to a/(a+b). Im większe a+b, tym bardziej skoncentrowany (pewny) rozkład.
 
-Special cases of the Beta prior:
-- Beta(1, 1) = uniform. You have no opinion about the parameter.
-- Beta(10, 10) = peaked at 0.5. You strongly believe the parameter is near 0.5.
-- Beta(1, 10) = skewed toward 0. You believe the parameter is small.
+Specjalne przypadki Beta prior:
+- Beta(1, 1) = jednostajny. Nie masz opinii o parametrze.
+- Beta(10, 10) = szczyt przy 0.5. Silnie wierzysz, że parametr jest bliski 0.5.
+- Beta(1, 10) = skośna w stronę 0. Wierzysz, że parametr jest mały.
 
-The update rule is dead simple:
+Reguła aktualizacji jest prosta:
 
 ```
 Prior:     Beta(a, b)
-Data:      s successes, f failures
+Dane:      s sukcesów, f niepowodzeń
 Posterior: Beta(a + s, b + f)
 ```
 
-No integrals. No sampling. Just addition.
+Brak całek. Brak próbkowania. Tylko dodawanie.
 
-### Sequential Bayesian Updating
+### Sekwencyjna Aktualizacja Bayesowska
 
-Bayesian inference is naturally sequential. Today's posterior becomes tomorrow's prior. This is how real systems learn incrementally without reprocessing all historical data.
+Wnioskowanie bayesowskie jest naturalnie sekwencyjne. Dzisiejszy posterior staje się jutrzejszym priorem. Tak uczą się prawdziwe systemy inkrementalnie bez przetwarzania wszystkich danych historycznych.
 
-Concrete example: estimating whether a coin is fair.
+Konkretny przykład: estymacja, czy moneta jest uczciwa.
 
-**Day 1: No data yet.**
-Start with Beta(1, 1) -- a uniform prior. You have no opinion.
-- Prior mean: 0.5
-- Prior is flat across [0, 1]
+**Dzień 1: Brak danych.**
+Zacznij od Beta(1, 1) -- prior jednostajny. Nie masz opinii.
+- Średnia prior: 0.5
+- Prior jest płaski na [0, 1]
 
-**Day 2: Observe 7 heads, 3 tails.**
+**Dzień 2: Obserwuj 7 orłów, 3 reszki.**
 Posterior = Beta(1 + 7, 1 + 3) = Beta(8, 4)
-- Posterior mean: 8/12 = 0.667
-- Evidence suggests the coin is biased toward heads
+- Średnia posterior: 8/12 = 0.667
+- Dowody sugerują, że moneta jest stronnicza w stronę orłów
 
-**Day 3: Observe 5 more heads, 5 more tails.**
-Use yesterday's posterior as today's prior.
+**Dzień 3: Obserwuj dodatkowe 5 orłów, 5 reszek.**
+Użyj wczorajszego posterior jako dzisiejszego prior.
 Posterior = Beta(8 + 5, 4 + 5) = Beta(13, 9)
-- Posterior mean: 13/22 = 0.591
-- The balanced new data pulled the estimate back toward 0.5
+- Średnia posterior: 13/22 = 0.591
+- Zrównoważone nowe dane pociągnęły estymację z powrotem w stronę 0.5
 
 ```mermaid
 graph LR
@@ -394,77 +394,78 @@ graph LR
     C -->|"5H, 5T"| D["Posterior 2<br/>Beta(13,9)<br/>mean = 0.59"]
 ```
 
-The order of observations does not matter. Beta(1,1) updated with all 12 heads and 8 tails at once gives Beta(13, 9) -- the same result. Sequential updating and batch updating are mathematically equivalent. But sequential updating lets you make decisions at each step without storing raw data.
+Kolejność obserwacji nie ma znaczenia. Beta(1,1) zaktualizowana wszystkimi 12 orłami i 8 reszkami naraz daje Beta(13, 9) -- ten sam wynik. Aktualizacja sekwencyjna i wsadowa są matematycznie równoważne. Ale aktualizacja sekwencyjna pozwala podejmować decyzje na każdym kroku bez przechowywania surowych danych.
 
-This is the foundation of online learning in production ML systems. Thompson sampling for bandits, incremental recommendation systems, and streaming anomaly detectors all use this pattern.
+To jest fundament online learning w produkcyjnych systemach ML. Thompson sampling dla banditów, inkrementalne systemy rekomendacji i detektory anomalii w strumieniu, wszystkie używają tego wzorca.
 
-### Connection to A/B Testing
+### Powiązanie z Testowaniem A/B
 
-A/B testing is Bayesian inference in disguise.
+Testowanie A/B to wnioskowanie bayesowskie w przebraniu.
 
-Setup: you are testing two button colors. Variant A (blue) and variant B (green). You want to know which one gets more clicks.
+Konfiguracja: testujesz dwa kolory przycisku. Wariant A (niebieski) i wariant B (zielony). Chcesz wiedzieć, który dostaje więcej kliknięć.
 
-The Bayesian A/B test:
+Bayesowski test A/B:
 
-1. **Prior.** Start with Beta(1, 1) for both variants. No prior preference.
-2. **Data.** Variant A: 50 clicks out of 1000 views. Variant B: 65 clicks out of 1000 views.
-3. **Posteriors.**
-   - A: Beta(1 + 50, 1 + 950) = Beta(51, 951). Mean = 0.051
-   - B: Beta(1 + 65, 1 + 935) = Beta(66, 936). Mean = 0.066
-4. **Decision.** Compute P(B > A) -- the probability that B's true conversion rate is higher than A's.
+1. **Prior.** Zacznij od Beta(1, 1) dla obu wariantów. Brak preferencji prior.
+2. **Dane.** Wariant A: 50 kliknięć z 1000 wyświetleń. Wariant B: 65 kliknięć z 1000 wyświetleń.
+3. **Posterior.**
+   - A: Beta(1 + 50, 1 + 950) = Beta(51, 951). Średnia = 0.051
+   - B: Beta(1 + 65, 1 + 935) = Beta(66, 936). Średnia = 0.066
+4. **Decyzja.** Oblicz P(B > A) -- prawdopodobieństwo, że prawdziwa stopa konwersji B jest wyższa niż A.
 
-Computing P(B > A) analytically is hard. But Monte Carlo makes it trivial:
+Obliczanie P(B > A) analitycznie jest trudne. Ale Monte Carlo czyni to trywialnym:
 
 ```
-1. Draw 100,000 samples from Beta(51, 951)  -> samples_A
-2. Draw 100,000 samples from Beta(66, 936)  -> samples_B
-3. P(B > A) = fraction of samples where B > A
+1. Pobierz 100,000 próbek z Beta(51, 951)  -> samples_A
+2. Pobierz 100,000 próbek z Beta(66, 936)  -> samples_B
+3. P(B > A) = frakcja próbek gdzie B > A
 ```
 
-If P(B > A) > 0.95, you ship variant B. If it is between 0.05 and 0.95, you keep collecting data. If P(B > A) < 0.05, you ship variant A.
+Jeśli P(B > A) > 0.95, wysyłasz wariant B. Jeśli jest między 0.05 a 0.95, nadal zbierasz dane. Jeśli P(B > A) < 0.05, wysyłasz wariant A.
 
-Advantages over frequentist A/B testing:
-- You get a direct probability statement: "there is a 97% chance B is better"
-- No p-value confusion. No "fail to reject the null hypothesis" hedging.
-- You can check results at any time without inflating false positive rates (no "peeking problem")
-- You can incorporate prior knowledge (e.g., previous tests suggest conversion rates are usually 3-8%)
+Zalety nad częstościowym testem A/B:
+- Dostajesz bezpośrednie prawdopodobieństwo: "jest 97% szans, że B jest lepszy"
+- Brak zamieszania z p-value. Brak "nie udało się odrzucić hipotezy zerowej".
+- Możesz sprawdzać wyniki w dowolnym momencie bez zawyżania false positive rates (brak "problemu podglądania").
+- Możesz włączyć wiedzę prior (np. poprzednie testy sugerują, że stopy konwersji są zwykle 3-8%)
 
-| Aspect | Frequentist A/B | Bayesian A/B |
+| Aspekt | Częstościowy A/B | Bayesowski A/B |
 |--------|----------------|--------------|
-| Output | p-value | P(B > A) |
-| Interpretation | "How surprising is this data if A=B?" | "How likely is B better than A?" |
-| Early stopping | Inflates false positives | Safe at any point (given a well-chosen prior and correctly specified model) |
-| Prior knowledge | Not used | Encoded as Beta prior |
-| Decision rule | p < 0.05 | P(B > A) > threshold |
+| Wynik | p-value | P(B > A) |
+| Interpretacja | "Jak zaskakujące są te dane jeśli A=B?" | "Jak prawdopodobne jest, że B jest lepsze od A?" |
+| Wczesne zatrzymanie | Zawyża false positives | Bezpieczne w dowolnym momencie (przy dobrze dobranym prior i poprawnie określonym modelu) |
+| Wiedza prior | Nieużywana | Zakodowana jako Beta prior |
+| Reguła decyzyjna | p < 0.05 | P(B > A) > próg |
 
-## Exercises
+## Ćwiczenia
 
-1. **Multiple tests.** A patient tests positive twice on independent tests (both 99% accurate, disease prevalence 1 in 10,000). What is P(sick) after both tests? Use the posterior from the first test as the prior for the second.
+1. **Wiele testów.** Pacjent testuje pozytywnie dwukrotnie na niezależnych testach (oba 99% dokładne, prevalencja choroby 1 na 10 000). Jakie jest P(sick) po obu testach? Użyj posterior z pierwszego testu jako prior dla drugiego.
 
-2. **Smoothing impact.** Run the spam classifier with smoothing values of 0.01, 0.1, 1.0, and 10.0. How do the top word probabilities change? What happens with smoothing=0 and a word that appears only in ham?
+2. **Wpływ wygładzania.** Uruchom klasyfikator spam z wartościami wygładzania 0.01, 0.1, 1.0 i 10.0. Jak zmieniają się najwyższe prawdopodobieństwa słów? Co się dzieje z wygładzaniem=0 i słowem, które pojawia się tylko w ham?
 
-3. **Add features.** Extend the NaiveBayes class to also use message length (short/long) as a feature alongside word counts. Estimate P(short|spam) and P(short|ham) from the training data and fold it into the prediction score.
+3. **Dodaj cechy.** Rozszerz klasę NaiveBayes o używanie długości wiadomości (krótka/długa) jako cechy obok zliczeń słów. Estymuj P(short|spam) i P(short|ham) z danych treningowych i włącz to do wyniku predykcji.
 
-4. **MAP by hand.** Given observed data (7 heads in 10 coin flips), compute the MAP estimate of the bias using a Beta(2,2) prior. Compare it to the MLE estimate (7/10).
+4. **MAP ręcznie.** Mając 7 orłów w 10 rzutach monetą, oblicz estymatę MAP obciążenia używając prior Beta(2,2). Porównaj ją z estymatą MLE (7/10).
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Prior | "My initial guess" | P(hypothesis) before observing evidence. In ML: the regularization term. |
-| Likelihood | "How well the data fits" | P(evidence\|hypothesis). How probable the observed data is under a specific hypothesis. |
-| Posterior | "My updated belief" | P(hypothesis\|evidence). The prior multiplied by the likelihood, then normalized. |
-| Evidence | "The normalizing constant" | P(data) across all hypotheses. Ensures the posterior sums to 1. |
-| Naive Bayes | "That simple text classifier" | A classifier that assumes features are independent given the class. Works well despite the false assumption. |
-| Laplace smoothing | "Add-one smoothing" | Adding a small count to every feature to prevent zero probabilities from unseen data. |
-| MLE | "Just use the frequencies" | Choose parameters that maximize P(data\|parameters). No prior. Can overfit with small data. |
-| MAP | "MLE with a prior" | Choose parameters that maximize P(data\|parameters) * P(parameters). Equivalent to regularized MLE. |
-| Log-probability | "Work in log space" | Using log(P) instead of P to avoid floating-point underflow when multiplying many small numbers. |
-| False positive | "A wrong alarm" | The test says positive, but the true state is negative. Drives the base rate fallacy. |
+| Prior | "Moja początkowa hipoteza" | P(hypothesis) przed obserwacją dowodów. W ML: termin regularyzacyjny. |
+| Likelihood | "Jak dobrze dane pasują" | P(evidence|hypothesis), jak prawdopodobne są obserwowane dane przy konkretnej hipotezie. |
+| Posterior | "Moja zaktualizowana hipoteza" | P(hypothesis|evidence), prior pomnożony przez likelihood, potem znormalizowany. |
+| Evidence | "Stała normalizująca" | P(data) dla wszystkich hipotez. Zapewnia, że posterior sumuje się do 1. |
+| Naive Bayes | "Ten prosty klasyfikator tekstowy" | Klasyfikator zakładający, że cechy są niezależne przy danej klasie, działa dobrze mimo fałszywego założenia. |
+| Laplace smoothing | "Wygładzanie add-one" | Dodawanie małego zliczenia do każdej cechy, aby zapobiec zerowym prawdopodobieństwom z nieznanych danych. |
+| MLE | "Po prostu użyj częstości" | Wybierz parametry maksymalizujące P(data|parameters), bez prior. Może przeuczać przy małych danych. |
+| MAP | "MLE z prior" | Wybierz parametry maksymalizujące P(data|parameters) * P(parameters), równoważne regularyzowanemu MLE. |
+| Calibrated probabilities | "Skalibrowane prawdopodobieństwa" | Prawdopodobieństwa które odzwierciedlają rzeczywiste częstości. Model mówiący "90% szans" jest skalibrowany, jeśli rzeczywiście zdarza się w ~90% przypadków. |
+| Log-probability | "Pracuj w przestrzeni log" | Używanie log(P) zamiast P, aby uniknąć floating-point underflow przy mnożeniu wielu małych liczb. |
+| False positive | "Zły alarm" | Test mówi pozytywnie, ale prawdziwy stan jest negatywny. Napędza sofizmat częstości bazowej. |
 
-## Further Reading
+## Dalsza lektura
 
-- [3Blue1Brown: Bayes' theorem](https://www.youtube.com/watch?v=HZGCoVF3YvM) - visual explanation with the medical test example
-- [Stanford CS229: Generative Learning Algorithms](https://cs229.stanford.edu/notes2022fall/cs229-notes2.pdf) - naive Bayes and its connection to discriminative models
-- [Think Bayes](https://greenteapress.com/wp/think-bayes/) - free book, Bayesian statistics with Python code
-- [scikit-learn Naive Bayes](https://scikit-learn.org/stable/modules/naive_bayes.html) - production implementations and when to use each variant
+- [3Blue1Brown: Bayes' theorem](https://www.youtube.com/watch?v=HZGCoVF3YvM) - wizualne wyjaśnienie z przykładem testu medycznego
+- [Stanford CS229: Generative Learning Algorithms](https://cs229.stanford.edu/notes2022fall/cs229-notes2.pdf) - naive Bayes i jego powiązanie z modelami dyskryminatywnymi
+- [Think Bayes](https://greenteapress.com/wp/think-bayes/) - darmowa książka, statystyka bayesowska z kodem Python
+- [scikit-learn Naive Bayes](https://scikit-learn.org/stable/modules/naive_bayes.html) - produkcyjne implementacje i kiedy używać każdego wariantu

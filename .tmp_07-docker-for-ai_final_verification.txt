@@ -1,0 +1,13 @@
+BŁĘDY: 1
+
+**1. BRAK PRZECINKA przed "gdy" (klauzula czasowa)**
+
+Lokalizacja: Sekcja "Krok 5: Montowanie woluminów dla danych i modeli"
+
+**Błędne:**
+> "Model o wielkości 14 GB znika po zatrzymaniu kontenera. Nie chcesz pobierać go ponownie za każdym razem gdy przebudowujesz kontenera."
+
+**Poprawne:**
+> "Nie chcesz pobierać go ponownie za każdym razem, **gdy** przebudowujesz kontenera."
+
+Klauzula czasowa wprowadzona przez "gdy" wymaga przecinka przed sobą (analogicznie jak "kiedy", "zanim", "zanim").

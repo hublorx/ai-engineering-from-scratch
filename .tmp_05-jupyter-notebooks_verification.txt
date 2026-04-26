@@ -1,0 +1,5 @@
+BŁĘDY: 2
+
+1. **DIAKRYTYKI**: "wdrzężaj" w zdaniu "eksploruj w notatnikach, wdrzężaj w skryptach" powinno być "wdrążaj" (ć zamiast e)
+
+2. **BRAK PRZECINKA**: "Notatnik działa na twoim komputerze, ale psuje się gdy ktoś uruchamia go od góry do dołu" - brakuje przecinka przed "gdy"

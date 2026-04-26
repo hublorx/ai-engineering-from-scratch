@@ -1,36 +1,36 @@
-# Linear Systems
+# Układy równań liniowych
 
-> Solving Ax = b is the oldest problem in mathematics that still runs your neural network.
+> Rozwiązywanie Ax = b to najstarszy problem matematyczny, który wciąż obsługuje Twoją sieć neuronową.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 1, Lessons 01 (Linear Algebra Intuition), 02 (Vectors & Matrices), 03 (Matrix Transformations)
-**Time:** ~120 minutes
+**Typ:** Zbuduj to
+**Język:** Python
+**Wymagania wstępne:** Phase 1, Lessons 01 (Intuicja algebry liniowej), 02 (Wektory i macierze), 03 (Transformacje macierzowe)
+**Czas:** ~120 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Solve Ax = b using Gaussian elimination with partial pivoting and back substitution
-- Factor matrices with LU, QR, and Cholesky decompositions and explain when each is appropriate
-- Derive the normal equations for least squares and connect them to linear and ridge regression
-- Diagnose ill-conditioned systems using the condition number and apply regularization to stabilize them
+- Rozwiąż Ax = b używając eliminacji Gaussa z częściowym piwotowaniem i podstawianiem wstecznym
+- Faktoryzuj macierze za pomocą rozkładów LU, QR i Cholesky'ego i wyjaśnij, kiedy każdy z nich jest odpowiedni
+- Wyprowadź równania normalne dla najmniejszych kwadratów i połącz je z regresją liniową i grzbietową
+- Diagnozuj źle uwarunkowane układy używając wskaźnika uwarunkowania i zastosuj regularyzację, aby je ustabilizować
 
-## The Problem
+## Problem
 
-Every time you train a linear regression, you solve a linear system. Every time you compute a least-squares fit, you solve a linear system. Every time a neural network layer computes `y = Wx + b`, it is evaluating one side of a linear system. When you add regularization, you modify the system. When you use Gaussian processes, you factor a matrix. When you invert a covariance matrix for Mahalanobis distance, you solve a linear system.
+Za każdym razem, gdy trenujesz regresję liniową, rozwiązujesz układ równań liniowych. Za każdym razem, gdy obliczasz dopasowanie metodą najmniejszych kwadratów, rozwiązujesz układ równań liniowych. Za każdym razem, gdy warstwa sieci neuronowej oblicza `y = Wx + b`, ocenia jedną stronę układu równań liniowych. Gdy dodajesz regularyzację, modyfikujesz układ. Gdy używasz procesów Gaussa, faktoryzujesz macierz. Gdy odwracasz macierz kowariancji dla odległości Mahalanobisa, rozwiązujesz układ równań liniowych.
 
-The equation Ax = b appears everywhere. A is a matrix of known coefficients. b is a vector of known outputs. x is the vector of unknowns you want to find. In linear regression, A is your data matrix, b is your target vector, and x is the weight vector. The entire model reduces to: find x such that Ax is as close to b as possible.
+Równanie Ax = b pojawia się wszędzie. A to macierz znanych współczynników. b to wektor znanych wyjść. x to wektor niewiadomych, który chcesz znaleźć. W regresji liniowej A to Twoja macierz danych, b to Twój wektor celów, a x to wektor wag. Cały model sprowadza się do: znajdź x tak, żeby Ax było jak najbliższe b.
 
-This lesson builds every major method for solving that equation from scratch. You will understand why some methods are fast and others are stable, why some work only for square systems and others handle overdetermined ones, and why the condition number of your matrix determines whether your answer means anything at all.
+Ta lekcja buduje od podstaw każdą główną metodę rozwiązywania tego równania. Zrozumiesz, dlaczego niektóre metody są szybkie, a inne stabilne, dlaczego niektóre działają tylko dla kwadratowych układów, a inne radzą sobie z nadokreślonymi, oraz dlaczego wskaźnik uwarunkowania Twojej macierzy determinuje, czy Twoja odpowiedź w ogóle coś znaczy.
 
-## The Concept
+## Koncepcja
 
-### What Ax = b means geometrically
+### Co Ax = b oznacza geometrycznie
 
-A system of linear equations has a geometric interpretation. Each equation defines a hyperplane. The solution is the point (or set of points) where all hyperplanes intersect.
+Układ równań liniowych ma interpretację geometryczną. Każde równanie definiuje hiperpłaszczyznę. Rozwiązanie to punkt (lub zbiór punktów), gdzie wszystkie hiperpłaszczyzny się przecinają.
 
 ```
-2x + y = 5          Two lines in 2D.
-x - y  = 1          They intersect at x=2, y=1.
+2x + y = 5          Dwie proste w 2D.
+x - y  = 1          Przecinają się w x=2, y=1.
 ```
 
 ```mermaid
@@ -39,7 +39,7 @@ graph LR
     B["x - y = 1"] --- S
 ```
 
-Three things can happen:
+Mogą się wydarzyć trzy rzeczy:
 
 ```mermaid
 graph TD
@@ -54,49 +54,49 @@ graph TD
     end
 ```
 
-In matrix form, "one solution" means A is invertible. "No solution" means the system is inconsistent. "Infinite solutions" means A has a null space. Most ML problems fall in the "no exact solution" category because you have more equations (data points) than unknowns (parameters). That is where least squares comes in.
+W formie macierzowej „jedno rozwiązanie" oznacza, że A jest odwracalna. „Brak rozwiązania" oznacza, że układ jest sprzeczny. „Nieskończenie wiele rozwiązań" oznacza, że A ma przestrzeń zerową. Większość problemów ML znajduje się w kategorii „brak dokładnego rozwiązania", ponieważ masz więcej równań (punktów danych) niż niewiadomych (parametrów). Tam właśnie pojawiają się najmniejsze kwadraty.
 
-### Column picture vs row picture
+### Obraz kolumnowy vs obraz wierszowy
 
-There are two ways to read Ax = b.
+Istnieją dwa sposoby odczytywania Ax = b.
 
-**Row picture.** Each row of A defines one equation. Each equation is a hyperplane. The solution is where they all intersect.
+**Obraz wierszowy.** Każdy wiersz A definiuje jedno równanie. Każde równanie jest hiperpłaszczyzną. Rozwiązanie to miejsce, gdzie wszystkie się przecinają.
 
-**Column picture.** Each column of A is a vector. The question becomes: what linear combination of the columns of A produces b?
+**Obraz kolumnowy.** Każda kolumna A jest wektorem. Pytanie brzmi: jaka kombinacja liniowa kolumn A daje w rezultacie b?
 
 ```
 A = | 2  1 |    b = | 5 |
     | 1 -1 |        | 1 |
 
-Row picture: solve 2x + y = 5 and x - y = 1 simultaneously.
+Obraz wierszowy: rozwiąż równocześnie 2x + y = 5 i x - y = 1.
 
-Column picture: find x1, x2 such that:
+Obraz kolumnowy: znajdź x1, x2 takie, że:
   x1 * [2, 1] + x2 * [1, -1] = [5, 1]
-  2 * [2, 1] + 1 * [1, -1] = [4+1, 2-1] = [5, 1]   check.
+  2 * [2, 1] + 1 * [1, -1] = [4+1, 2-1] = [5, 1]   sprawdzenie.
 ```
 
-The column picture is more fundamental. If b lies in the column space of A, the system has a solution. If b does not, you find the closest point in the column space. That closest point is the least-squares solution.
+Obraz kolumnowy jest bardziej fundamentalny. Jeśli b należy do przestrzeni kolumnowej A, układ ma rozwiązanie. Jeśli b nie należy, znajdujesz najbliższy punkt w przestrzeni kolumnowej. Ten najbliższy punkt to rozwiązanie metodą najmniejszych kwadratów.
 
-### Gaussian elimination
+### Eliminacja Gaussa
 
-Gaussian elimination transforms Ax = b into an upper triangular system Ux = c that you solve by back substitution. It is the most direct method.
+Eliminacja Gaussa przekształca Ax = b w górny trójkątny układ Ux = c, który rozwiązujesz przez podstawianie wsteczne. To najbardziej bezpośrednia metoda.
 
-The algorithm:
-
-```
-1. For each column k (the pivot column):
-   a. Find the largest entry in column k at or below row k (partial pivoting).
-   b. Swap that row with row k.
-   c. For each row i below k:
-      - Compute multiplier m = A[i][k] / A[k][k]
-      - Subtract m times row k from row i.
-2. Back substitute: solve from the last equation upward.
-```
-
-Example:
+Algorytm:
 
 ```
-Original:
+1. Dla każdej kolumny k (kolumna piwotowa):
+   a. Znajdź największy element w kolumnie k na lub poniżej wiersza k (częściowe piwotowanie).
+   b. Zamień ten wiersz z wierszem k.
+   c. Dla każdego wiersza i poniżej k:
+      - Oblicz mnożnik m = A[i][k] / A[k][k]
+      - Odejmij m razy wiersz k od wiersza i.
+2. Podstawianie wsteczne: rozwiąż od ostatniego równania ku górze.
+```
+
+Przykład:
+
+```
+Oryginalny:
 | 2  1  1 | 8 |       R2 = R2 - (2)R1     | 2  1   1 |  8 |
 | 4  3  3 |20 |  -->  R3 = R3 - (1)R1 --> | 0  1   1 |  4 |
 | 2  3  1 |12 |                            | 0  2   0 |  4 |
@@ -105,21 +105,21 @@ Original:
                                        --> | 0  1   1 |  4 |
                                            | 0  0  -2 | -4 |
 
-Back substitute:
+Podstawianie wsteczne:
   -2 * x3 = -4    -->  x3 = 2
   x2 + 2  = 4     -->  x2 = 2
   2*x1 + 2 + 2 = 8 --> x1 = 2
 ```
 
-Gaussian elimination costs O(n^3) operations. For a 1000x1000 system, that is about a billion floating-point operations. Fast, but you can do better if you need to solve multiple systems with the same A.
+Eliminacja Gaussa kosztuje O(n^3) operacji. Dla układu 1000x1000 to około miliarda operacji zmiennoprzecinkowych. Szybkie, ale możesz zrobić lepiej, jeśli musisz rozwiązać wiele układów z tą samą A.
 
-### Partial pivoting: why it matters
+### Częściowe piwotowanie: dlaczego ma znaczenie
 
-Without pivoting, Gaussian elimination can fail or produce garbage. If a pivot element is zero, you divide by zero. If it is small, you amplify rounding errors.
+Bez piwotowania eliminacja Gaussa może się nie udać lub dać bzdury. Jeśli element piwotowy jest zerem, dzielisz przez zero. Jeśli jest mały, wzmacniasz błędy zaokrąglenia.
 
 ```
-Bad pivot:                       With partial pivoting:
-| 0.001  1 | 1.001 |            Swap rows first:
+Zły piwot:                       Z częściowym piwotowaniem:
+| 0.001  1 | 1.001 |            Najpierw zamień wiersze:
 | 1      1 | 2     |            | 1      1 | 2     |
                                  | 0.001  1 | 1.001 |
 m = 1/0.001 = 1000              m = 0.001/1 = 0.001
@@ -127,16 +127,16 @@ R2 = R2 - 1000*R1               R2 = R2 - 0.001*R1
 | 0.001  1     | 1.001   |      | 1      1     | 2     |
 | 0     -999   | -999.0  |      | 0      0.999 | 0.999 |
 
-x2 = 1.000 (correct)            x2 = 1.000 (correct)
-x1 = (1.001 - 1)/0.001          x1 = (2 - 1)/1 = 1.000 (correct)
-   = 0.001/0.001 = 1.000        Stable because the multiplier is small.
+x2 = 1.000 (poprawne)            x2 = 1.000 (poprawne)
+x1 = (1.001 - 1)/0.001          x1 = (2 - 1)/1 = 1.000 (poprawne)
+   = 0.001/0.001 = 1.000        Stabilne, bo mnożnik jest mały.
 ```
 
-In floating-point arithmetic with limited precision, the unpivoted version can lose significant digits. Partial pivoting always selects the largest available pivot to minimize error amplification.
+W arytmetyce zmiennoprzecinkowej z ograniczoną precyzją wersja bez piwotowania może stracić znaczące cyfry. Częściowe piwotowanie zawsze wybiera największy dostępny piwot, żeby zminimalizować wzmacnianie błędów.
 
-### LU decomposition
+### Rozkład LU
 
-LU decomposition factors A into a lower triangular matrix L and an upper triangular matrix U: A = LU. The L matrix stores the multipliers from Gaussian elimination. The U matrix is the result of elimination.
+Rozkład LU faktoryzuje A na dolną trójkątną macierz L i górną trójkątną macierz U: A = LU. Macierz L przechowuje mnożniki z eliminacji Gaussa. Macierz U to wynik eliminacji.
 
 ```
 A = L @ U
@@ -146,59 +146,59 @@ A = L @ U
 | 2  3  1 |   | 1  2  1 |   | 0  0  -2 |
 ```
 
-Why factor instead of just eliminating? Because once you have L and U, solving Ax = b for any new b costs only O(n^2):
+Dlaczego faktoryzować zamiast po prostu eliminować? Bo gdy już masz L i U, rozwiązanie Ax = b dla dowolnego nowego b kosztuje tylko O(n^2):
 
 ```
 Ax = b
 LUx = b
-Let y = Ux:
-  Ly = b    (forward substitution, O(n^2))
-  Ux = y    (back substitution, O(n^2))
+Niech y = Ux:
+  Ly = b    (podstawianie w przód, O(n^2))
+  Ux = y    (podstawianie wsteczne, O(n^2))
 ```
 
-The O(n^3) cost is paid once during factorization. Every subsequent solve is O(n^2). If you need to solve 1000 systems with the same A but different b vectors, LU saves a factor of 1000/3 in total work.
+Koszt O(n^3) ponosisz raz podczas faktoryzacji. Każde kolejne rozwiązanie kosztuje O(n^2). Jeśli musisz rozwiązać 1000 układów z tą samą A, ale różnymi wektorami b, LU oszczędza czynnik 1000/3 całkowitej pracy.
 
-With partial pivoting, you get PA = LU where P is a permutation matrix recording the row swaps.
+Z częściowym piwotowaniem dostajesz PA = LU, gdzie P to macierz permutacji记录ująca zamiany wierszy.
 
-### QR decomposition
+### Rozkład QR
 
-QR decomposition factors A into an orthogonal matrix Q and an upper triangular matrix R: A = QR.
+Rozkład QR faktoryzuje A na ortogonalną macierz Q i górną trójkątną macierz R: A = QR.
 
-An orthogonal matrix has the property Q^T Q = I. Its columns are orthonormal vectors. Multiplying by Q preserves lengths and angles.
+Ortogonalna macierz ma właściwość Q^T Q = I. Jej kolumny to wektory ortonormalne. Mnożenie przez Q zachowuje długości i kąty.
 
 ```
 A = Q @ R
 
-Q has orthonormal columns: Q^T Q = I
-R is upper triangular
+Q ma kolumny ortonormalne: Q^T Q = I
+R jest górna trójkątna
 
-To solve Ax = b:
+Żeby rozwiązać Ax = b:
   QRx = b
-  Rx = Q^T b    (just multiply by Q^T, no inversion needed)
-  Back substitute to get x.
+  Rx = Q^T b    (po prostu pomnóż przez Q^T, bez odwracania)
+  Podstawiaj wstecz, żeby dostać x.
 ```
 
-QR is numerically more stable than LU for solving least-squares problems. The Gram-Schmidt process builds Q column by column:
+QR jest numerycznie bardziej stabilny niż LU do rozwiązywania problemów najmniejszych kwadratów. Proces Grama-Schmidta buduje Q kolumnę po kolumnie:
 
 ```
-Given columns a1, a2, ... of A:
+Majac kolumny a1, a2, ... z A:
 
 q1 = a1 / ||a1||
 
-q2 = a2 - (a2 . q1) * q1        (subtract projection onto q1)
-q2 = q2 / ||q2||                (normalize)
+q2 = a2 - (a2 . q1) * q1        (odejmij rzut na q1)
+q2 = q2 / ||q2||                (znormalizuj)
 
 q3 = a3 - (a3 . q1) * q1 - (a3 . q2) * q2
 q3 = q3 / ||q3||
 
-R[i][j] = qi . aj    for i <= j
+R[i][j] = qi . aj    dla i <= j
 ```
 
-Each step removes the component along all previous q vectors, leaving only the new orthogonal direction.
+Każdy krok usuwa składową wzdłuż wszystkich poprzednich wektorów q, zostawiając tylko nowy kierunek ortogonalny.
 
-### Cholesky decomposition
+### Rozkład Cholesky'ego
 
-When A is symmetric (A = A^T) and positive definite (all eigenvalues positive), you can factor it as A = L L^T where L is lower triangular. This is the Cholesky decomposition.
+Gdy A jest symetryczna (A = A^T) i dodatnio określona (wszystkie wartości własne dodatnie), możesz ją faktoryzować jako A = L L^T, gdzie L jest dolna trójkątna. To rozkład Cholesky'ego.
 
 ```
 A = L @ L^T
@@ -207,84 +207,84 @@ A = L @ L^T
 | 2  5 | = | 1  2 | @ | 0  2 |
 
 L[i][i] = sqrt(A[i][i] - sum(L[i][k]^2 for k < i))
-L[i][j] = (A[i][j] - sum(L[i][k]*L[j][k] for k < j)) / L[j][j]    for i > j
+L[i][j] = (A[i][j] - sum(L[i][k]*L[j][k] for k < j)) / L[j][j]    dla i > j
 ```
 
-Cholesky is twice as fast as LU and requires half the storage. It only works for symmetric positive definite matrices, but those show up constantly:
+Cholesky jest dwukrotnie szybszy niż LU i wymaga połowy pamięci. Działa tylko dla macierzy symetrycznych dodatnio określonych, ale te pojawiają się stale:
 
-- Covariance matrices are symmetric positive semi-definite (positive definite with regularization).
-- The kernel matrix in Gaussian processes is symmetric positive definite.
-- The Hessian of a convex function at a minimum is symmetric positive definite.
-- A^T A is always symmetric positive semi-definite.
+- Macierze kowariancji są symetryczne półokreślone dodatnio (dodatnio określone z regularyzacją).
+- Macierz jądra w procesach Gaussa jest symetryczna dodatnio określona.
+- Hesjan funkcji wypukłej w minimum jest symetryczny dodatnio określony.
+- A^T A jest zawsze symetryczny półokreślony dodatnio.
 
-In Gaussian processes, you factor the kernel matrix K with Cholesky, then solve K alpha = y to get the predictive mean. The Cholesky factor also gives you the log-determinant for the marginal likelihood: log det(K) = 2 * sum(log(diag(L))).
+W procesach Gaussa faktoryzujesz macierz jądra K za pomocą Cholesky'ego, potem rozwiązujesz K alpha = y, żeby dostać średnią predykcyjną. Czynnik Cholesky'ego daje też log-wyznacznik dla wiarygodności brzegowej: log det(K) = 2 * sum(log(diag(L))).
 
-### Least squares: when Ax = b has no exact solution
+### Najmniejsze kwadraty: gdy Ax = b nie ma dokładnego rozwiązania
 
-If A is m x n with m > n (more equations than unknowns), the system is overdetermined. There is no exact solution. Instead, you minimize the squared error:
+Jeśli A jest m x n z m > n (więcej równań niż niewiadomych), układ jest nadokreślony. Nie ma dokładnego rozwiązania. Zamiast tego minimalizujesz błąd kwadratowy:
 
 ```
-minimize ||Ax - b||^2
+zminimalizuj ||Ax - b||^2
 
-This is the sum of squared residuals:
+To suma kwadratów residuów:
   sum((A[i,:] @ x - b[i])^2 for i in range(m))
 ```
 
-The minimizer satisfies the normal equations:
+Minimum spełnia równania normalne:
 
 ```
 A^T A x = A^T b
 ```
 
-Derivation: expand ||Ax - b||^2 = (Ax - b)^T (Ax - b) = x^T A^T A x - 2 x^T A^T b + b^T b. Take the gradient with respect to x, set it to zero: 2 A^T A x - 2 A^T b = 0.
+Wyprowadzenie: rozwiń ||Ax - b||^2 = (Ax - b)^T (Ax - b) = x^T A^T A x - 2 x^T A^T b + b^T b. Weź gradient względem x, przyrównaj do zera: 2 A^T A x - 2 A^T b = 0.
 
 ```
-Original system (overdetermined, 4 equations, 2 unknowns):
+Oryginalny układ (nadokreślony, 4 równania, 2 niewiadome):
 | 1  1 |         | 3 |
-| 1  2 | x     = | 5 |       No exact x satisfies all 4 equations.
+| 1  2 | x     = | 5 |       Żaden x nie spełnia dokładnie wszystkich 4 równań.
 | 1  3 |         | 6 |
 | 1  4 |         | 8 |
 
-Normal equations:
+Równania normalne:
 A^T A = | 4  10 |    A^T b = | 22 |
         | 10 30 |            | 63 |
 
-Solve: x = [1.5, 1.7]
+Rozwiąż: x = [1.5, 1.7]
 
-This is linear regression. x[0] is the intercept, x[1] is the slope.
+To jest regresja liniowa. x[0] to wyraz wolny, x[1] to nachylenie.
 ```
 
-### Normal equations = linear regression
+### Równania normalne = regresja liniowa
 
-The connection is exact. In linear regression, your data matrix X has one row per sample and one column per feature. Your target vector y has one entry per sample. The weight vector w satisfies:
+Pojęcie jest ściśle powiązane. W regresji liniowej Twoja macierz danych X ma jeden wiersz na próbkę i jedną kolumnę na cechę. Twój wektor celów y ma jeden wpis na próbkę. Wektor wag w spełnia:
 
 ```
 X^T X w = X^T y
 w = (X^T X)^(-1) X^T y
 ```
 
-This is the closed-form solution to linear regression. Every call to `sklearn.linear_model.LinearRegression.fit()` computes this (or an equivalent via QR or SVD).
+To jest rozwiązanie w postaci zamkniętej dla regresji liniowej. Każde wywołanie `sklearn.linear_model.LinearRegression.fit()` to oblicza (lub równoważnie przez QR lub SVD).
 
-Add a regularization term lambda * I to the matrix and you get ridge regression:
+Dodaj wyraz regularyzacyjny lambda * I do macierzy i dostajesz regresję grzbietową:
 
 ```
 (X^T X + lambda * I) w = X^T y
 w = (X^T X + lambda * I)^(-1) X^T y
 ```
 
-The regularization makes the matrix better conditioned (easier to invert accurately) and prevents overfitting by shrinking the weights toward zero. The matrix X^T X + lambda * I is always symmetric positive definite when lambda > 0, so you can use Cholesky to solve it.
+Regularyzacja poprawia uwarunkowanie macierzy (łatwiej odwrócić dokładnie) i zapobiega przeuczeniu przez ściąganie wag ku zeru. Macierz X^T X + lambda * I jest zawsze symetryczna dodatnio określona, gdy lambda > 0, więc możesz użyć Cholesky'ego do rozwiązania.
 
-### Pseudoinverse (Moore-Penrose)
+### Pseudoinwersja (Moore'a-Penrose'a)
 
-The pseudoinverse A+ generalizes matrix inversion to non-square and singular matrices. For any matrix A:
+Pseudoinwersja A+ uogólnia odwracanie macierzy na macierze niekwadratowe i osobliwe. Dla dowolnej macierzy A:
 
 ```
 x = A+ b
 
-where A+ = V Sigma+ U^T    (computed via SVD)
+gdzie A+ = V Sigma+ U^T    (obliczone przez SVD)
 ```
 
-Sigma+ is formed by taking the reciprocal of each nonzero singular value and transposing the result. If A = U Sigma V^T, then A+ = V Sigma+ U^T.
+Sigma+ powstaje przez wzięcie odwrotności każdej niezerowej wartości osobliwej i transpozycję wyniku. Jeśli A = U Sigma V^T, to A+ = V Sigma+ U^T.
 
 ```
 A = U Sigma V^T        (SVD)
@@ -296,99 +296,99 @@ Sigma = | 5  0 |       Sigma+ = | 1/5  0  0 |
 A+ = V Sigma+ U^T
 ```
 
-The pseudoinverse gives the minimum-norm least-squares solution. If the system has:
-- One solution: A+ b gives it.
-- No solution: A+ b gives the least-squares solution.
-- Infinite solutions: A+ b gives the one with the smallest ||x||.
+Pseudoinwersja daje rozwiązanie najmniejszych kwadratów o minimalnej normie. Jeśli układ ma:
+- Jedno rozwiązanie: A+ b je daje.
+- Brak rozwiązania: A+ b daje rozwiązanie najmniejszych kwadratów.
+- Nieskończenie wiele rozwiązań: A+ b daje to o najmniejszej ||x||.
 
-NumPy's `np.linalg.lstsq` and `np.linalg.pinv` both use the SVD internally.
+NumPy's `np.linalg.lstsq` i `np.linalg.pinv` obie używają SVD wewnętrznie.
 
-### Condition number
+### Wskaźnik uwarunkowania
 
-The condition number measures how sensitive the solution is to small changes in the input. For a matrix A, the condition number is:
+Wskaźnik uwarunkowania mierzy, jak wrażliwe jest rozwiązanie na małe zmiany w wejściu. Dla macierzy A wskaźnik uwarunkowania wynosi:
 
 ```
 kappa(A) = ||A|| * ||A^(-1)|| = sigma_max / sigma_min
 ```
 
-where sigma_max and sigma_min are the largest and smallest singular values.
+gdzie sigma_max i sigma_min to największa i najmniejsza wartość osobliwa.
 
 ```
-Well-conditioned (kappa ~ 1):        Ill-conditioned (kappa ~ 10^15):
-Small change in b -->                Small change in b -->
-small change in x                    huge change in x
+Dobrze uwarunkowana (kappa ~ 1):        Żle uwarunkowana (kappa ~ 10^15):
+Mała zmiana w b -->                     Mała zmiana w b -->
+mała zmiana w x                         ogromna zmiana w x
 
 | 2  0 |   kappa = 2/1 = 2          | 1   1          |   kappa ~ 10^15
-| 0  1 |   safe to solve            | 1   1+10^(-15) |   solution is garbage
+| 0  1 |   bezpiecznie rozwiązać   | 1   1+10^(-15) |   rozwiązanie to śmieci
 ```
 
-Rules of thumb:
-- kappa < 100: safe, solution is accurate.
-- kappa ~ 10^k: you lose about k digits of precision from your floating-point arithmetic.
-- kappa ~ 10^16 (for float64): the solution is meaningless. The matrix is effectively singular.
+Zasady kciukowe:
+- kappa < 100: bezpiecznie, rozwiązanie jest dokładne.
+- kappa ~ 10^k: tracisz około k cyfr precyzji z arytmetyki zmiennoprzecinkowej.
+- kappa ~ 10^16 (dla float64): rozwiązanie jest bez znaczenia. Macierz jest efektywnie osobliwa.
 
-In ML, ill-conditioning happens when features are nearly collinear. Regularization (adding lambda * I) improves the condition number from sigma_max / sigma_min to (sigma_max + lambda) / (sigma_min + lambda).
+W ML złe uwarunkowanie występuje, gdy cechy są niemal współliniowe. Regularyzacja (dodanie lambda * I) poprawia wskaźnik uwarunkowania z sigma_max / sigma_min na (sigma_max + lambda) / (sigma_min + lambda).
 
-### Iterative methods: conjugate gradient
+### Metody iteracyjne: gradient sprzężony
 
-For very large sparse systems (millions of unknowns), direct methods like LU or Cholesky are too expensive. Iterative methods approximate the solution by improving a guess over many iterations.
+Dla bardzo dużych rzadkich układów (miliony niewiadomych) metody bezpośrednie jak LU czy Cholesky są zbyt drogie. Metody iteracyjne przybliżają rozwiązanie, poprawiając przypuszczenie przez wiele iteracji.
 
-Conjugate gradient (CG) solves Ax = b when A is symmetric positive definite. It finds the exact solution in at most n iterations (in exact arithmetic), but typically converges much faster if the eigenvalues of A are clustered.
+Gradient sprzężony (CG) rozwiązuje Ax = b, gdy A jest symetryczna dodatnio określona. Znajduje dokładne rozwiązanie w co najwyżej n iteracjach (w arytmetyce dokładnej), ale typowo zbiega się znacznie szybciej, jeśli wartości własne A są skupione.
 
 ```
-Algorithm sketch:
-  x0 = initial guess (often zero)
-  r0 = b - A x0           (residual)
-  p0 = r0                 (search direction)
+Szkic algorytmu:
+  x0 = początkie przypuszczenie (często zero)
+  r0 = b - A x0           (residium)
+  p0 = r0                 (kierunek poszukiwań)
 
-  For k = 0, 1, 2, ...:
+  Dla k = 0, 1, 2, ...:
     alpha = (rk . rk) / (pk . A pk)
     x_{k+1} = xk + alpha * pk
     r_{k+1} = rk - alpha * A pk
     beta = (r_{k+1} . r_{k+1}) / (rk . rk)
     p_{k+1} = r_{k+1} + beta * pk
-    if ||r_{k+1}|| < tolerance: stop
+    jeśli ||r_{k+1}|| < tolerancja: stop
 ```
 
-CG is used in:
-- Large-scale optimization (Newton-CG method)
-- Solving PDE discretizations
-- Kernel methods where the kernel matrix is too large to factor
-- Preconditioning for other iterative solvers
+CG jest używany w:
+- Optymalizacji na dużą skalę (metoda Newton-CG)
+- Rozwiązywaniu dyskretyzacji PDE
+- Metodach jądra, gdzie macierz jądra jest zbyt duża do faktoryzacji
+- Prediwarunkianiu dla innych solverów iteracyjnych
 
-The convergence rate depends on the condition number. Better conditioned systems converge faster, which is another reason regularization helps.
+Tempo zbieżności zależy od wskaźnika uwarunkowania. Lepsze uwarunkowanie oznacza szybszą zbieżność, co jest kolejnym powodem, dla którego regularyzacja pomaga.
 
-### The full picture: which method when
+### Pełny obraz: którą metodę kiedy
 
-| Method | Requirements | Cost | Use case |
+| Metoda | Wymagania | Koszt | Przypadek użycia |
 |--------|-------------|------|----------|
-| Gaussian elimination | Square, nonsingular A | O(n^3) | One-off solve of a square system |
-| LU decomposition | Square, nonsingular A | O(n^3) factor + O(n^2) solve | Multiple solves with the same A |
-| QR decomposition | Any A (m >= n) | O(mn^2) | Least squares, numerically stable |
-| Cholesky | Symmetric positive definite A | O(n^3/3) | Covariance matrices, Gaussian processes, ridge regression |
-| Normal equations | Overdetermined (m > n) | O(mn^2 + n^3) | Linear regression (small n) |
-| SVD / pseudoinverse | Any A | O(mn^2) | Rank-deficient systems, minimum-norm solutions |
-| Conjugate gradient | Symmetric positive definite, sparse A | O(n * k * nnz) | Large sparse systems, k = iterations |
+| Eliminacja Gaussa | Kwadratowa, nieosobliwa A | O(n^3) | Jednorazowe rozwiązanie układu kwadratowego |
+| Rozkład LU | Kwadratowa, nieosobliwa A | O(n^3) faktoryzacja + O(n^2) rozwiązanie | Wiele rozwiązań z tą samą A |
+| Rozkład QR | Dowolna A (m >= n) | O(mn^2) | Najmniejsze kwadraty, numerycznie stabilna |
+| Cholesky | Symetryczna dodatnio określona A | O(n^3/3) | Macierze kowariancji, procesy Gaussa, regresja grzbietowa |
+| Równania normalne | Nadokreślony (m > n) | O(mn^2 + n^3) | Regresja liniowa (małe n) |
+| SVD / pseudoinwersja | Dowolna A | O(mn^2) | Układy z deficytem rzędu, rozwiązania o minimalnej normie |
+| Gradient sprzężony | Symetryczna dodatnio określona, rzadka A | O(n * k * nnz) | Duże rzadkie układy, k = iteracje |
 
-### Connection to ML
+### Połączenie z ML
 
-Every method in this lesson appears in production ML:
+Każda metoda w tej lekcji pojawia się w produkcyjnym ML:
 
-**Linear regression.** The closed-form solution solves the normal equations X^T X w = X^T y. This is done via Cholesky (if n is small) or QR (if numerical stability matters) or SVD (if the matrix might be rank-deficient).
+**Regresja liniowa.** Rozwiązanie w postaci zamkniętej rozwiązuje równania normalne X^T X w = X^T y. Odbywa się to przez Cholesky (jeśli n jest małe) lub QR (jeśli liczy się stabilność numeryczna) lub SVD (jeśli macierz może mieć deficyt rzędu).
 
-**Ridge regression.** Adds lambda * I to X^T X. The regularized system (X^T X + lambda * I) w = X^T y is always solvable via Cholesky because X^T X + lambda * I is symmetric positive definite for lambda > 0.
+**Regresja grzbietowa.** Dodaje lambda * I do X^T X. Regularyzowany układ (X^T X + lambda * I) w = X^T y jest zawsze rozwiązywalny przez Cholesky, bo X^T X + lambda * I jest symetryczna dodatnio określona dla lambda > 0.
 
-**Gaussian processes.** The predictive mean requires solving K alpha = y where K is the kernel matrix. Cholesky factorization of K is the standard approach. The log marginal likelihood uses log det(K) = 2 sum(log(diag(L))).
+**Procesy Gaussa.** Średnia predykcyjna wymaga rozwiązania K alpha = y, gdzie K to macierz jądra. Faktoryzacja Cholesky'ego K to standardowe podejście. Log-wiarygodność brzegowa używa log det(K) = 2 sum(log(diag(L))).
 
-**Neural network initialization.** Orthogonal initialization uses QR decomposition to create weight matrices whose columns are orthonormal. This prevents signal collapse in deep networks.
+**Inicjalizacja sieci neuronowych.** Ortogonalna inicjalizacja używa rozkładu QR do tworzenia macierzy wag, których kolumny są ortonormalne. To zapobiega zapaści sygnału w głębokich sieciach.
 
-**Preconditioning.** Large-scale optimizers use incomplete Cholesky or incomplete LU as preconditioners for conjugate gradient solvers.
+**Prediwarunkianie.** Optymalizatory na dużą skalę używają niekompletnego Cholesky'ego lub niekompletnego LU jako prediwarunkików dla solverów gradientu sprzężonego.
 
-**Feature engineering.** The condition number of X^T X tells you if your features are collinear. If kappa is large, drop features or add regularization.
+**Inżynieria cech.** Wskaźnik uwarunkowania X^T X mówi Ci, czy Twoje cechy są współliniowe. Jeśli kappa jest duża, usuń cechy lub dodaj regularyzację.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Gaussian elimination with partial pivoting
+### Krok 1: Eliminacja Gaussa z częściowym piwotowaniem
 
 ```python
 import numpy as np
@@ -415,7 +415,7 @@ def gaussian_elimination(A, b):
     return x
 ```
 
-### Step 2: LU decomposition
+### Krok 2: Rozkład LU
 
 ```python
 def lu_decompose(A):
@@ -453,7 +453,7 @@ def lu_solve(P, L, U, b):
     return x
 ```
 
-### Step 3: Cholesky decomposition
+### Krok 3: Rozkład Cholesky'ego
 
 ```python
 def cholesky(A):
@@ -473,7 +473,7 @@ def cholesky(A):
     return L
 ```
 
-### Step 4: Least squares via normal equations
+### Krok 4: Najmniejsze kwadraty przez równania normalne
 
 ```python
 def least_squares_normal(A, b):
@@ -495,7 +495,7 @@ def ridge_regression(A, b, lam):
     return x
 ```
 
-### Step 5: Condition number
+### Krok 5: Wskaźnik uwarunkowania
 
 ```python
 def condition_number(A):
@@ -503,9 +503,9 @@ def condition_number(A):
     return S[0] / S[-1]
 ```
 
-## Use It
+## Użyj tego
 
-Putting the pieces together for linear regression and ridge regression on real data:
+Łączenie kawałków razem dla regresji liniowej i grzbietowej na prawdziwych danych:
 
 ```python
 np.random.seed(42)
@@ -531,47 +531,40 @@ ridge_sk.fit(X, y)
 print(f"Ridge weights (sklearn): {ridge_sk.coef_}")
 ```
 
-## Ship It
+## Wdróż to
 
-This lesson produces:
-- `code/linear_systems.py` containing from-scratch implementations of Gaussian elimination, LU decomposition, Cholesky decomposition, least squares, and ridge regression
-- A working demonstration that normal equations and sklearn's LinearRegression produce the same weights
+Ta lekcja wytwarza:
+- `code/linear_systems.py` zawierający implementacje od podstaw eliminacji Gaussa, rozkładu LU, rozkładu Cholesky'ego, najmniejszych kwadratów i regresji grzbietowej
+- Działającą demonstrację, że równania normalne i LinearRegression ze sklearn dają te same wagi
 
-## Exercises
+## Ćwiczenia
 
-1. Solve the system `[[1,2,3],[4,5,6],[7,8,10]] x = [6, 15, 27]` using your Gaussian elimination, your LU solver, and `np.linalg.solve`. Verify all three give the same answer within floating-point tolerance.
+1. Rozwiąż układ `[[1,2,3],[4,5,6],[7,8,10]] x = [6, 15, 27]` używając Twojej eliminacji Gaussa, Twojego solvera LU i `np.linalg.solve`. Sprawdź, czy wszystkie trzy dają to samo w granicach tolerancji zmiennoprzecinkowej.
 
-2. Generate a 50x5 random matrix X and target y = X @ w_true + noise. Solve for w using normal equations, QR (via `np.linalg.qr`), SVD (via `np.linalg.svd`), and `np.linalg.lstsq`. Compare all four solutions. Measure the condition number of X^T X and explain how it affects which method you trust.
+2. Wygeneruj losową macierz X 50x5 i cel y = X @ w_true + szum. Rozwiąż dla w używając równań normalnych, QR (przez `np.linalg.qr`), SVD (przez `np.linalg.svd`) i `np.linalg.lstsq`. Porównaj wszystkie cztery rozwiązania. Zmierz wskaźnik uwarunkowania X^T X i wyjaśnij, jak wpływa na to, której metodzie ufasz.
 
-3. Create a nearly singular matrix by making two columns almost identical (e.g., column 2 = column 1 + 1e-10 * noise). Compute its condition number. Solve Ax = b with and without regularization (add 0.01 * I). Compare the solutions and residuals. Explain why regularization helps.
+3. Stwórz niemal osobliwą macierz przez uczynienie dwóch kolumn niemal identycznymi (np. kolumna 2 = kolumna 1 + 1e-10 * szum). Oblicz jej wskaźnik uwarunkowania. Rozwiąż Ax = b z i bez regularyzacji (dodaj 0.01 * I). Porównaj rozwiązania i residua. Wyjaśnij, dlaczego regularyzacja pomaga.
 
-4. Implement the conjugate gradient algorithm for a 100x100 random symmetric positive definite matrix. Count how many iterations it takes to converge to tolerance 1e-8. Compare with the theoretical maximum of n iterations.
+4. Zaimplementuj algorytm gradientu sprzężonego dla losowej macierzy 100x100 symetrycznej dodatnio określonej. Policz, ile iteracji potrzeba do zbieżności przy tolerancji 1e-8. Porównaj z teoretycznym maksimum n iteracji.
 
-5. Time your Cholesky solver vs your LU solver vs `np.linalg.solve` on symmetric positive definite matrices of size 10, 50, 200, 500. Plot the results. Verify Cholesky is roughly 2x faster than LU.
+5. Zmierz czas działania Twojego solvera Cholesky vs Twój solver LU vs `np.linalg.solve` na macierzach symetrycznych dodatnio określonych o rozmiarach 10, 50, 200, 500. Wykreśl wyniki. Sprawdź, czy Cholesky jest mniej więcej 2x szybszy niż LU.
 
-## Key Terms
+## Kluczowe pojęcia
 
-| Term | What people say | What it actually means |
+| Pojęcie | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Linear system | "Solve for x" | A set of linear equations Ax = b. Finding x means finding the input that produces output b under transformation A. |
-| Gaussian elimination | "Row reduce" | Systematically zero out entries below the diagonal using row operations, producing an upper triangular system solvable by back substitution. O(n^3). |
-| Partial pivoting | "Swap rows for stability" | Before eliminating in column k, swap the row with the largest absolute value in that column to the pivot position. Prevents division by small numbers. |
-| LU decomposition | "Factor into triangles" | Write A = LU where L is lower triangular (stores multipliers) and U is upper triangular (the eliminated matrix). Amortizes the O(n^3) cost over multiple solves. |
-| QR decomposition | "Orthogonal factorization" | Write A = QR where Q has orthonormal columns and R is upper triangular. More stable than LU for least squares. |
-| Cholesky decomposition | "Square root of a matrix" | For symmetric positive definite A, write A = LL^T. Half the cost of LU. Used for covariance matrices, kernel matrices, and ridge regression. |
-| Least squares | "Best fit when exact is impossible" | Minimize the sum of squared residuals ||Ax - b||^2 when the system is overdetermined (more equations than unknowns). |
-| Normal equations | "The calculus shortcut" | A^T A x = A^T b. Setting the gradient of ||Ax - b||^2 to zero. This IS the closed-form solution to linear regression. |
-| Pseudoinverse | "Inversion for non-square matrices" | A+ = V Sigma+ U^T via SVD. Gives the minimum-norm least-squares solution for any matrix, square or rectangular, singular or not. |
-| Condition number | "How trustworthy is this answer" | kappa = sigma_max / sigma_min. Measures sensitivity to input perturbations. Lose about log10(kappa) digits of precision. |
-| Ridge regression | "Regularized least squares" | Solve (X^T X + lambda I) w = X^T y. Adding lambda I improves conditioning and shrinks weights toward zero. Prevents overfitting. |
-| Conjugate gradient | "Iterative Ax=b for big matrices" | An iterative solver for symmetric positive definite systems. Converges in at most n steps. Practical for large sparse systems where factorization is too expensive. |
-| Overdetermined system | "More data than parameters" | m > n in an m-by-n system. No exact solution exists. Least squares finds the best approximation. This is every regression problem. |
-| Back substitution | "Solve from the bottom up" | Given an upper triangular system, solve the last equation first, then substitute backward. O(n^2). |
-| Forward substitution | "Solve from the top down" | Given a lower triangular system, solve the first equation first, then substitute forward. O(n^2). Used in the L step of LU solves. |
-
-## Further Reading
-
-- [MIT 18.06: Linear Algebra](https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/) (Gilbert Strang) -- the definitive course on linear systems and matrix factorizations
-- [Numerical Linear Algebra](https://people.maths.ox.ac.uk/trefethen/text.html) (Trefethen & Bau) -- the standard reference for understanding numerical stability, conditioning, and why algorithms fail
-- [Matrix Computations](https://www.cs.cornell.edu/cv/GolubVanLoan4/golubandvanloan.htm) (Golub & Van Loan) -- the encyclopedic reference for every matrix algorithm
-- [3Blue1Brown: Inverse Matrices](https://www.3blue1brown.com/lessons/inverse-matrices) -- visual intuition for what solving Ax = b means geometrically
+| Układ równań liniowych | "Rozwiąż dla x" | Zbiór równań liniowych Ax = b. Znalezienie x oznacza znalezienie wejścia, które produkuje wyjście b pod transformacją A. |
+| Eliminacja Gaussa | "Redukcja wierszowa" | Systematyczne zerowanie wpisów poniżej przekątnej używając operacji wierszowych, produkując górny trójkątny układ rozwiązywalny przez podstawianie wsteczne. O(n^3). |
+| Częściowe piwotowanie | "Zamiana wierszy dla stabilności" | Przed eliminacją w kolumnie k zamień wiersz z największą wartością bezwzględną w tej kolumnie na pozycję piwotową. Zapobiega dzieleniu przez małe liczby. |
+| Rozkład LU | "Faktoryzacja na trójkąty" | Zapisz A = LU, gdzie L jest dolna trójkątna (przechowuje mnożniki) i U jest górna trójkątna (macierz po eliminacji). Amortyzuje koszt O(n^3) na wiele rozwiązań. |
+| Rozkład QR | "Faktoryzacja ortogonalna" | Zapisz A = QR, gdzie Q ma kolumny ortonormalne i R jest górna trójkątna. Bardziej stabilny niż LU dla najmniejszych kwadratów. |
+| Rozkład Cholesky'ego | "Pierwiastek kwadratowy z macierzy" | Dla symetrycznej dodatnio określonej A zapisz A = LL^T. Połowa kosztu LU. Używany dla macierzy kowariancji, macierzy jądra i regresji grzbietowej. |
+| Najmniejsze kwadraty | "Najlepsze dopasowanie, gdy dokładne jest niemożliwe" | Zminimalizuj sumę kwadratów residuów \|\|Ax - b\|\|^2, gdy układ jest nadokreślony (więcej równań niż niewiadomych). |
+| Równania normalne | "Skrót rachunkowy" | A^T A x = A^T b. Przyrównanie gradientu \|\|Ax - b\|\|^2 do zera. To JEST rozwiązanie w postaci zamkniętej dla regresji liniowej. |
+| Pseudoinwersja | "Odwracanie dla macierzy niekwadratowych" | A+ = V Sigma+ U^T przez SVD. Daje rozwiązanie najmniejszych kwadratów o minimalnej normie dla dowolnej macierzy, kwadratowej lub prostokątnej, osobliwej lub nie. |
+| Wskaźnik uwarunkowania | "Jak wiarygodna jest ta odpowiedź" | kappa = sigma_max / sigma_min. Mierzy wrażliwość na zaburzenia wejścia. Tracisz około log10(kappa) cyfr precyzji. |
+| Regresja grzbietowa | "Regularyzowane najmniejsze kwadraty" | Rozwiąż (X^T X + lambda I) w = X^T y. Dodanie lambda I poprawia uwarunkowanie i ściąga wagi ku zeru. Zapobiega przeuczeniu. |
+| Gradient sprzężony | "Iteracyjne Ax=b dla dużych macierzy" | Iteracyjny solver dla symetrycznych dodatnio określonych układów. Zbiega się w co najwyżej n krokach. Praktyczny dla dużych rzadkich układów, gdzie faktoryzacja jest zbyt droga. |
+| Układ nadokreślony | "Więcej danych niż parametrów" | m > n w układzie m-na-n. Nie istnieje dokładne rozwiązanie. Najmniejsze kwadraty znajdują najlepsze przybliżenie. To jest każdy problem regresji. |
+| Podstawianie wsteczne | "Rozwiązuj od dołu" | Mając górny trójkątny układ, rozwiąż ostatnie równanie pierwsze, potem podstawiaj wstecz. O(n^2). |
+| Podstawianie w przód | "Rozwiązuj od góry" | Mając dolny trójkątny układ, rozwiąż pierwsze równanie pierwsze, potem podstawiaj w przód. O(n^2). Używane w kroku L solverów LU. |

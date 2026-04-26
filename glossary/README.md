@@ -1,11 +1,12 @@
 # Glossary
 
-Two resources to cut through the noise:
+Dwa źródła, żeby przebić się przez szum:
 
-- **[terms.md](terms.md)** - 60+ AI terms explained. What people say vs what it actually means.
-- **[myths.md](myths.md)** - 20 common AI misconceptions busted with what's actually going on.
+- **[terms.md](terms.md)** - 60+ terminów AI wyjaśnionych. Co ludzie mówią vs co to właściwie oznacza.
+- **[myths.md](myths.md)** - 20 powszechnych mitów o AI obalonych z wyjaśnieniem, co się właściwie dzieje.
 
-Each term entry follows the pattern:
-- **What people say** - the common (often wrong) understanding
-- **What it actually means** - the real definition
-- **Why it's called that** - origin of the name (when interesting)
+Każdy wpis terminu podąża za wzorcem:
+
+- **Co ludzie mówią** - powszechne (często błędne) rozumienie
+- **Co to właściwie oznacza** - prawdziwa definicja
+- **Dlaczego tak się to nazywa** - pochodzenie nazwy (gdy jest interesujące)

@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "C:\VisualStudioCodeRepo\AIWorkspace\ai-engineering-from-scratch\.tmp_translate_06.py", line 4, in <module>
+    from execution.minimax_utils import minimax_complete
+ImportError: cannot import name 'minimax_complete' from 'execution.minimax_utils' (C:\VisualStudioCodeRepo/AIWorkspace\execution\minimax_utils.py)

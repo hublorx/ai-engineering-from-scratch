@@ -1,0 +1,9 @@
+BŁĘDY: 4
+
+1. **Brak przecinka przed "żeby"**: "Skonfiguruj go raz, żeby nie przeszkadzał" → "Skonfiguruj go raz**,** żeby nie przeszkadzał"
+
+2. **Brak przecinka przed "żeby"**: "żeby uzyskać informacje o typach, uzupełnienia i diagnostykę" → "żeby uzyskać informacje o typach**,** uzupełnienia i diagnostykę"
+
+3. **Brak przecinka przed "a" (kontrast)**: "Otwórz folder na zdalnej maszynie GPU tak, jakby był lokalny" — tu "a" wprowadza kontrast (nie jest lokalny), więc: "Otwórz folder na zdalnej maszynie GPU**,** tak, jakby był lokalny"
+
+4. **Brak przecinka przed "że"**: "sprawdź czy Pylance pokazuje podpowiedzi typów" → "sprawdź**,** czy Pylance pokazuje podpowiedzi typów"

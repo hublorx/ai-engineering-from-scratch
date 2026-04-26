@@ -1,26 +1,26 @@
-# Git & Collaboration
+# Git i współpraca
 
-> Version control is not optional. Every experiment, every model, every lesson you build here gets tracked.
+> Kontrola wersji nie jest opcjonalna. Każdy eksperyment, każdy model, każda lekcja którą zbudujesz tutaj jest śledzona.
 
-**Type:** Learn
-**Languages:** --
-**Prerequisites:** Phase 0, Lesson 01
-**Time:** ~30 minutes
+**Typ:** Nauka
+**Języki:** --
+**Wymagania wstępne:** Phase 0, Lesson 01
+**Czas:** ~30 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Configure git identity and use the daily workflow of add, commit, and push
-- Create and merge branches for isolated experiments without breaking main
-- Write a `.gitignore` that excludes model checkpoints and large binary files
-- Navigate the commit history with `git log` to understand project evolution
+- Skonfiguruj tożsamość git i używaj codziennego workflow: add, commit, push
+- Twórz i łącz gałęzie dla izolowanych eksperymentów bez psucia maina
+- Napisz `.gitignore` który wyklucza checkpointy modeli i duże pliki binarne
+- Nawiguj po historii commitów z `git log` żeby zrozumieć ewolucję projektu
 
-## The Problem
+## Problem
 
-You're about to write hundreds of code files across 20 phases. Without version control you will lose work, break things you can't undo, and have no way to collaborate with others.
+Zamierzasz pisać setki plików kodowych przez 20 faz. Bez kontroli wersji stracisz pracę, zepsujesz rzeczy których nie możesz cofnąć i nie będziesz miał sposobu na współpracę z innymi.
 
-Git is the tool. GitHub is where the code lives. This lesson covers what you need for this course and nothing more.
+Git jest narzędziem. GitHub to miejsce gdzie żyje kod. Ta lekcja pokrywa to co potrzebujesz dla tego kursu i nic więcej.
 
-## The Concept
+## Koncepcja
 
 ```mermaid
 sequenceDiagram
@@ -35,76 +35,76 @@ sequenceDiagram
     LR->>WD: git pull
 ```
 
-Three things to remember:
-1. Save often (`git commit`)
-2. Push to remote (`git push`)
-3. Branch for experiments (`git checkout -b experiment`)
+Trzy rzeczy do zapamiętania:
+1. Commituj często (`git commit`)
+2. Wypychaj do remote (`git push`)
+3. Twórz gałęzie dla eksperymentów (`git checkout -b experiment`)
 
-## Build It
+## Zbuduj to
 
-### Step 1: Configure git
+### Krok 1: Skonfiguruj git
 
 ```bash
-git config --global user.name "Your Name"
-git config --global user.email "you@example.com"
+git config --global user.name "Twoje Imię"
+git config --global user.email "ty@example.com"
 ```
 
-### Step 2: The daily workflow
+### Krok 2: Codzienny workflow
 
 ```bash
 git status
-git add file.py
-git commit -m "Add perceptron implementation"
+git add plik.py
+git commit -m "Dodaj implementację perceptronu"
 git push origin main
 ```
 
-### Step 3: Branching for experiments
+### Krok 3: Gałęzie dla eksperymentów
 
 ```bash
-git checkout -b experiment/new-optimizer
+git checkout -b eksperyment/nowy-opt
 
-# ... make changes, commit ...
+# ... wprowadź zmiany, commituj ...
 
 git checkout main
-git merge experiment/new-optimizer
+git merge eksperyment/nowy-opt
 ```
 
-### Step 4: Working with this course repo
+### Krok 4: Praca z repozytorium kursu
 
 ```bash
 git clone https://github.com/rohitg00/ai-engineering-from-scratch.git
 cd ai-engineering-from-scratch
 
-git checkout -b my-progress
-# work through lessons, commit your code
-git push origin my-progress
+git checkout -b moj-postep
+# przepracuj lekcje, commituj kod
+git push origin moj-postep
 ```
 
-## Use It
+## Użyj tego
 
-For this course, you need exactly these commands:
+Dla tego kursu potrzebujesz dokładnie tych poleceń:
 
-| Command | When |
-|---------|------|
-| `git clone` | Get the course repo |
-| `git add` + `git commit` | Save your work |
-| `git push` | Back it up to GitHub |
-| `git checkout -b` | Try something without breaking main |
-| `git log --oneline` | See what you've done |
+| Polecenie | Kiedy |
+|---------|-------|
+| `git clone` | Pobierz repozytorium kursu |
+| `git add` + `git commit` | Zapisz swoją pracę |
+| `git push` | Wyślij do GitHub |
+| `git checkout -b` | Wypróbuj coś bez psucia maina |
+| `git log --oneline` | Zobacz co zrobiłeś |
 
-That's it. You don't need rebase, cherry-pick, or submodules for this course.
+To wszystko. Nie potrzebujesz rebase, cherry-pick ani submodules w tym kursie.
 
-## Exercises
+## Ćwiczenia
 
-1. Clone this repo, create a branch called `my-progress`, make a file, commit it, push it
-2. Create a `.gitignore` that excludes model checkpoint files (`.pt`, `.pth`, `.safetensors`)
-3. Look at the commit history of this repo with `git log --oneline` and read how lessons were added
+1. Sklonuj repo, utwórz gałąź `moj-postep`, stwórz plik, commituj i wypchnij
+2. Stwórz `.gitignore` który wyklucza checkpointy modeli (`.pt`, `.pth`, `.safetensors`)
+3. Przejrzyj historię commitów tego repo z `git log --oneline` i przeczytaj jak dodawano lekcje
 
-## Key Terms
+## Kluczowe pojęcia
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Commit | "Saving" | A snapshot of your entire project at a point in time |
-| Branch | "A copy" | A pointer to a commit that moves forward as you work |
-| Merge | "Combining code" | Taking changes from one branch and applying them to another |
-| Remote | "The cloud" | A copy of your repo hosted somewhere else (GitHub, GitLab) |
+| Termin | Co ludzie mówią | Co to naprawdę oznacza |
+|--------|-----------------|----------------------|
+| Commit | "Zapisywanie" | Migawka całego projektu w danym momencie |
+| Branch | "Kopia" | Wskaźnik do commita który przesuwa się wraz z pracą |
+| Merge | "Łączenie kodu" | Przeniesienie zmian z jednej gałęzi na drugą |
+| Remote | "Chmura" | Kopia repo hostowana gdzieś indziej (GitHub, GitLab) |

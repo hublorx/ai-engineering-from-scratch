@@ -1,0 +1,2 @@
+=== TRANSLATING 08-editor-setup ===
+SAVED: C:/VisualStudioCodeRepo/AIWorkspace/ai-engineering-from-scratch/.tmp_08-editor-setup_translated.md (8900 chars)

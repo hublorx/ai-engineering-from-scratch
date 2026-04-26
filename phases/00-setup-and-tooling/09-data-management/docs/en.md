@@ -1,24 +1,24 @@
-# Data Management
+# Zarządzanie danymi
 
-> Data is the fuel. How you manage it determines how fast you go.
+> Dane to paliwo. To, jak nimi zarządzasz, determinuje, jak szybko jedziesz.
 
-**Type:** Build
-**Language:** Python
-**Prerequisites:** Phase 0, Lesson 01
-**Time:** ~45 minutes
+**Typ:** Build
+**Język:** Python
+**Wymagania wstępne:** Phase 0, Lesson 01
+**Czas:** ~45 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Load, stream, and cache datasets using the Hugging Face `datasets` library
-- Convert between CSV, JSON, Parquet, and Arrow formats and explain their tradeoffs
-- Create reproducible train/validation/test splits with fixed random seeds
-- Manage large model and dataset files using `.gitignore`, Git LFS, or DVC
+- Ładowanie, strumieniowanie i cache'owanie zbiorów danych przy użyciu biblioteki `datasets` od Hugging Face
+- Konwersja między formatami CSV, JSON, Parquet i Arrow oraz wyjaśnienie ich kompromisów
+- Tworzenie odtwarzalnych podziałów train/validation/test z ustalonymi ziarnami losowymi
+- Zarządzanie dużymi plikami modeli i zbiorów danych przy użyciu `.gitignore`, Git LFS lub DVC
 
-## The Problem
+## Problem
 
-Every AI project starts with data. You need to find datasets, download them, convert between formats, split them for training and evaluation, and version them so experiments are reproducible. Doing this manually every time is slow and error-prone. You need a repeatable workflow.
+Każdy projekt AI zaczyna się od danych. Musisz znaleźć zbiory danych, pobrać je, konwertować między formatami, dzielić je do treningu i ewaluacji oraz versionować, żeby eksperymenty były odtwarzalne. Robienie tego ręcznie za każdym razem jest wolne i podatne na błędy. Potrzebujesz powtarzalnego workflow.
 
-## The Concept
+## Koncepcja
 
 ```mermaid
 graph TD
@@ -30,17 +30,17 @@ graph TD
     F --> G["Your Training Pipeline"]
 ```
 
-The Hugging Face `datasets` library is the standard way to load data for AI work. It handles downloading, caching, format conversion, and streaming out of the box.
+Biblioteka `datasets` od Hugging Face to standardowy sposób na ładowanie danych do pracy z AI. Obsługuje pobieranie, cache'owanie, konwersję formatów i strumieniowanie out of the box.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Install the datasets library
+### Krok 1: Zainstaluj bibliotekę datasets
 
 ```bash
 pip install datasets huggingface_hub
 ```
 
-### Step 2: Load a dataset
+### Krok 2: Załaduj zbiór danych
 
 ```python
 from datasets import load_dataset
@@ -50,11 +50,11 @@ print(dataset)
 print(dataset["train"][0])
 ```
 
-This downloads the IMDB movie review dataset. After the first download, it loads from cache at `~/.cache/huggingface/datasets/`.
+To pobiera zbiór danych z recenzjami filmów IMDB. Po pierwszym pobraniu ładuje się z cache'a w `~/.cache/huggingface/datasets/`.
 
-### Step 3: Stream large datasets
+### Krok 3: Strumieniuj duże zbiory danych
 
-Some datasets are too large to fit on disk. Streaming loads them row by row without downloading the full thing.
+Niektóre zbiory danych są zbyt duże, żeby zmieścić się na dysku. Strumieniowanie ładuje je wiersz po wierszu bez pobierania całości.
 
 ```python
 dataset = load_dataset("wikipedia", "20220301.en", split="train", streaming=True)
@@ -65,11 +65,11 @@ for i, example in enumerate(dataset):
         break
 ```
 
-Streaming gives you an `IterableDataset`. You process rows as they arrive. Memory usage stays constant regardless of dataset size.
+Strumieniowanie daje ci `IterableDataset`. Przetwarzasz wiersze w miarę ich napływania. Zużycie pamięci pozostaje stałe niezależnie od rozmiaru zbioru danych.
 
-### Step 4: Dataset formats
+### Krok 4: Formaty zbiorów danych
 
-The `datasets` library uses Apache Arrow under the hood. You can convert to other formats depending on what your pipeline needs.
+Biblioteka `datasets` używa Apache Arrow pod spodem. Możesz konwertować do innych formatów w zależności od potrzeb twojego pipeline'a.
 
 ```python
 dataset = load_dataset("imdb", split="train")
@@ -79,26 +79,26 @@ dataset.to_json("imdb_train.json")
 dataset.to_parquet("imdb_train.parquet")
 ```
 
-Format comparison:
+Porównanie formatów:
 
-| Format | Size | Read Speed | Best For |
-|--------|------|-----------|----------|
-| CSV | Large | Slow | Human readability, spreadsheets |
-| JSON | Large | Slow | APIs, nested data |
-| Parquet | Small | Fast | Analytics, columnar queries |
-| Arrow | Small | Fastest | In-memory processing (what `datasets` uses internally) |
+| Format | Rozmiar | Szybkość odczytu | Najlepszy dla |
+|--------|---------|------------------|---------------|
+| CSV | Duży | Wolny | Czytelność dla ludzi, arkusze kalkulacyjne |
+| JSON | Duży | Wolny | API, dane zagnieżdżone |
+| Parquet | Mały | Szybki | Analityka, zapytania kolumnowe |
+| Arrow | Mały | Najszybszy | Przetwarzanie w pamięci (to, czego `datasets` używa wewnętrznie) |
 
-For AI work, Parquet is the best storage format. Arrow is what you work with in memory. CSV and JSON are for interchange.
+Do pracy z AI, Parquet to najlepszy format przechowywania. Arrow to format, z którym pracujesz w pamięci. CSV i JSON są do wymiany.
 
-### Step 5: Data splits
+### Krok 5: Podziały danych
 
-Every ML project needs three splits:
+Każdy projekt ML potrzebuje trzech podziałów:
 
-- **Train**: The model learns from this (typically 80%)
-- **Validation**: You check progress during training (typically 10%)
-- **Test**: Final evaluation after training is done (typically 10%)
+- **Train**: Model uczy się z tych danych (zazwyczaj 80%)
+- **Validation**: Sprawdzasz postępy podczas treningu (zazwyczaj 10%)
+- **Test**: Końcowa ewaluacja po zakończeniu treningu (zazwyczaj 10%)
 
-Some datasets come pre-split. When they don't, split them yourself:
+Niektóre zbiory danych są już podzielone. Gdy nie są, podziel je samodzielnie:
 
 ```python
 dataset = load_dataset("imdb", split="train")
@@ -113,11 +113,11 @@ test_ds = split["test"]
 print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 ```
 
-Always set a seed for reproducibility. The same seed produces the same split every time.
+Zawsze ustawiaj seed dla odtwarzalności. Ten sam seed produkuje ten sam podział za każdym razem.
 
-### Step 6: Download and cache models
+### Krok 6: Pobieranie i cache'owanie modeli
 
-Models are large files. The `huggingface_hub` library handles downloading and caching.
+Modele to duże pliki. Biblioteka `huggingface_hub` obsługuje pobieranie i cache'owanie.
 
 ```python
 from huggingface_hub import hf_hub_download, snapshot_download
@@ -132,13 +132,13 @@ model_dir = snapshot_download("sentence-transformers/all-MiniLM-L6-v2")
 print(f"Full model at: {model_dir}")
 ```
 
-Models cache to `~/.cache/huggingface/hub/`. Once downloaded, they load instantly on subsequent runs.
+Modele cache'ują się do `~/.cache/huggingface/hub/`. Po pobraniu ładują się natychmiast przy kolejnych uruchomieniach.
 
-### Step 7: Handle large files
+### Krok 7: Obsługa dużych plików
 
-Model weights and large datasets should not go into git. Three options:
+Wagi modeli i duże zbiory danych nie powinny trafiać do git. Trzy opcje:
 
-**Option A: .gitignore (simplest)**
+**Opcja A: .gitignore (najprostsza)**
 
 ```
 *.bin
@@ -150,7 +150,7 @@ data/*.csv
 models/
 ```
 
-**Option B: Git LFS (track large files in git)**
+**Opcja B: Git LFS (śledź duże pliki w git)**
 
 ```bash
 git lfs install
@@ -159,9 +159,9 @@ git lfs track "*.safetensors"
 git add .gitattributes
 ```
 
-Git LFS stores pointers in your repo and the actual files on a separate server. GitHub gives you 1 GB free.
+Git LFS przechowuje wskaźniki w twoim repozytorium, a rzeczywiste pliki na osobnym serwerze. GitHub daje ci 1 GB za darmo.
 
-**Option C: DVC (data version control)**
+**Opcja C: DVC (kontrola wersji danych)**
 
 ```bash
 pip install dvc
@@ -171,21 +171,21 @@ git add data/training_set.parquet.dvc data/.gitignore
 git commit -m "Track training data with DVC"
 ```
 
-DVC creates small `.dvc` files that point to your data. The data itself lives in S3, GCS, or another remote storage backend.
+DVC tworzy małe pliki `.dvc`, które wskazują na twoje dane. Dane same w sobie żyją w S3, GCS lub innym zdalnym backendzie storage.
 
-| Approach | Complexity | Best For |
-|----------|-----------|----------|
-| .gitignore | Low | Personal projects, downloaded data you can re-fetch |
-| Git LFS | Medium | Teams sharing model weights via git |
-| DVC | High | Reproducible experiments, large datasets, teams |
+| Podejście | Złożoność | Najlepsze dla |
+|-----------|-----------|---------------|
+| .gitignore | Niska | Projekty osobiste, pobrane dane, które możesz ponownie pobrać |
+| Git LFS | Średnia | Zespoły dzielące wagi modeli przez git |
+| DVC | Wysoka | Odtwarzalne eksperymenty, duże zbiory danych, zespoły |
 
-For this course, `.gitignore` is enough. Use DVC when you need to reproduce exact experiments across machines.
+Na potrzeby tego kursu, `.gitignore` wystarczy. Używaj DVC, gdy potrzebujesz odtwarzać dokładne eksperymenty na różnych maszynach.
 
-### Step 8: Storage patterns
+### Krok 8: Wzorce przechowywania
 
-**Local storage** works for datasets under ~10 GB. The HF cache handles this automatically.
+**Local storage** działa dla zbiorów danych do ~10 GB. HF cache obsługuje to automatycznie.
 
-**Cloud storage** is for anything larger or shared across machines:
+**Cloud storage** jest dla czegokolwiek większego lub współdzielonego między maszynami:
 
 ```python
 import os
@@ -196,59 +196,59 @@ local_path = os.path.expanduser("~/.cache/huggingface/datasets/")
 # gcs_path = "gs://my-bucket/datasets/"
 ```
 
-DVC integrates with S3 and GCS directly:
+DVC integruje się z S3 i GCS bezpośrednio:
 
 ```bash
 dvc remote add -d myremote s3://my-bucket/dvc-store
 dvc push
 ```
 
-For this course, local storage is sufficient. Cloud storage becomes relevant when you fine-tune on remote GPU instances.
+Na potrzeby tego kursu, local storage wystarczy. Cloud storage staje się istotny, gdy fine-tunujesz na zdalnych instancjach GPU.
 
-## Datasets Used in This Course
+## Zbiory danych używane w tym kursie
 
-| Dataset | Lessons | Size | What It Teaches |
+| Zbiór danych | Lekcje | Rozmiar | Co uczy |
 |---------|---------|------|----------------|
-| IMDB | Tokenization, classification | 84 MB | Text classification basics |
-| WikiText | Language modeling | 181 MB | Next-token prediction |
-| SQuAD | QA systems | 35 MB | Question answering, spans |
-| Common Crawl (subset) | Embeddings | Varies | Large-scale text processing |
-| MNIST | Vision basics | 21 MB | Image classification fundamentals |
-| COCO (subset) | Multimodal | Varies | Image-text pairs |
+| IMDB | Tokenization, classification | 84 MB | Podstawy klasyfikacji tekstu |
+| WikiText | Language modeling | 181 MB | Predykcja następnego tokena |
+| SQuAD | QA systems | 35 MB | Odpowiadanie na pytania, zakresy |
+| Common Crawl (podzbiór) | Embeddings | Różny | Przetwarzanie tekstu na dużą skalę |
+| MNIST | Vision basics | 21 MB | Podstawy klasyfikacji obrazów |
+| COCO (podzbiór) | Multimodal | Różny | Pary obraz-tekst |
 
-You do not need to download all of these now. Each lesson specifies what it needs.
+Nie musisz pobierać ich wszystkich teraz. Każda lekcja określa, czego potrzebuje.
 
-## Use It
+## Użyj tego
 
-Run the utility script to verify everything works:
+Uruchom skrypt utility, żeby zweryfikować, że wszystko działa:
 
 ```bash
 python code/data_utils.py
 ```
 
-This downloads a small dataset, converts it, splits it, and prints a summary.
+To pobiera mały zbiór danych, konwertuje go, dzieli i drukuje podsumowanie.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `code/data_utils.py` - reusable data loading and caching utility
-- `outputs/prompt-data-helper.md` - prompt for finding the right dataset for a task
+Ta lekcja produkuje:
+- `code/data_utils.py` - wielokrotnie użyteczny utility do ładowania i cache'owania danych
+- `outputs/prompt-data-helper.md` - prompt do znajdowania odpowiedniego zbioru danych dla zadania
 
-## Exercises
+## Ćwiczenia
 
-1. Load the `glue` dataset with the `mrpc` config and inspect the first 5 examples
-2. Stream the `c4` dataset and count how many examples you can process in 10 seconds
-3. Convert a dataset to Parquet and compare the file size to CSV
-4. Create a 70/15/15 train/val/test split with a fixed seed and verify the sizes
+1. Załaduj zbiór danych `glue` z konfiguracją `mrpc` i sprawdź pierwsze 5 przykładów
+2. Strumieniuj zbiór danych `c4` i policz, ile przykładów możesz przetworzyć w 10 sekund
+3. Konwertuj zbiór danych do Parquet i porównaj rozmiar pliku z CSV
+4. Stwórz podział 70/15/15 train/val/test z ustalonym seedem i zweryfikuj rozmiary
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Dataset split | "Training data" | A named subset (train/val/test) used at different stages of the ML lifecycle |
-| Streaming | "Load it lazily" | Processing data row by row from a remote source without downloading the full dataset |
-| Parquet | "Compressed CSV" | A columnar file format optimized for analytical queries and storage efficiency |
-| Arrow | "Fast dataframe" | An in-memory columnar format used internally by the datasets library for zero-copy reads |
-| Git LFS | "Git for big files" | An extension that stores large files outside the git repo while keeping pointers in version control |
-| DVC | "Git for data" | A version control system for datasets and models that integrates with cloud storage |
-| Cache | "Already downloaded" | A local copy of previously fetched data, stored at ~/.cache/huggingface/ by default |
+| Dataset split | "Dane treningowe" | Nazwany podzbiór (train/val/test) używany na różnych etapach cyklu życia ML |
+| Streaming | "Ładuj leniwie" | Przetwarzanie danych wiersz po wierszu ze źródła zdalnego bez pobierania całego zbioru |
+| Parquet | "Skompresowany CSV" | Kolumnowy format plików zoptymalizowany pod kątem zapytań analitycznych i efektywności storage |
+| Arrow | "Szybki dataframe" | Format kolumnowy w pamięci używany wewnętrznie przez bibliotekę datasets do odczytu bez kopiowania |
+| Git LFS | "Git dla dużych plików" | Rozszerzenie, które przechowuje duże pliki poza repo git, zachowując wskaźniki w kontroli wersji |
+| DVC | "Git dla danych" | System kontroli wersji dla zbiorów danych i modeli, który integruje się z cloud storage |
+| Cache | "Już pobrane" | Lokalna kopia wcześniej pobranych danych, domyślnie przechowywana w ~/.cache/huggingface/ |

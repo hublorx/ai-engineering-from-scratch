@@ -1,32 +1,32 @@
-# Feature Engineering & Selection
+# Inżynieria cech i ich selekcja
 
-> A good feature is worth a thousand data points.
+> Dobra cecha jest warta tysiąc punktów danych.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 1 (Statistics for ML, Linear Algebra), Phase 2 Lessons 1-7
-**Time:** ~90 minutes
+**Typ:** Zbuduj
+**Języki:** Python
+**Wymagania wstępne:** Phase 1 (Statystyka dla ML, Algebra liniowa), Phase 2 Lekcje 1-7
+**Szacowany czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement numerical transforms (standardization, min-max scaling, log transform, binning) and explain when each is appropriate
-- Build one-hot, label, and target encoding for categorical features and identify the data leakage risk in target encoding
-- Construct a TF-IDF vectorizer from scratch and explain why it outperforms raw word counts for text classification
-- Apply filter-based feature selection (variance threshold, correlation, mutual information) to reduce dimensionality
+- Implementuj transformacje numeryczne (standaryzacja, skalowanie min-max, transformacja logarytmiczna, binning) i wytłumacz, kiedy każda z nich jest odpowiednia
+- Buduj encoding typu one-hot, label i target dla cech kategorycznych oraz zidentyfikuj ryzyko data leakage w target encoding
+- Zbuduj wektoryzator TF-IDF od zera i wytłumacz, dlaczego przewyższa surowe zliczenia słów w klasyfikacji tekstu
+- Zastosuj selekcję cech opartą na filtrach (próg wariancji, korelacja, mutual information) aby zmniejszyć wymiarowość
 
-## The Problem
+## Problem
 
-You have a dataset. You pick an algorithm. You train it. The results are mediocre. You try a fancier algorithm. Still mediocre. You spend a week tuning hyperparameters. Marginal improvement.
+Masz dataset. Wybierasz algorytm. Uczysz go. Wyniki są przeciętne. Próbujesz bardziej wyrafinowanego algorytmu. Wciąż przeciętne. Spędzasz tydzień na strojeniu hiperparametrów. Minimalna poprawa.
 
-Then someone transforms the raw data into better features and a simple logistic regression beats your tuned gradient-boosted ensemble.
+Potem ktoś transformuje surowe dane na lepsze cechy i prosty regresja logistyczna pokonuje twój dostrojony ensemble oparty na gradient boosting.
 
-This happens constantly. In classical ML, the representation of the data matters more than the choice of algorithm. A house price model with "square footage" and "number of bedrooms" will beat a model with "address as a raw string" no matter how sophisticated the learner is. The algorithm can only work with what you give it.
+To dzieje się ciągle. W klasycznym ML, reprezentacja danych ma większe znaczenie niż wybór algorytmu. Model cen domów z "powierzchnią w stopach kwadratowych" i "liczbą sypialni" pokona model z "adresem jako surowym ciągiem znaków" bez względu na to, jak wyrafinowany jest learner. Algorytm może pracować tylko z tym, co mu dasz.
 
-Feature engineering is the process of transforming raw data into representations that make patterns easier for models to find. Feature selection is the process of throwing away features that add noise without adding signal. Together, they are the highest-leverage activity in classical ML.
+Inżynieria cech to proces transformacji surowych danych w reprezentacje, które ułatwiają modelom znajdowanie wzorców. Selekcja cech to proces odrzucania cech, które dodają szum bez dodawania sygnału. Razem stanowią one aktywność o najwyższej dźwigni w klasycznym ML.
 
-## The Concept
+## Koncepcja
 
-### The Feature Pipeline
+### Pipeline cech
 
 ```mermaid
 flowchart LR
@@ -41,33 +41,33 @@ flowchart LR
     G --> H[Model-Ready Data]
 ```
 
-### Numerical Features
+### Cechy numeryczne
 
-Raw numbers are rarely model-ready. Common transforms:
+Surowe liczby rzadko są gotowe dla modelu. Typowe transformacje:
 
-**Scaling:** Put features on the same range so distance-based algorithms (K-Means, KNN, SVM) treat all features equally. Min-max scaling maps to [0, 1]. Standardization (z-score) maps to mean=0, std=1.
+**Skalowanie:** Przekształcaj cechy na ten sam zakres, aby algorytmy oparte na odległości (K-Means, KNN, SVM) traktowały wszystkie cechy jednakowo. Skalowanie min-max mapuje do [0, 1]. Standaryzacja (z-score) mapuje do mean=0, std=1.
 
-**Log transform:** Compresses right-skewed distributions (income, population, word counts). Turns multiplicative relationships into additive ones.
+**Transformacja logarytmiczna:** Kompresuje rozkłady skośne w prawo (dochód, populacja, zliczenia słów). Zamienia relacje multiplikatywne na addytywne.
 
-**Binning:** Converts continuous values into categories. Useful when the relationship between feature and target is non-linear but step-wise (e.g., age groups).
+**Binning:** Konwertuje wartości ciągłe na kategorie. Przydatne, gdy relacja między cechą a target jest nieliniowa, ale krokowa (np. grupy wiekowe).
 
-**Polynomial features:** Creates x^2, x^3, x1*x2 terms. Lets linear models capture non-linear relationships at the cost of more features.
+**Cechy wielomianowe:** Tworzy wyrazy x^2, x^3, x1*x2. Pozwala liniowym modelom uchwycić nieliniowe relacje za cenę większej liczby cech.
 
-### Categorical Features
+### Cechy kategoryczne
 
-Models need numbers. Categories need encoding.
+Modele potrzebują liczb. Kategorie potrzebują encodingu.
 
-**One-hot encoding:** Creates a binary column for each category. "color = red/blue/green" becomes three columns: is_red, is_blue, is_green. Works well for low-cardinality features but explodes with many categories.
+**One-hot encoding:** Tworzy kolumnę binarną dla każdej kategorii. "color = red/blue/green" staje się trzema kolumnami: is_red, is_blue, is_green. Działa dobrze dla niskiej kardynalności, ale wybucha przy wielu kategoriach.
 
-**Label encoding:** Maps each category to an integer: red=0, blue=1, green=2. Introduces false ordering (the model might think green > blue > red). Only appropriate for tree-based models that split on individual values.
+**Label encoding:** Mapuje każdą kategorię na liczbę całkowitą: red=0, blue=1, green=2. Wprowadza fałszywe uporządkowanie (model może myśleć, że green > blue > red). Odpowiednie tylko dla modeli drzewiastych, które dzielą na pojedyncze wartości.
 
-**Target encoding:** Replaces each category with the mean of the target variable for that category. Powerful but dangerous: high risk of data leakage. Must be computed only on training data and applied to test data.
+**Target encoding:** Zastępuje każdą kategorię średnią zmiennej target dla tej kategorii. Potężne, ale niebezpieczne: wysokie ryzyko data leakage. Musi być obliczane tylko na danych treningowych i stosowane na danych testowych.
 
-### Text Features
+### Cechy tekstowe
 
-**Count vectorizer:** Counts how many times each word appears in a document. "the cat sat on the mat" becomes {the: 2, cat: 1, sat: 1, on: 1, mat: 1}.
+**Count vectorizer:** Zlicza, ile razy każde słowo pojawia się w dokumencie. "the cat sat on the mat" staje się {the: 2, cat: 1, sat: 1, on: 1, mat: 1}.
 
-**TF-IDF:** Term Frequency-Inverse Document Frequency. Weighs words by how unique they are across documents. Common words like "the" get low weight. Rare, distinctive words get high weight.
+**TF-IDF:** Term Frequency-Inverse Document Frequency. Waży słowa przez ich unikalność w dokumentach. Częste słowa jak "the" otrzymują niską wagę. Rzadkie, charakterystyczne słowa otrzymują wysoką wagę.
 
 ```
 TF(word, doc) = count(word in doc) / total words in doc
@@ -75,38 +75,38 @@ IDF(word) = log(total docs / docs containing word)
 TF-IDF = TF * IDF
 ```
 
-### Missing Values
+### Brakujące wartości
 
-Real data has holes. Strategies:
+Rzeczywiste dane mają dziury. Strategie:
 
-- **Drop rows:** Only when missing data is rare and random
-- **Mean/median imputation:** Simple, preserves distribution shape (median is more robust to outliers)
-- **Mode imputation:** For categorical features
-- **Indicator column:** Add a binary column "was_this_missing" before imputing. The fact that data is missing can itself be informative
-- **Forward/backward fill:** For time series data
+- **Usuwanie wierszy:** Tylko gdy brakujące dane są rzadkie i losowe
+- **Imputacja średnią/medianą:** Prosta, zachowuje kształt rozkładu (mediana jest bardziej odporna na outliers)
+- **Imputacja modą:** Dla cech kategorycznych
+- **Kolumna wskaźnikowa:** Dodaj kolumnę binarną "was_this_missing" przed imputacją. Fakt, że dane są brakujące, może sam w sobie być informacyjny
+- **Forward/backward fill:** Dla danych szeregów czasowych
 
-### Feature Interaction
+### Interakcje cech
 
-Sometimes the relationship is in the combination. "Height" and "weight" alone are less predictive than "BMI = weight / height^2". Feature interactions multiply the feature space, so use domain knowledge to pick the right ones.
+Czasami relacja tkwi w kombinacji. "Wzrost" i "waga" same w sobie są mniej predykcyjne niż "BMI = waga / wzrost^2". Interakcje cech mnożą przestrzeń cech, więc używaj wiedzy domenowej, aby wybrać właściwe.
 
-### Feature Selection
+### Selekcja cech
 
-More features is not always better. Irrelevant features add noise, increase training time, and can cause overfitting.
+Więcej cech nie zawsze oznacza lepsze wyniki. Nieistotne cechy dodają szum, zwiększają czas treningu i mogą powodować overfitting.
 
-**Filter methods (pre-model):**
-- Correlation: remove features highly correlated with each other (redundant)
-- Mutual information: measures how much knowing a feature reduces uncertainty about the target
-- Variance threshold: remove features that barely vary
+**Metody filtrujące (przed modelem):**
+- Korelacja: usuń cechy silnie skorelowane ze sobą (redundancja)
+- Mutual information: mierzy, ile wiedzy o cesze redukuje niepewność o target
+- Próg wariancji: usuń cechy, które prawie nie różnią się
 
-**Wrapper methods (model-based):**
-- L1 regularization (Lasso): drives irrelevant feature weights to exactly zero
-- Recursive feature elimination: train, remove least important feature, repeat
+**Metody wrapper (oparte na modelu):**
+- Regularyzacja L1 (Lasso): zeruje wagi nieistotnych cech
+- Rekursywna eliminacja cech: trenuj, usuń najmniej ważną cechę, powtórz
 
-**Why selection matters:** A model with 10 good features will usually outperform a model with 10 good features and 90 noisy ones. The noisy features give the model opportunities to overfit on training data patterns that do not generalize.
+**Dlaczego selekcja ma znaczenie:** Model z 10 dobrymi cechami zwykle przewyższy model z 10 dobrymi i 90 szumowymi cechami. Szumowe cechy dają modelowi możliwości do overfittingu na wzorce treningowe, które się nie uogólniają.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Numerical transforms from scratch
+### Krok 1: Transformacje numeryczne od zera
 
 ```python
 import math
@@ -158,7 +158,7 @@ def polynomial_features(row, degree=2):
     return result
 ```
 
-### Step 2: Categorical encoding from scratch
+### Krok 2: Encoding kategoryczny od zera
 
 ```python
 def one_hot_encode(values):
@@ -200,7 +200,7 @@ def target_encode(feature_values, target_values, smoothing=10):
     return [encoding[v] for v in feature_values], encoding
 ```
 
-### Step 3: Text features from scratch
+### Krok 3: Cechy tekstowe od zera
 
 ```python
 def count_vectorize(documents):
@@ -259,7 +259,7 @@ def tfidf(documents):
     return vectors, vocab
 ```
 
-### Step 4: Missing value imputation from scratch
+### Krok 4: Imputacja brakujących wartości od zera
 
 ```python
 def impute_mean(values):
@@ -297,7 +297,7 @@ def add_missing_indicator(values):
     return [0 if v is not None else 1 for v in values]
 ```
 
-### Step 5: Feature selection from scratch
+### Krok 5: Selekcja cech od zera
 
 ```python
 def correlation(x, y):
@@ -380,7 +380,7 @@ def remove_correlated(features, threshold=0.9):
     return [i for i in range(n_features) if i not in to_remove]
 ```
 
-### Step 6: Full pipeline and demo
+### Krok 6: Pełny pipeline i demo
 
 ```python
 import random
@@ -519,9 +519,9 @@ if __name__ == "__main__":
         print(f"    {feature_names[j]}: r={corr:.4f}")
 ```
 
-## Use It
+## Użyj tego
 
-With scikit-learn, these transforms are composable pipelines:
+Z scikit-learn, te transformacje są kompozycyjnymi pipelineami:
 
 ```python
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, PolynomialFeatures
@@ -546,35 +546,35 @@ preprocessor = ColumnTransformer([
 ])
 ```
 
-The from-scratch versions show exactly what happens inside each transform. The library versions add edge-case handling, sparse matrix support, and pipeline composition, but the math is the same.
+Wersje od zera pokazują dokładnie, co dzieje się w środku każdej transformacji. Wersje biblioteczne dodają obsługę przypadków brzegowych, wsparcie dla sparse matrices i kompozycję pipeline, ale matematyka jest ta sama.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/prompt-feature-engineer.md` - a prompt for systematically engineering features from raw data
+Ta lekcja wytwarza:
+- `outputs/prompt-feature-engineer.md` - prompt do systematycznego inżynierowania cech z surowych danych
 
-## Exercises
+## Ćwiczenia
 
-1. Add robust scaling (using median and interquartile range instead of mean and standard deviation) to the numerical transforms. Compare it to standard scaling on data with extreme outliers.
-2. Implement leave-one-out target encoding: for each row, compute the target mean excluding that row's own target value. Show how this reduces overfitting compared to naive target encoding.
-3. Build an automated feature selection pipeline that combines variance threshold, correlation filtering, and mutual information ranking. Apply it to the housing dataset and compare model performance (use a simple linear regression) with all features vs selected features.
+1. Dodaj robust scaling (używając mediany i rozstępu międzykwartylowego zamiast średniej i odchylenia standardowego) do transformacji numerycznych. Porównaj go ze standardowym skalowaniem na danych z ekstremalnymi outliers.
+2. Implementuj leave-one-out target encoding: dla każdego wiersza oblicz średnią target wykluczając własną wartość target tego wiersza. Pokaż, jak to zmniejsza overfitting w porównaniu z naiwnym target encoding.
+3. Zbuduj automatyczny pipeline selekcji cech, który łączy próg wariancji, filtrowanie korelacji i ranking mutual information. Zastosuj go do housing dataset i porównaj wydajność modelu (użyj prostej regresji liniowej) ze wszystkimi cechami vs wybranymi cechami.
 
-## Key Terms
+## Kluczowe pojęcia
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Feature engineering | "Making new columns" | Transforming raw data into representations that expose patterns to the model |
-| Standardization | "Making it normal" | Subtracting the mean and dividing by standard deviation so the feature has mean=0 and std=1 |
-| One-hot encoding | "Making dummy variables" | Creating one binary column per category, where exactly one column is 1 for each row |
-| Target encoding | "Using the answer to encode" | Replacing each category with the average target value for that category, with smoothing to prevent overfitting |
-| TF-IDF | "Fancy word counts" | Term Frequency times Inverse Document Frequency: words weighted by how distinctive they are across the corpus |
-| Imputation | "Filling in blanks" | Replacing missing values with estimated values (mean, median, mode, or model-predicted) |
-| Feature selection | "Throwing out bad columns" | Removing features that add noise or redundancy, keeping only those with signal about the target |
-| Mutual information | "How much one thing tells you about another" | A measure of the reduction in uncertainty about variable Y gained by observing variable X |
-| Data leakage | "Accidentally cheating" | Using information during training that would not be available at prediction time, giving falsely optimistic results |
+| Pojęcie | Co ludzie mówią | Co to faktycznie oznacza |
+|---------|----------------|----------------------|
+| Feature engineering | "Tworzenie nowych kolumn" | Transformacja surowych danych w reprezentacje, które ujawniają wzorce modelowi |
+| Standardization | "Normowanie" | Odejmowanie średniej i dzielenie przez odchylenie standardowe, aby cecha miała mean=0 i std=1 |
+| One-hot encoding | "Tworzenie zmiennych dummy" | Tworzenie jednej kolumny binarnej na kategorię, gdzie dokładnie jedna kolumna jest 1 dla każdego wiersza |
+| Target encoding | "Używanie odpowiedzi do kodowania" | Zastępowanie każdej kategorii średnią wartością target dla tej kategorii, z smoothingiem aby zapobiec overfitting |
+| TF-IDF | "Wyrafinowane zliczenia słów" | Term Frequency razy Inverse Document Frequency: słowa ważone przez ich charakterystyczność w korpusie |
+| Imputation | "Wypełnianie pustych miejsc" | Zastępowanie brakujących wartości szacowanymi wartościami (średnia, mediana, moda lub przewidywane przez model) |
+| Feature selection | "Wyrzucanie złych kolumn" | Usuwanie cech, które dodają szum lub redundancję, zatrzymując tylko te z sygnałem o target |
+| Mutual information | "Ile jedna rzecz mówi ci o drugiej" | Miara redukcji niepewności o zmiennej Y uzyskanej przez obserwację zmiennej X |
+| Data leakage | "Przypadkowe oszustwo" | Używanie informacji podczas treningu, która nie byłaby dostępna w czasie predykcji, dające fałszywie optymistyczne wyniki |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Feature Engineering and Selection (Max Kuhn & Kjell Johnson)](http://www.feat.engineering/) - free online book covering the full landscape of feature engineering
-- [scikit-learn Preprocessing Guide](https://scikit-learn.org/stable/modules/preprocessing.html) - practical reference for all standard transforms
-- [Target Encoding Done Right (Micci-Barreca, 2001)](https://dl.acm.org/doi/10.1145/507533.507538) - the original paper on target encoding with smoothing
+- [Feature Engineering and Selection (Max Kuhn & Kjell Johnson)](http://www.feat.engineering/) - darmowa książka online pokrywająca pełne spektrum inżynierii cech
+- [scikit-learn Preprocessing Guide](https://scikit-learn.org/stable/modules/preprocessing.html) - praktyczne odniesienie dla wszystkich standardowych transformacji
+- [Target Encoding Done Right (Micci-Barreca, 2001)](https://dl.acm.org/doi/10.1145/507533.507538) - oryginalny artykuł o target encoding z smoothingiem
