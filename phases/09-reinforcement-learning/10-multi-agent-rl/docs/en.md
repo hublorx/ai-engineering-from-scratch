@@ -1,57 +1,57 @@
 # Multi-Agent RL
 
-> Single-agent RL assumes the environment is stationary. Put two learning agents in the same world and that assumption breaks: each agent is part of the other's environment, and both are changing. Multi-agent RL is the set of tricks to make learning converge when the Markov assumption no longer holds.
+> Single-agent RL zakłada, że środowisko jest stacjonarne. Umieść dwóch uczących się agentów w tym samym świecie i to założenie się łamie: każdy agent jest częścią środowiska drugiego, a oboje się zmieniają. Multi-agent RL to zbiór sztuczek, dzięki którym uczenie zbiega się, gdy założenie Markowa nie jest już spełnione.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 9 · 04 (Q-learning), Phase 9 · 06 (REINFORCE), Phase 9 · 07 (Actor-Critic)
-**Time:** ~45 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Faza 9 · 04 (Q-learning), Faza 9 · 06 (REINFORCE), Faza 9 · 07 (Actor-Critic)
+**Szacowany czas:** ~45 minut
 
-## The Problem
+## Problem
 
-A robot learning to navigate a room is a single-agent RL problem. A soccer team is not. AlphaStar vs StarCraft opponents is not. A marketplace of bidding agents is not. Two cars negotiating a four-way stop is not. Many-on-many real-world problems are not.
+Robot uczący się nawigacji w pokoju to problem RL z jednym agentem. Drużyna soccerowa nie jest. AlphaStar kontra przeciwnicy w StarCraft nie jest. Rynek licytujących agentów nie jest. Dwa samochody negocjujące skrzyżowanie nie jest. Wiele realnych problemów wiele-do-wielu nie jest.
 
-In every multi-agent setting, from the perspective of any one agent, the other agents *are* part of the environment. As they learn and change their behavior, the environment becomes non-stationary. The Markov property — "next state depends only on current state and my action" — gets violated because the next state also depends on what the *other* agents chose, and their policies are moving targets.
+W każdym ustawieniu multi-agent, z perspektywy jednego agenta, inni agenci *są* częścią środowiska. Gdy się uczą i zmieniają swoje zachowanie, środowisko staje się niestacjonarne. Własność Markova — „następny stan zależy tylko od bieżącego stanu i mojej akcji" — zostaje naruszona, ponieważ następny stan zależy również od tego, co *inni agenci* wybrali, a ich polityki są zmiennymi celami.
 
-This breaks tabular convergence proofs (Q-learning's guarantee assumes a stationary environment). It breaks naive deep RL too: agents chase each other in loops, never converge to a stable policy. You need multi-agent-specific techniques: centralized training / decentralized execution, counterfactual baselines, league play, self-play.
+To łamie dowody zbieżności dla metod tablicowych (gwarancja Q-learningu zakłada stacjonarne środowisko). To łamie również naiwne deep RL: agenci gonią się w pętlach, nigdy nie zbiegają do stabilnej polityki. Potrzebujesz technik specyficznych dla multi-agent: scentralizowanego treningu / zdecentralizowanego wykonania, kontrfaktycznych baz, ligi, self-play.
 
-2026 applications: robot swarms, traffic routing, autonomous vehicle fleets, market simulators, multi-agent LLM systems (Phase 16), and any game with more than one intelligent player.
+Aplikacje 2026: roje robotów, routing ruchu, floty pojazdów autonomicznych, symulatory rynku, systemy LLM multi-agent (Faza 16), każda gra z więcej niż jednym inteligentnym graczem.
 
-## The Concept
+## Koncepcja
 
-![Four MARL regimes: indep, centralized critic, self-play, league](../assets/marl.svg)
+![Cztery reżimy MARL: indep, centralized critic, self-play, league](../assets/marl.svg)
 
-**Formalism: Markov Game.** A generalization of MDP: states `S`, a joint action `a = (a_1, …, a_n)`, transition `P(s' | s, a)`, and per-agent rewards `R_i(s, a, s')`. Each agent `i` maximizes its own return under its own policy `π_i`. If rewards are identical, it is **fully cooperative**. If zero-sum, it is **adversarial**. If mixed, it is **general-sum**.
+**Formalizm: Markov Game.** Uogólnienie MDP: stany `S`, wspólna akcja `a = (a_1, …, a_n)`, przejście `P(s' | s, a)`, oraz nagrody per-agent `R_i(s, a, s')`. Każdy agent `i` maksymalizuje własny zwrot pod własną polityką `π_i`. Jeśli nagrody są identyczne, jest to **w pełni kooperacyjne**. Jeśli zero-sum, jest to **adwersarialne**. Jeśli mieszane, jest to **ogólna suma**.
 
-**Core challenges:**
+**Główne wyzwania:**
 
-- **Non-stationarity.** `P(s' | s, a_i)` from agent `i`'s view depends on `π_{-i}`, which is changing.
-- **Credit assignment.** With a shared reward, which agent caused it?
-- **Exploration coordination.** Agents must explore complementary strategies, not redundantly explore the same state.
-- **Scalability.** The joint action space grows exponentially in `n`.
-- **Partial observability.** Each agent sees only its own observation; the global state is hidden.
+- **Niestacjonarność.** `P(s' | s, a_i)` z perspektywy agenta `i` zależy od `π_{-i}`, który się zmienia.
+- **Przydział zasług (credit assignment).** Przy wspólnej nagrodzie, który agent ją spowodował?
+- **Koordynacja eksploracji.** Agenci muszą eksplorować komplementarne strategie, a nie redundancko eksplorować ten sam stan.
+- **Skalowalność.** Wspólna przestrzeń akcji rośnie wykładniczo w `n`.
+- **Częściowa obserwowalność.** Każdy agent widzi tylko własną obserwację; globalny stan jest ukryty.
 
-**Four dominant regimes:**
+**Cztery dominujące reżimy:**
 
-**1. Independent Q-learning / independent PPO (IQL, IPPO).** Each agent learns its own Q or policy, treating others as part of the environment. Simple, sometimes it works (especially with experience replay acting as a smoothing agent-modeling trick). Theoretical convergence: none. In practice: fine for loosely-coupled tasks, bad for tightly-coupled ones.
+**1. Independent Q-learning / independent PPO (IQL, IPPO).** Każdy agent uczy się własnego Q lub polityki, traktując innych jako część środowiska. Proste, czasami działa (szczególnie z experience replay działającym jako sztuczka wygładzania modelu agenta). Teoretyczna zbieżność: brak. W praktyce: OK dla luźno sprzężonych zadań, złe dla ściśle sprzężonych.
 
-**2. Centralized training, decentralized execution (CTDE).** Most common modern paradigm. Each agent has its own *policy* `π_i` that conditions on local observation `o_i` — standard decentralized execution at deployment. During *training*, a centralized critic `Q(s, a_1, …, a_n)` conditions on the full global state and joint action. Examples:
-- **MADDPG** (Lowe et al. 2017): DDPG with a centralized critic per agent.
-- **COMA** (Foerster et al. 2017): counterfactual baseline — ask "what would my reward have been if I'd taken action `a'` instead?" — isolates my contribution.
-- **MAPPO** / **IPPO** with shared critic (Yu et al. 2022): PPO with a centralized value function. Dominant in 2026 for cooperative MARL.
-- **QMIX** (Rashid et al. 2018): value decomposition — `Q_tot(s, a) = f(Q_1(s, a_1), …, Q_n(s, a_n))` with monotonic mixing.
+**2. Centralized training, decentralized execution (CTDE).** Najczęstszy nowoczesny paradygmat. Każdy agent ma własną *politykę* `π_i`, która warunkuje na lokalnej obserwacji `o_i` — standardowe zdecentralizowane wykonanie przy wdrożeniu. Podczas *treningu*, scentralizowany krytyk `Q(s, a_1, …, a_n)` warunkuje na pełnym stanie globalnym i wspólnej akcji. Przykłady:
+- **MADDPG** (Lowe et al. 2017): DDPG ze scentralizowanym krytykiem per agent.
+- **COMA** (Foerster et al. 2017): kontrfaktyczna baza — pytaj „jaka byłaby moja nagroda, gdybym wykonał akcję `a'`?" — izoluje mój wkład.
+- **MAPPO** / **IPPO** ze współdzielonym krytykiem (Yu et al. 2022): PPO ze scentralizowaną funkcją wartości. Dominujące w 2026 dla kooperacyjnego MARL.
+- **QMIX** (Rashid et al. 2018): dekompozycja wartości — `Q_tot(s, a) = f(Q_1(s, a_1), …, Q_n(s, a_n))` z monotonicznym miksowaniem.
 
-**3. Self-play.** Two copies of the same agent play each other. The opponent's policy *is* my policy from a past snapshot. AlphaGo / AlphaZero / MuZero. OpenAI Five. Works best for zero-sum games; the training signal is symmetric.
+**3. Self-play.** Dwie kopie tego samego agenta grają ze sobą. Polityka przeciwnika *to* moja polityka ze starego snapshotu. AlphaGo / AlphaZero / MuZero. OpenAI Five. Najlepiej działa dla gier zero-sum; sygnał treningowy jest symetryczny.
 
-**4. League play.** An extension of self-play to general-sum / adversarial environments: keep a population of past and current policies, sample an opponent from the league, train against them. Adds exploiters (specialize in beating the current best) and main exploiters (specialize in beating exploiters). AlphaStar (StarCraft II). Needed when the game admits "rock-paper-scissors" strategy cycles.
+**4. League play.** Rozszerzenie self-play na środowiska ogólna-suma / adwersarialne: utrzymuj populację przeszłych i obecnych polityk, próbkuj przeciwnika z ligi, trenuj przeciwko niemu. Dodaje exploiterów (specjalizują się w pokonywaniu aktualnego najlepszego) i main exploiterów (specjalizują się w pokonywaniu exploiterów). AlphaStar (StarCraft II). Potrzebne, gdy gra dopuszcza cykle strategii typu kamień-nożyce-papier.
 
-**Communication.** Allow agents to send learned messages `m_i` to each other. Works in cooperative settings. Foerster et al. (2016) showed that differentiable inter-agent communication can be trained end-to-end. Today's LLM-based multi-agent systems (Phase 16) essentially communicate in natural language.
+**Komunikacja.** Pozwól agentom wysyłać nauczone wiadomości `m_i` do siebie. Działa w ustawieniach kooperacyjnych. Foerster et al. (2016) pokazali, że różniczkowalna komunikacja między agentami może być trenowana end-to-end. Dzisiejsze systemy multi-agent oparte na LLM (Faza 16) zasadniczo komunikują się w języku naturalnym.
 
-## Build It
+## Zbuduj To
 
-This lesson uses a 6×6 GridWorld with two cooperative agents. They start in opposite corners and must reach a shared goal. Shared reward: `-1` per step while either agent is still moving, `+10` when both arrive. See `code/main.py`.
+Ta lekcja używa GridWorld 6×6 z dwoma kooperacyjnymi agentami. Zaczynają w przeciwnych rogach i muszą dotrzeć do wspólnego celu. Wspólna nagroda: `-1` za krok, gdy którykolwiek agent wciąż się porusza, `+10` gdy oboje dotrą. Zobacz `code/main.py`.
 
-### Step 1: the multi-agent env
+### Krok 1: środowisko multi-agent
 
 ```python
 class CoopGridWorld:
@@ -60,7 +60,7 @@ class CoopGridWorld:
         self.goal = (5, 5)
 
     def reset(self):
-        return ((0, 0), (5, 0))  # two agents
+        return ((0, 0), (5, 0))  # dwoje agentów
 
     def step(self, state, actions):
         a1, a2 = state
@@ -71,11 +71,11 @@ class CoopGridWorld:
         return (new1, new2), reward, done
 ```
 
-The *joint* action space is `|A|² = 16`. The global state is two positions.
+*Wspólna* przestrzeń akcji to `|A|² = 16`. Globalny stan to dwie pozycje.
 
-### Step 2: independent Q-learning
+### Krok 2: independent Q-learning
 
-Each agent runs its own Q-table keyed on joint state. At each step: both pick ε-greedy actions, collect joint transition, each updates its own Q with the shared reward.
+Każdy agent uruchamia własną tablicę Q kluczowaną na wspólnym stanie. W każdym kroku: oboje wybierają akcje ε-greedy, zbierają wspólne przejście, każdy aktualizuje własne Q wspólną nagrodą.
 
 ```python
 def independent_q(env, episodes, alpha, gamma, epsilon):
@@ -93,49 +93,49 @@ def independent_q(env, episodes, alpha, gamma, epsilon):
             s = s_next
 ```
 
-Works on this task because rewards are dense and aligned. Fails on tightly-coupled tasks (e.g., where one agent has to *wait* for the other).
+Działa na tym zadaniu, bo nagrody są gęste i wyrównane. Ponieka na ściśle sprzężonych zadaniach (np. gdzie jeden agent musi *czekać* na drugiego).
 
-### Step 3: centralized Q with decomposed-value update
+### Krok 3: scentralizowane Q z dekompozycją wartości
 
-Use one Q over joint actions `Q(s, a_1, a_2)`. Update from shared reward. Decentralize at execution by marginalizing: `π_i(s) = argmax_{a_i} max_{a_{-i}} Q(s, a_1, a_2)`. Trades exponential joint action space for a *correct* global view.
+Użyj jednego Q dla wspólnych akcji `Q(s, a_1, a_2)`. Aktualizuj ze wspólnej nagrody. Zdecentralizuj przy wykonaniu przez marginalizację: `π_i(s) = argmax_{a_i} max_{a_{-i}} Q(s, a_1, a_2)`. Handelje wykładniczą przestrzenią wspólnych akcji za *poprawny* globalny widok.
 
-### Step 4: simple self-play (adversarial 2-agent)
+### Krok 4: prosty self-play (adwersarialny 2-agent)
 
-Same agent, two roles. Train agent A against agent B; after `K` episodes, copy A's weights into B. Symmetric training, consistent progress. The AlphaZero recipe in miniature.
+Ten sam agent, dwie role. Trenuj agenta A przeciwko agentowi B; po `K` epizodach kopiuj wagi A do B. Symetryczny trening, konsekwentny postęp. Przepis AlphaZero w miniaturze.
 
-## Pitfalls
+## Pułapki
 
-- **Non-stationary replay.** Experience replay with independent agents is worse than single-agent because old transitions were generated by now-obsolete opponents. Fix: relabel or weight by recency.
-- **Credit assignment ambiguity.** Shared reward after a long episode; no clear way to say which agent contributed. Fix: counterfactual baselines (COMA), or reward shaping per agent.
-- **Policy drift / chasing.** Each agent's best response changes with each other's update. Fix: centralized critic, slow learning rates, or freeze-one-at-a-time.
-- **Reward hacking via coordination.** Agents find coordinated exploits the designer did not anticipate. Auction agents converge to bid zero. Fix: careful reward design, behavioral constraints.
-- **Exploration redundancy.** Both agents explore the same state-action pairs. Fix: entropy bonuses per-agent, or role-conditioning.
-- **League cycles.** Pure self-play can get stuck in a dominance cycle. Fix: league play with diverse opponents.
-- **Sample explosion.** `n` agents × state space × joint actions. Approximate with function approximation; factored action spaces (one policy output head per agent).
+- **Niestacjonarne replay.** Experience replay z niezależnymi agentami jest gorsze niż single-agent, bo stare przejścia były generowane przez już nieaktualnych przeciwników. Fix: relabel lub wagowanie przez świeżość.
+- **Niejednoznaczność przydziału zasług.** Wspólna nagroda po długim epizodzie; brak jasnego sposobu powiedzenia, który agent się przyczynił. Fix: kontrfaktyczne bazy (COMA), lub reward shaping per agent.
+- **Dryf polityki / gonitwa.** Najlepsza odpowiedź każdego agenta zmienia się przy każdej aktualizacji drugiego. Fix: scentralizowany krytyk, wolne learning rates, lub zamrażanie jednego naraz.
+- **Hackowanie nagród przez koordynację.** Agenci znajdują skoordynowane exploity, których projektant nie przewidział. Agenci aukcyjni zbiegają się do licytowania zero. Fix: staranne projektowanie nagród, ograniczenia behawioralne.
+- **Redundancja eksploracji.** Obaj agenci eksplorują te same pary stan-akcja. Fix: entropy bonusy per-agent, lub warunkowanie roli.
+- **Cykle ligowe.** Czysty self-play może utknąć w cyklu dominacji. Fix: league play z różnorodnymi przeciwnikami.
+- **Eksplozja próbek.** `n` agentów × przestrzeń stanów × wspólne akcje. Aproksymuj przez aproksymację funkcji; rozkładane przestrzenie akcji (jedna głowa wyjściowa polityki per agent).
 
-## Use It
+## Użyj To
 
-The 2026 MARL application map:
+Mapa aplikacji MARL 2026:
 
-| Domain | Method | Notes |
+| Domena | Metoda | Uwagi |
 |--------|--------|-------|
-| Cooperative navigation / manipulation | MAPPO / QMIX | CTDE; shared critic + decentralized actors. |
-| Two-player games (chess, Go, poker) | Self-play with MCTS (AlphaZero) | Zero-sum; symmetric training. |
-| Complex multiplayer (Dota, StarCraft) | League play + imitation pretraining | OpenAI Five, AlphaStar. |
-| Autonomous-vehicle fleets | CTDE MAPPO / PPO with attention | Partial obs; variable team sizes. |
-| Auction markets | Game-theoretic equilibrium + RL | Mean-field RL when `n` → ∞. |
-| LLM multi-agent systems (Phase 16) | Natural-language comm + role conditioning | RL loop at the agent-planning layer. |
+| Cooperative navigation / manipulation | MAPPO / QMIX | CTDE; współdzielony krytyk + zdecentralizowani aktorzy. |
+| Gry dwuosobowe (szachy, Go, poker) | Self-play z MCTS (AlphaZero) | Zero-sum; symetryczny trening. |
+| Złożone wieloosobowe (Dota, StarCraft) | League play + pretraining przez imitację | OpenAI Five, AlphaStar. |
+| Floty pojazdów autonomicznych | CTDE MAPPO / PPO z attention | Częściowa obserwowalność; zmienne rozmiaru drużyn. |
+| Rynki aukcyjne | Równowaga teorii gier + RL | Mean-field RL gdy `n` → ∞. |
+| Systemy LLM multi-agent (Faza 16) | Komunikacja w języku naturalnym + warunkowanie roli | Pętla RL na warstwie planowania agentów. |
 
-In 2026, MARL's biggest growth area is LLM-based: swarms of language-model agents negotiating, debating, building software. The RL shows up as preference optimization on *trajectory-level* outputs, not token-level (Phase 16 · 03).
+W 2026 największym obszarem wzrostu MARL są systemy oparte na LLM: roje agentów opartych na modelach językowych negocjujących, debatujących, budujących oprogramowanie. RL pojawia się jako optymalizacja preferencji na *poziomie trajektorii*, nie tokenów (Faza 16 · 03).
 
-## Ship It
+## Wyślij To
 
-Save as `outputs/skill-marl-architect.md`:
+Zapisz jako `outputs/skill-marl-architect.md`:
 
 ```markdown
 ---
 name: marl-architect
-description: Pick the right multi-agent RL regime (IPPO, CTDE, self-play, league) for a given task.
+description: Wybierz właściwy reżim multi-agent RL (IPPO, CTDE, self-play, league) dla danego zadania.
 version: 1.0.0
 phase: 9
 lesson: 10
@@ -153,32 +153,32 @@ Given a task with `n` agents, output:
 Refuse independent Q-learning on tightly-coupled cooperative tasks. Refuse to recommend self-play for general-sum with cycle risks. Flag any MARL pipeline without a fixed-opponent eval (cherry-picked self-play numbers are common).
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Train independent Q-learning on the 2-agent cooperative GridWorld. How many episodes until mean return > 0? Plot the joint learning curve.
-2. **Medium.** Add a "coordination" task: the goal is reached only when both agents step onto it on the same turn. Does independent Q still converge? What breaks?
-3. **Hard.** Implement a centralized critic for MAPPO-style training and compare convergence speed to independent PPO on the coordination task.
+1. **Łatwe.** Trenuj independent Q-learning na 2-agent cooperative GridWorld. Ile epizodów do średniego zwrotu > 0? Wykreśl krzywą wspólnego uczenia.
+2. **Średnie.** Dodaj zadanie „koordynacji": cel jest osiągnięty tylko gdy oboje agenci wejdą na niego w tym samym ruchu. Czy independent Q nadal zbiega się? Co się psuje?
+3. **Trudne.** Zaimplementuj scentralizowany krytyk dla treningu typu MAPPO i porównaj szybkość zbieżności z independent PPO na zadaniu koordynacji.
 
-## Key Terms
+## Kluczowe Terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| Markov game | "Multi-agent MDP" | `(S, A_1, …, A_n, P, R_1, …, R_n)`; each agent has its own reward. |
-| CTDE | "Centralized training, decentralized execution" | Joint critic at training time; each agent's policy uses only local obs. |
-| IPPO | "Independent PPO" | Each agent runs PPO separately. Simple baseline; often underrated. |
-| MAPPO | "Multi-agent PPO" | PPO with a centralized value function conditioned on global state. |
-| QMIX | "Monotonic value decomposition" | `Q_tot = f_monotone(Q_1, …, Q_n)` allows decentralized argmax. |
-| COMA | "Counterfactual multi-agent" | Advantage = my Q minus expected Q marginalizing over my action. |
-| Self-play | "Agent vs past self" | Single agent, two roles; standard for zero-sum games. |
-| League play | "Population training" | Cache past policies, sample opponents from the pool; handles strategy cycles. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-----------------------|
+| Markov game | „Multi-agent MDP" | `(S, A_1, …, A_n, P, R_1, …, R_n)`; każdy agent ma własną nagrodę. |
+| CTDE | „Centralized training, decentralized execution" | Wspólny krytyk w czasie treningu; polityka każdego agenta używa tylko lokalnej obs. |
+| IPPO | „Independent PPO" | Każdy agent uruchamia PPO osobno. Prosty baseline; często niedoceniany. |
+| MAPPO | „Multi-agent PPO" | PPO ze scentralizowaną funkcją wartości warunkującą na stanie globalnym. |
+| QMIX | „Monotonic value decomposition" | `Q_tot = f_monotone(Q_1, …, Q_n)` pozwala na zdecentralizowany argmax. |
+| COMA | „Counterfactual multi-agent" | Advantage = moje Q minus oczekiwane Q marginalizujące po mojej akcji. |
+| Self-play | „Agent vs przeszłe ja" | Pojedynczy agent, dwie role; standard dla gier zero-sum. |
+| League play | „Trening populacyjny" | Cache przeszłych polityk, próbkuj przeciwników z puli; obsługuje cykle strategii. |
 
-## Further Reading
+## Dalsza Lecja
 
-- [Lowe et al. (2017). Multi-Agent Actor-Critic for Mixed Cooperative-Competitive Environments (MADDPG)](https://arxiv.org/abs/1706.02275) — CTDE with a centralized critic.
-- [Foerster et al. (2017). Counterfactual Multi-Agent Policy Gradients (COMA)](https://arxiv.org/abs/1705.08926) — counterfactual baselines for credit assignment.
-- [Rashid et al. (2018). QMIX: Monotonic Value Function Factorisation](https://arxiv.org/abs/1803.11485) — value decomposition with monotonicity.
-- [Yu et al. (2022). The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games (MAPPO)](https://arxiv.org/abs/2103.01955) — PPO is surprisingly strong for MARL.
-- [Vinyals et al. (2019). Grandmaster level in StarCraft II using multi-agent reinforcement learning (AlphaStar)](https://www.nature.com/articles/s41586-019-1724-z) — league play at scale.
-- [Silver et al. (2017). Mastering the game of Go without human knowledge (AlphaGo Zero)](https://www.nature.com/articles/nature24270) — pure self-play in zero-sum games.
-- [Sutton & Barto (2018). Ch. 15 — Neuroscience & Ch. 17 — Frontiers](http://incompleteideas.net/book/RLbook2020.pdf) — includes the textbook's short treatment of multi-agent settings and the non-stationarity problem that CTDE is designed to solve.
-- [Zhang, Yang & Başar (2021). Multi-Agent Reinforcement Learning: A Selective Overview](https://arxiv.org/abs/1911.10635) — survey covering cooperative, competitive, and mixed MARL with convergence results.
+- Lowe et al. (2017). Multi-Agent Actor-Critic for Mixed Cooperative-Competitive Environments (MADDPG) — CTDE ze scentralizowanym krytykiem.
+- Foerster et al. (2017). Counterfactual Multi-Agent Policy Gradients (COMA) — kontrfaktyczne bazy dla przydziału zasług.
+- Rashid et al. (2018). QMIX: Monotonic Value Function Factorisation — dekompozycja wartości z monotonicznością.
+- Yu et al. (2022). The Surprising Effectiveness of PPO in Cooperative Multi-Agent Games (MAPPO) — PPO jest zaskakująco silny dla MARL.
+- Vinyals et al. (2019). Grandmaster level in StarCraft II using multi-agent reinforcement learning (AlphaStar) — league play na skali.
+- Silver et al. (2017). Mastering the game of Go without human knowledge (AlphaGo Zero) — czysty self-play w grach zero-sum.
+- Sutton & Barto (2018). Ch. 15 — Neuroscience & Ch. 17 — Frontiers — obejmuje krótkie omówienie ustawień multi-agent i problemu niestacjonarności, które CTDE jest zaprojektowane rozwiązać.
+- Zhang, Yang & Başar (2021). Multi-Agent Reinforcement Learning: A Selective Overview — przegląd obejmujący kooperacyjne, konkurencyjne i mieszane MARL z wynikami zbieżności.

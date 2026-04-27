@@ -1,70 +1,70 @@
-# Video Generation
+# Generacja wideo
 
-> An image is a 2-D tensor. A video is a 3-D one. The theory is the same; the compute is 10-100x harder. OpenAI's Sora (Feb 2024) proved it was possible. By 2026 Veo 2, Kling 1.5, Runway Gen-3, Pika 2.0, and WAN 2.2 ship production video from text at 1080p — and the open-weights stack (CogVideoX, HunyuanVideo, Mochi-1, WAN 2.2) is 12 months behind.
+> Obraz to tensor 2-D. Wideo to tensor 3-D. Teoria jest ta sama; obliczenia są 10-100x trudniejsze. Sora od OpenAI (luty 2024) udowodniła, że to możliwe. Do 2026 Veo 2, Kling 1.5, Runway Gen-3, Pika 2.0 i WAN 2.2 dostarczają produkcyjne wideo z tekstu w 1080p — a stos otwartych wag (CogVideoX, HunyuanVideo, Mochi-1, WAN 2.2) jest 12 miesięcy za nimi.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 8 · 07 (Latent Diffusion), Phase 7 · 09 (ViT), Phase 8 · 06 (DDPM)
-**Time:** ~45 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 8 · 07 (Latent Diffusion), Phase 7 · 09 (ViT), Phase 8 · 06 (DDPM)
+**Czas:** ~45 minut
 
-## The Problem
+## Problem
 
-A 10-second 1080p video at 24fps is 240 frames of 1920×1080×3 pixels. That's ~1.5 GB of raw data per clip. Pixel-space diffusion is infeasible. You need:
+10-sekundowe wideo 1080p przy 24fps to 240 klatek o rozmiarze 1920×1080×3 pikseli. To około 1,5 GB surowych danych na klip. Dyfuzja w przestrzeni pikseli jest niewykonalna. Potrzebujesz:
 
-1. **Spatiotemporal compression.** A VAE that encodes videos, not frames, into a sequence of spatial-temporal patches.
-2. **Temporal coherence.** Frames need to share content, lighting, and object identity over seconds. The net has to model motion.
-3. **Compute budget.** Video training is 10-100x more expensive than image for the same model size.
-4. **Conditioning.** Text, image (first-frame), audio, or another video. Most production models accept all four.
+1. **Kompresji spatiotemporalnej.** VAE kodujący wideo, a nie poszczególne klatki, do sekwencji fragmentów przestrzenno-czasowych.
+2. **Koherencji czasowej.** Klatki muszą dzielić treść, oświetlenie i tożsamość obiektów przez sekundy. Sieć musi modelować ruch.
+3. **Budżetu obliczeniowego.** Trenowanie wideo jest 10-100x droższe niż obrazu przy tym samym rozmiarze modelu.
+4. **Warunkowania.** Tekst, obraz (pierwsza klatka), audio lub inne wideo. Większość produkcyjnych modeli akceptuje wszystkie cztery.
 
-The architecture that solved this is the **Diffusion Transformer (DiT)** applied to spatiotemporal patches, trained on huge (prompt, caption, video) datasets. Same diffusion loss as Lesson 06.
+Architekturą, która to rozwiązała, jest **Diffusion Transformer (DiT)** zastosowany do fragmentów spatiotemporalnych, trenowany na ogromnych zbiorach danych (prompt, podpis, wideo). Ta sama funkcja strat dyfuzyjnych co w Lekcji 06.
 
-## The Concept
+## Koncepcja
 
 ![Video diffusion: patchify, DiT, decode](../assets/video-generation.svg)
 
 ### Patchify
 
-Encode the video with a 3D VAE (learned spatiotemporal compression). The latent is shape `[T_latent, H_latent, W_latent, C_latent]`. Split into patches of size `[t_p, h_p, w_p]`. For Sora-style models, `t_p = 1` (per-frame patches) or `t_p = 2` (every two frames). A 10-second 1080p video compresses to ~20,000-100,000 patches.
+Koduj wideo za pomocą 3D VAE (nauczona kompresja spatiotemporalna). Latent ma kształt `[T_latent, H_latent, W_latent, C_latent]`. Podziel na fragmenty o rozmiarze `[t_p, h_p, w_p]`. W modelach stylu Sora `t_p = 1` (fragmenty na klatkę) lub `t_p = 2` (co dwie klatki). 10-sekundowe wideo 1080p kompresuje się do około 20 000-100 000 fragmentów.
 
 ### Spatiotemporal DiT
 
-A transformer processes the flat sequence of patches. Each patch has a 3D positional embedding (time + y + x). Attention is usually factorized:
+Transformer przetwarza spłaszczoną sekwencję fragmentów. Każdy fragment ma 3D positional embedding (czas + y + x). Uwaga jest zwykle rozkładana:
 
-- **Spatial attention** within each frame's patches.
-- **Temporal attention** across frames at the same spatial location.
-- **Full 3D attention** is 16-100x more expensive; used only at low resolution or in research.
+- **Uwaga przestrzenna** w ramach fragmentów każdej klatki.
+- **Uwaga czasowa** między klatkami w tej samej lokalizacji przestrzennej.
+- **Pełna uwaga 3D** jest 16-100x droższa; używana tylko przy niskiej rozdzielczości lub w badaniach.
 
-### Text conditioning
+### Warunkowanie tekstowe
 
-Cross-attention with a large text encoder (T5-XXL for Sora, CogVideoX-5B uses T5-XXL). Long prompts matter — Sora's training set had GPT-generated dense re-captions averaging 200 tokens per clip.
+Cross-attention z dużym enkoderem tekstowym (T5-XXL dla Sora, CogVideoX-5B używa T5-XXL). Długie prompty mają znaczenie — zbiór treningowy Sora zawierał gęste ponowne podpisy wygenerowane przez GPT, średnio 200 tokenów na klip.
 
-### Training
+### Trenowanie
 
-Standard diffusion loss (ε or v prediction) over spatiotemporal latents. Data: web video + ~100M curated clips + synthetic text captions. Compute: 10,000+ GPU hours for even a small research run; Sora-scale is 100,000+.
+Standardowa funkcja strat dyfuzyjnych (ε lub v prediction) na latentach spatiotemporalnych. Dane: wideo z internetu + ~100M wyselekcjonowanych klipów + syntetyczne podpisy tekstowe. Obliczenia: 10 000+ godzin GPU nawet dla małego eksperymentu badawczego; skala Sora to 100 000+.
 
-## The 2026 production landscape
+## Krajobraz produkcyjny 2026
 
-| Model | Date | Max duration | Max res | Open weights? | Notable |
-|-------|------|--------------|---------|---------------|---------|
-| Sora (OpenAI) | 2024-02 | 60s | 1080p | No | First model to show world simulator properties at scale |
-| Sora Turbo | 2024-12 | 20s | 1080p | No | Production Sora at 5x faster inference |
-| Veo 2 (Google) | 2024-12 | 8s | 4K | No | Highest quality + physics in 2025 |
-| Veo 3 | 2025 Q3 | 15s | 4K | No | Native audio and stronger camera control |
-| Kling 1.5 / 2.1 (Kuaishou) | 2024-2025 | 10s | 1080p | No | Best human motion in 2025 Q1 |
-| Runway Gen-3 Alpha | 2024-06 | 10s | 768p | No | Professional video tools on top |
-| Pika 2.0 | 2024-10 | 5s | 1080p | No | Strongest character consistency |
-| CogVideoX (THUDM) | 2024 | 10s | 720p | Yes (2B, 5B) | First open 5B-scale video |
-| HunyuanVideo (Tencent) | 2024-12 | 5s | 720p | Yes (13B) | Open SOTA late 2024 |
-| Mochi-1 (Genmo) | 2024-10 | 5.4s | 480p | Yes (10B) | Most permissively licensed |
-| WAN 2.2 (Alibaba) | 2025-07 | 5s | 720p | Yes | Strongest open model mid-2025 |
+| Model | Data | Maks. czas | Maks. rozdz. | Otwarte wagi? | Uwagi |
+|-------|------|------------|--------------|---------------|-------|
+| Sora (OpenAI) | 2024-02 | 60s | 1080p | Nie | Pierwszy model pokazujący właściwości symulatora świata na skali |
+| Sora Turbo | 2024-12 | 20s | 1080p | Nie | Produkcja Sora przy 5x szybszej inferencji |
+| Veo 2 (Google) | 2024-12 | 8s | 4K | Nie | Najwyższa jakość + fizyka w 2025 |
+| Veo 3 | 2025 Q3 | 15s | 4K | Nie | Natywny audio i silniejsza kontrola kamery |
+| Kling 1.5 / 2.1 (Kuaishou) | 2024-2025 | 10s | 1080p | Nie | Najlepszy ruch ludzki w 2025 Q1 |
+| Runway Gen-3 Alpha | 2024-06 | 10s | 768p | Nie | Profesjonalne narzędzia wideo na wierzchu |
+| Pika 2.0 | 2024-10 | 5s | 1080p | Nie | Najsilniejsza spójność postaci |
+| CogVideoX (THUDM) | 2024 | 10s | 720p | Tak (2B, 5B) | Pierwszy otwarty wideo w skali 5B |
+| HunyuanVideo (Tencent) | 2024-12 | 5s | 720p | Tak (13B) | Otwarty SOTA późnego 2024 |
+| Mochi-1 (Genmo) | 2024-10 | 5.4s | 480p | Tak (10B) | Najbardziej permisywnie licencjonowany |
+| WAN 2.2 (Alibaba) | 2025-07 | 5s | 720p | Tak | Najsilniejszy otwarty model w połowie 2025 |
 
-Open weights are closing the gap faster than in the image space: HunyuanVideo + WAN 2.2 LoRAs already power most open-source workflows by mid-2026.
+Otwarte wagi zamykają przepaść szybciej niż w przestrzeni obrazów: HunyuanVideo + LoRA WAN 2.2 już napędzają większość otwartych workflowów w połowie 2026.
 
-## Build It
+## Zbuduj to
 
-`code/main.py` simulates the core spatiotemporal DiT idea: patchify a small synthetic video, add a per-patch position embedding, and denoise the whole sequence with a transformer-style attention over patches. No numpy; pure Python. We show that temporal coherence emerges even in 1-D when adjacent-frame patches share a denoiser and position embeddings.
+`code/main.py` symuluje podstawową koncepcję spatiotemporal DiT: patchify małego syntetycznego wideo, dodaj per-fragment position embedding i denoise całą sekwencję z transformer-style attention nad fragmentami. Bez numpy; czyste Python. Pokazujemy, że koherencja czasowa pojawia się nawet w 1-D, gdy sąsiednie fragmenty klatek dzielą denoiser i position embeddings.
 
-### Step 1: patchify a synthetic 1-D "video"
+### Krok 1: patchify syntetycznego 1-D "wideo"
 
 ```python
 def make_video(T_frames=8, rng=None):
@@ -73,82 +73,82 @@ def make_video(T_frames=8, rng=None):
     return [base + 0.3 * t + rng.gauss(0, 0.1) for t in range(T_frames)]
 ```
 
-### Step 2: position embedding per frame
+### Krok 2: position embedding per klatka
 
 ```python
 def pos_embed(t, dim):
     return sinusoidal(t, dim)
 ```
 
-### Step 3: denoiser sees the whole sequence
+### Krok 3: denoiser widzi całą sekwencję
 
-Instead of denoising each frame independently, our tiny net concatenates all frame values + their position embeddings and predicts the noise for all frames jointly.
+Zamiast denoisować każdą klatkę niezależnie, nasza mała sieć konkatenuje wszystkie wartości klatek + ich position embeddings i przewiduje szum dla wszystkich klatek wspólnie.
 
-### Step 4: temporal coherence test
+### Krok 4: test koherencji czasowej
 
-After training, sample a video. Measure the frame-to-frame delta. If the model has learned temporal structure, the deltas stay smaller than sampling each frame independently.
+Po treningu, próbkuj wideo. Zmierz delta między klatkami. Jeśli model nauczył się struktury czasowej, delty pozostają mniejsze niż przy próbkowaniu każdej klatki niezależnie.
 
-## Pitfalls
+## Pułapki
 
-- **Independent per-frame sampling = flicker.** If you run image diffusion on each frame separately, the output flickers because each frame's noise is independent. Video diffusion fixes this by coupling the frames through attention or shared noise.
-- **Naive 3D attention = OOM.** Full 3D attention on a 10-second 1080p latent is hundreds of billions of operations. Factorize into spatial + temporal.
-- **Data captioning matters more than size.** Sora's main upgrade over prior work was training on ~10x more detailed captions (GPT-4 re-labelled clips). OpenAI's technical report is explicit on this.
-- **First-frame conditioning.** Most production models also accept an image as the first frame. This is "image-to-video" mode; training includes this variant.
-- **Physics drift.** Long clips (>10s) accumulate subtle inconsistencies. Sliding-window generation + keyframe anchoring helps.
+- **Niezależne próbkowanie na klatkę = migotanie.** Jeśli uruchomisz dyfuzję obrazu na każdej klatce osobno, wyjście migocze, bo szum każdej klatki jest niezależny. Dyfuzja wideo to naprawia, sprzęgając klatki przez attention lub wspólny szum.
+- **Naiwna uwaga 3D = OOM.** Pełna uwaga 3D na 10-sekundowym latent 1080p to setki miliardów operacji. Rozkładaj na przestrzenny + czasowy.
+- **Podpisywanie danych ma większe znaczenie niż rozmiar.** Główna aktualizacja Sora w porównaniu do wcześniejszych prac było trening na ~10x bardziej szczegółowych podpisach (klipy przeetikietowane przez GPT-4). Techniczny raport OpenAI jest w tym względzie jednoznaczny.
+- **Warunkowanie pierwszej klatki.** Większość produkcyjnych modeli akceptuje również obraz jako pierwszą klatkę. To tryb "image-to-video"; trening zawiera tę wariant.
+- **Dryf fizyki.** Długie klipy (>10s) akumulują subtelne niespójności. Generacja sliding-window + keyframe anchoring pomaga.
 
-## Use It
+## Użyj tego
 
-| Use case | 2026 pick |
+| Przypadek użycia | Wybór 2026 |
 |----------|-----------|
-| Highest-quality text-to-video, hosted | Veo 3 or Sora |
-| Camera-controlled cinematic | Runway Gen-3 with motion brushes |
-| Character consistency across clips | Pika 2.0 or Kling 2.1 |
-| Open weights, fast fine-tune | WAN 2.2 + LoRA |
-| Image-to-video | WAN 2.2-I2V, Kling 2.1 I2V, or Runway |
-| Audio-to-video lip sync | Veo 3 (native audio) or a dedicated lip-sync model |
-| Video editing | Runway Act-Two, Kling Motion Brush, Flux-Kontext (still-frame) |
+| Najwyższa jakość text-to-video, hostowana | Veo 3 lub Sora |
+| Kinowa kontrola kamery | Runway Gen-3 z motion brushes |
+| Spójność postaci między klipami | Pika 2.0 lub Kling 2.1 |
+| Otwarte wagi, szybki fine-tune | WAN 2.2 + LoRA |
+| Image-to-video | WAN 2.2-I2V, Kling 2.1 I2V lub Runway |
+| Audio-to-video synchronizacja ust | Veo 3 (natywny audio) lub dedykowany model synchronizacji ust |
+| Edycja wideo | Runway Act-Two, Kling Motion Brush, Flux-Kontext (still-frame) |
 
-Cost per second of video at quality parity has dropped 20x between 2024 and 2026.
+Koszt na sekundę wideo przy jakości parytetowej spadł 20x między 2024 a 2026.
 
-## Ship It
+## Wyślij to
 
-Save `outputs/skill-video-brief.md`. Skill takes a video brief (duration, aspect ratio, style, camera plan, subject consistency, audio) and outputs: model + hosting, prompt scaffolding (camera language, subject description, motion descriptors), seed + reproducibility protocol, and a frame-level QA checklist.
+Zapisz `outputs/skill-video-brief.md`. Skill przyjmuje brief wideo (czas trwania, proporcje ekranu, styl, plan kamery, spójność tematu, audio) i zwraca: model + hosting, scaffolding promptów (język kamery, opis tematu, deskryptory ruchu), seed + protokół reprodukowalności i checklistę QA na poziomie klatek.
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** In `code/main.py`, compare frame-to-frame delta for (a) independent per-frame sampling, (b) joint sequence sampling. Report the mean and variance of the deltas.
-2. **Medium.** Add a first-frame condition: pin frame 0 to a given value and sample the rest. Measure how the pinned value propagates.
-3. **Hard.** Use HuggingFace diffusers to run CogVideoX-2B on a local GPU. Time 20 inference steps at 720p for a 6-second clip. Profile the spatiotemporal attention to identify the bottleneck.
+1. **Łatwe.** W `code/main.py`, porównaj deltę między klatkami dla (a) niezależnego próbkowania na klatkę, (b) wspólnego próbkowania sekwencji. Raportuj średnią i wariancję delt.
+2. **Średnie.** Dodaj warunek pierwszej klatki: przypnij klatkę 0 do danej wartości i próbkuj resztę. Zmierz, jak przypięta wartość się propaguje.
+3. **Trudne.** Użyj HuggingFace diffusers do uruchomienia CogVideoX-2B na lokalnym GPU. Zmierz czas 20 kroków inferencji w 720p dla 6-sekundowego klipu. Profiluj spatiotemporal attention, aby zidentyfikować wąskie gardło.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|-----------------|-----------------------|
-| Video VAE | "3-D VAE" | Encoder that compresses `(T, H, W, C)` → spatiotemporal latent. |
-| Patches | "The tokens" | Fixed-size 3-D blocks of the latent; input to the DiT. |
-| Factorized attention | "Spatial + temporal" | Run attention over space, then over time; skip full 3-D attention. |
-| Image-to-video (I2V) | "Animate this photo" | Model takes an image + text, outputs a video that starts from it. |
-| Keyframe conditioning | "Anchor frames" | Pin specific frames to control the video's arc. |
-| Motion brush | "Directional hint" | UI input where the user paints motion vectors onto the image. |
-| Re-captioning | "Dense captions" | Using an LLM to re-label training clips with detailed prompts. |
-| Flicker | "Temporal artifact" | Frame-to-frame inconsistency; fixed with coupled denoising. |
+| Video VAE | "3-D VAE" | Enkoder kompresujący `(T, H, W, C)` → spatiotemporal latent. |
+| Patches | "The tokens" | Fragmenty o stałym rozmiarze z latenta; wejście do DiT. |
+| Rozkładana uwaga | "Spatial + temporal" | Uruchom uwagę najpierw przestrzennie, potem czasowo; pomiń pełną uwagę 3D. |
+| Image-to-video (I2V) | "Animuj to zdjęcie" | Model przyjmuje obraz + tekst, zwraca wideo zaczynające się od niego. |
+| Keyframe conditioning | "Anchor frames" | Przypnij konkretne klatki, aby kontrolować łuk wideo. |
+| Motion brush | "Directional hint" | Wejście UI gdzie użytkownik malował wektory ruchu na obrazie. |
+| Re-captioning | "Dense captions" | Użycie LLM do przeetykietowania klipów treningowych szczegółowymi promptami. |
+| Migotanie | "Temporal artifact" | Niespójność między klatkami; naprawione przez sprzężony denoising. |
 
-## Production note: video latents are a memory-bandwidth problem
+## Uwaga produkcyjna: latenty wideo to problem przepustowości pamięci
 
-A 10-second 1080p clip at 24 fps is 240 frames × 1920 × 1080 × 3 ≈ 1.5 GB of raw pixels. After a 4× video VAE compression (`2 × spatial × 2 × temporal`) the latent is ~100 MB per request. Run this through a spatiotemporal DiT for 30 steps at batch 1 and you are moving ~3 GB/step through HBM — memory bandwidth, not FLOPs, is the bottleneck.
+10-sekundowy klip 1080p przy 24 fps to 240 klatek × 1920 × 1080 × 3 ≈ 1,5 GB surowych pikseli. Po kompresji 4× przez video VAE (`2 × przestrzenne × 2 × czasowe`) latent to około 100 MB na żądanie. Przepuść to przez spatiotemporal DiT przez 30 kroków przy batch 1 i przesyłasz około 3 GB/krok przez HBM — przepustowość pamięci, nie FLOPy, jest wąskim gardłem.
 
-Three production knobs, all straight from production-inference literature inference chapter:
+Trzy pokrętła produkcyjne, wszystkie prosto z rozdziału o inferencji w literaturze produkcyjnej:
 
-- **TP across the DiT.** Text-to-video models are routinely ≥10B params. TP=4 across 4 H100s is standard; PP=2 × TP=2 for 405B-class models. Latency per step drops roughly linearly with TP up to the all-reduce wall.
-- **Frame batching = continuous batching.** At generation time, video is conceptually a batch of frames linked by attention. Continuous batching (in-flight scheduling) applies: start rendering frame `t+1` while frame `t-1` is being returned, if the model architecture allows sliding-window generation.
-- **Clip-level prefill cache.** For image-to-video, the first-frame conditioning is analogous to an LLM's prompt prefill: compute it once, reuse across the temporal decoder passes. This is effectively a KV-cache for video.
+- **TP przez DiT.** Modele text-to-video są rutynowo ≥10B parametrów. TP=4 na 4 H100 to standard; PP=2 × TP=2 dla modeli klasy 405B. Latencja na krok spada w przybliżeniu liniowo z TP aż do all-reduce wall.
+- **Frame batching = continuous batching.** W czasie generacji, wideo jest koncepcyjnie batchem klatek połączonych przez uwagę. Continuous batching (in-flight scheduling) ma zastosowanie: zacznij renderować klatkę `t+1` podczas gdy klatka `t-1` jest zwracana, jeśli architektura modelu pozwala na sliding-window generation.
+- **Clip-level prefill cache.** Dla image-to-video, warunek pierwszej klatki jest analogiczny do prompt prefill LLM: oblicz raz, używaj ponownie przez przejścia temporalnego dekodera. To efektywnie KV-cache dla wideo.
 
-## Further Reading
+## Dalsza lektura
 
-- [Brooks et al. (2024). Video generation models as world simulators](https://openai.com/index/video-generation-models-as-world-simulators/) — Sora technical report.
+- [Brooks et al. (2024). Video generation models as world simulators](https://openai.com/index/video-generation-models-as-world-simulators/) — techniczny raport Sora.
 - [Yang et al. (2024). CogVideoX: Text-to-Video Diffusion Models with An Expert Transformer](https://arxiv.org/abs/2408.06072) — CogVideoX.
 - [Kong et al. (2024). HunyuanVideo: A Systematic Framework for Large Video Generative Models](https://arxiv.org/abs/2412.03603) — HunyuanVideo.
 - [Genmo (2024). Mochi-1 Technical Report](https://www.genmo.ai/blog/mochi) — Mochi-1.
-- [Alibaba (2025). WAN 2.2](https://wanvideo.io/) — open SOTA mid-2025.
-- [Ho, Salimans, Gritsenko et al. (2022). Video Diffusion Models](https://arxiv.org/abs/2204.03458) — the seminal video diffusion paper.
-- [Blattmann et al. (2023). Align your Latents (Video LDM)](https://arxiv.org/abs/2304.08818) — Stable Video Diffusion's ancestor.
+- [Alibaba (2025). WAN 2.2](https://wanvideo.io/) — otwarty SOTA w połowie 2025.
+- [Ho, Salimans, Gritsenko et al. (2022). Video Diffusion Models](https://arxiv.org/abs/2204.03458) — przełomowa praca o dyfuzji wideo.
+- [Blattmann et al. (2023). Align your Latents (Video LDM)](https://arxiv.org/abs/2304.08818) — przodek Stable Video Diffusion.

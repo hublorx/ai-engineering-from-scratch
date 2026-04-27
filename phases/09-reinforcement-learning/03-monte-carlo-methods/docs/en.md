@@ -1,52 +1,52 @@
-# Monte Carlo Methods — Learning from Complete Episodes
+# Metody Monte Carlo — Uczenie się z kompletnych epizodów
 
-> Dynamic programming needs a model. Monte Carlo needs nothing but episodes. Run the policy, watch the returns, average them. The simplest idea in RL — and the one that unlocks everything downstream.
+> Programowanie dynamiczne potrzebuje modelu. Monte Carlo potrzebuje tylko epizodów. Uruchom politykę, obserwuj zwroty, uśrednij je. Najprostsza idea w RL — i ta, która odblokowuje wszystko dalej.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 9 · 01 (MDPs), Phase 9 · 02 (Dynamic Programming)
-**Time:** ~75 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Faza 9 · 01 (MDP), Faza 9 · 02 (Programowanie dynamiczne)
+**Czas:** ~75 minut
 
-## The Problem
+## Problem
 
-Dynamic programming is elegant, but it assumes you can query `P(s' | s, a)` for every state and action. Almost nothing in the real world works that way. A robot cannot analytically compute the distribution over camera pixels after a joint torque. A pricing algorithm cannot integrate over every possible customer reaction. An LLM cannot enumerate all possible continuations after a token.
+Programowanie dynamiczne jest eleganckie, ale zakłada, że możesz odpytać `P(s' | s, a)` dla każdego stanu i akcji. Prawie nic w realnym świecie tak nie działa. Robot nie może analitycznie obliczyć rozkładu nad pikselami kamery po momencie obrotowym. Algorytm cenowy nie może całkować po każdej możliwej reakcji klienta. LLM nie może wyliczyć wszystkich możliwych kontynuacji po tokenie.
 
-You need a method that only needs the ability to *sample* from the environment. Run the policy. Get a trajectory `s_0, a_0, r_1, s_1, a_1, r_2, …, s_T`. Use it to estimate values. That is Monte Carlo.
+Potrzebujesz metody, która wymaga tylko możliwości *próbkowania* ze środowiska. Uruchom politykę. Otrzymaj trajektorię `s_0, a_0, r_1, s_1, a_1, r_2, …, s_T`. Użyj jej do oszacowania wartości. To jest Monte Carlo.
 
-The shift from DP to MC is philosophically important: we move from *known model + exact backup* to *sampled rollouts + averaged return*. The variance jumps, but the applicability explodes. Every RL algorithm after this lesson — TD, Q-learning, REINFORCE, PPO, GRPO — is a Monte Carlo estimator at heart, sometimes with bootstrapping layered on top.
+Przesunięcie z DP do MC jest filozoficznie ważne: przechodzimy od *znanego modelu + dokładnego backupa* do *próbnych uruchomień + uśrednionego zwrotu*. Wariancja gwałtownie rośnie, ale zastosowanie eksploduje. Każdy algorytm RL po tej lekcji — TD, Q-learning, REINFORCE, PPO, GRPO — jest w gruncie rzeczy estymatorem Monte Carlo, czasem z nałożoną warstwą bootstrapowania.
 
-## The Concept
+## Koncepcja
 
-![Monte Carlo: rollout, compute returns, average; first-visit vs every-visit](../assets/monte-carlo.svg)
+![Monte Carlo: rollout, oblicz zwroty, uśrednij; first-visit vs every-visit MC](../assets/monte-carlo.svg)
 
-**The core idea, in one line:** `V^π(s) = E_π[G_t | s_t = s] ≈ (1/N) Σ_i G^{(i)}(s)` where `G^{(i)}(s)` are observed returns following visits to `s` under policy `π`.
+**Główna idea w jednym zdaniu:** `V^π(s) = E_π[G_t | s_t = s] ≈ (1/N) Σ_i G^{(i)}(s)` gdzie `G^{(i)}(s)` to obserwowane zwroty po wizytach w `s` pod polityką `π`.
 
-**First-visit vs every-visit MC.** Given an episode that visits state `s` multiple times, first-visit MC only counts the return from the first visit; every-visit MC counts all visits. Both are unbiased in the limit. First-visit is simpler to analyze (iid samples). Every-visit uses more data per episode and typically converges faster in practice.
+**First-visit vs every-visit MC.** Mając epizod, który odwiedza stan `s` wielokrotnie, first-visit MC liczy tylko zwrot z pierwszej wizyty; every-visit MC liczy wszystkie wizyty. Oba są nieobciążone w granicy. First-visit jest prostszy w analizie (próbki iid). Every-visit wykorzystuje więcej danych na epizod i typowo szybciej zbiega w praktyce.
 
-**Incremental mean.** Instead of storing all returns, update the running average:
+**Przyrostowa średnia.** Zamiast przechowywać wszystkie zwroty, aktualizuj uruchomioną średnią:
 
 `V_n(s) = V_{n-1}(s) + (1/n) [G_n - V_{n-1}(s)]`
 
-Reorganize: `V_new = V_old + α · (target - V_old)` with `α = 1/n`. Swap `1/n` for a constant step-size `α ∈ (0, 1)` and you get a non-stationary MC estimator that tracks changes in `π`. That move is the entire jump from MC to TD to every modern RL algorithm.
+Przeorganizuj: `V_new = V_old + α · (target - V_old)` z `α = 1/n`. Zamień `1/n` na stały rozmiar kroku `α ∈ (0, 1)` i otrzymasz niestacjonarny estymator MC, który śledzi zmiany w `π`. Ten ruch to całe przejście od MC do TD do każdego nowoczesnego algorytmu RL.
 
-**Exploration is now a problem.** DP touched every state by enumeration. MC only sees states the policy visits. If `π` is deterministic, whole regions of the state space never get sampled, and their value estimates stay at zero forever. Three fixes, in historical order:
+**Eksploracja teraz jest problemem.** DP dotykało każdego stanu przez enumerację. MC widzi tylko stany, które odwiedza polityka. Jeśli `π` jest deterministyczna, całe regiony przestrzeni stanów nigdy nie są próbkowane, a ich oszacowania wartości pozostają na zero na zawsze. Trzy poprawki, w kolejności historycznej:
 
-1. **Exploring starts.** Start each episode from a random (s, a) pair. Guarantees coverage; unrealistic in practice (you cannot "reset" a robot into an arbitrary state).
-2. **ε-greedy.** Act greedy w.r.t. current Q, but with probability `ε` pick a random action. All state-action pairs get sampled asymptotically.
-3. **Off-policy MC.** Collect data under a behavior policy `μ`, learn about target policy `π` via importance sampling. High variance, but it's the bridge to replay-buffer methods like DQN.
+1. **Exploring starts.** Rozpocznij każdy epizod od losowej pary (s, a). Gwarantuje pokrycie; nierealistyczne w praktyce (nie możesz "zresetować" robota w dowolny stan).
+2. **ε-greedy.** Działaj zachłannie względem aktualnego Q, ale z prawdopodobieństwem `ε` wybierz losową akcję. Wszystkie pary stan-akcja są próbkowane asymptotycznie.
+3. **Off-policy MC.** Zbieraj dane pod polityką behawioralną `μ`, ucz się o docelowej polityce `π` przez importance sampling. Wysoka wariancja, ale to most do metod z buforem powtórek jak DQN.
 
-**Monte Carlo Control.** Evaluate → improve → evaluate, just like policy iteration, but evaluation is sampling-based:
+**Monte Carlo Control.** Ewaluuj → ulepszaj → ewaluuj, jak w iteracji polityki, ale ewaluacja jest próbkowana:
 
-1. Run `π`, get an episode.
-2. Update `Q(s, a)` from observed returns.
-3. Make `π` ε-greedy w.r.t. `Q`.
-4. Repeat.
+1. Uruchom `π`, otrzymaj epizod.
+2. Zaktualizuj `Q(s, a)` z obserwowanych zwrotów.
+3. Zrób `π` ε-greedy względem `Q`.
+4. Powtórz.
 
-Converges to `Q*` and `π*` with probability 1 under mild conditions (every pair visited infinitely often, `α` satisfies Robbins-Monro).
+Zbiega do `Q*` i `π*` z prawdopodobieństwem 1 przy łagodnych warunkach (każda para odwiedzana nieskończenie często, `α` spełnia Robbins-Monro).
 
-## Build It
+## Zbuduj to
 
-### Step 1: rollout → list of (s, a, r)
+### Krok 1: rollout → lista (s, a, r)
 
 ```python
 def rollout(env, policy, max_steps=200):
@@ -62,9 +62,9 @@ def rollout(env, policy, max_steps=200):
     return trajectory
 ```
 
-No model, only `env.reset()` and `env.step(s, a)`. Same interface as a gym environment but stripped down.
+Bez modelu, tylko `env.reset()` i `env.step(s, a)`. Ten sam interfejs co środowisko gym, ale okrojony.
 
-### Step 2: compute returns (reverse sweep)
+### Krok 2: oblicz zwroty (wsteczne przejście)
 
 ```python
 def returns_from(trajectory, gamma):
@@ -76,9 +76,9 @@ def returns_from(trajectory, gamma):
     return list(reversed(returns))
 ```
 
-One pass, `O(T)`. The backward recurrence `G_t = r_{t+1} + γ G_{t+1}` avoids re-summing.
+Jeden przebieg, `O(T)`. Wsteczna rekurencja `G_t = r_{t+1} + γ G_{t+1}` unika ponownego sumowania.
 
-### Step 3: first-visit MC evaluation
+### Krok 3: first-visit MC evaluation
 
 ```python
 def mc_policy_evaluation(env, policy, episodes, gamma=0.99):
@@ -97,9 +97,9 @@ def mc_policy_evaluation(env, policy, episodes, gamma=0.99):
     return V
 ```
 
-Three lines do the work: mark state as seen on first visit, increment count, update running mean.
+Trzy linie robią robotę: oznacz stan jako odwiedzony przy pierwszej wizycie, inkrementuj licznik, aktualizuj uruchomioną średnią.
 
-### Step 4: ε-greedy MC control (on-policy)
+### Krok 4: ε-greedy MC control (on-policy)
 
 ```python
 def mc_control(env, episodes, gamma=0.99, epsilon=0.1):
@@ -124,41 +124,41 @@ def mc_control(env, episodes, gamma=0.99, epsilon=0.1):
     return Q, policy
 ```
 
-### Step 5: compare to DP gold standard
+### Krok 5: porównaj do DP gold standard
 
-Your MC estimate of `V^π` should agree with the DP result from Lesson 02 as episodes → ∞. In practice: 50,000 episodes on 4×4 GridWorld gets you within `~0.1` of the DP answer.
+Twoje oszacowanie MC `V^π` powinno zgadzać się z wynikiem DP z Lekcji 02, gdy epizody → ∞. W praktyce: 50 000 epizodów na GridWorld 4×4 daje ci dokładność w granicach `~0.1` od odpowiedzi DP.
 
-## Pitfalls
+## Pułapki
 
-- **Infinite episodes.** MC requires episodes to *terminate*. If your policy can loop forever, cap `max_steps` and treat the cap as implicit failure. GridWorld with a random policy routinely times out — that is normal, just make sure you count it correctly.
-- **Variance.** MC uses full returns. On long episodes, variance is huge — one unlucky reward at the end shifts `V(s_0)` by the same amount. TD methods (Lesson 04) cut this by bootstrapping.
-- **State coverage.** Greedy MC on a fresh Q with ties will only ever try one action. You *must* explore (ε-greedy, exploring starts, UCB).
-- **Non-stationary policies.** If `π` changes (as in MC control), old returns are from a different policy. Constant-α MC handles this; sample-average MC does not.
-- **Off-policy importance sampling.** The weights `π(a|s)/μ(a|s)` multiply across a trajectory. Variance explodes with horizon. Cap with per-decision weighted IS or switch to TD.
+- **Nieskończone epizody.** MC wymaga, żeby epizody *kończyły się*. Jeśli twoja polityka może zapętlać się na zawsze, ustaw limit `max_steps` i traktuj ten limit jako domyślne niepowodzenie. GridWorld z losową polityką rutynowo przekracza limit — to normalne, po prostu upewnij się, że liczysz to poprawnie.
+- **Wariancja.** MC używa pełnych zwrotów. Przy długich epizodach wariancja jest ogromna — jedno nieszczęśliwe nagroda na końcu przesuwa `V(s_0)` o tę samą wartość. Metody TD (Lekcja 04) to obcinają przez bootstrapowanie.
+- **Pokrycie stanów.** Chciwy MC na świeżym Q z remisy będzie próbował tylko jednej akcji. Musisz eksplorować (ε-greedy, exploring starts, UCB).
+- **Niestacjonarne polityki.** Jeśli `π` się zmienia (jak w MC control), stare zwroty pochodzą z innej polityki. MC ze stałym-α to obsługuje; MC z próbkową średnią nie.
+- **Off-policy importance sampling.** Wagi `π(a|s)/μ(a|s)` mnożą się przez trajektorię. Wariancja eksploduje z horyzontem. Ogranicz przez per-decision weighted IS lub przełącz na TD.
 
-## Use It
+## Użyj tego
 
-The 2026 role of Monte Carlo methods:
+Rola metod Monte Carlo w 2026:
 
-| Use case | Why MC |
-|----------|--------|
-| Short-horizon games (blackjack, poker) | Episodes terminate naturally; returns are clean. |
-| Offline evaluation of a logged policy | Average discounted returns over stored trajectories. |
-| Monte Carlo Tree Search (AlphaZero) | MC rollouts from tree leaves guide selection. |
-| LLM RL evaluation | Compute average reward over sampled completions for a given policy. |
-| Baseline estimation in PPO | The advantage target `A_t = G_t - V(s_t)` uses an MC `G_t`. |
-| Teaching RL | Simplest algorithm that actually works — strip bootstrapping to see the core. |
+| Przypadek użycia | Dlaczego MC |
+|------------------|-------------|
+| Gry o krótkim horyzoncie (blackjack, poker) | Epizody naturalnie się kończą; zwroty są czyste. |
+| Offline evaluation polityki z logów | Średnie zdyskontowanych zwrotów po zapisanych trajektoriach. |
+| Monte Carlo Tree Search (AlphaZero) | MC rollouts z liści drzewa kierują selekcją. |
+| Ewaluacja RL LLM | Oblicz średnią nagrodę po próbkowanych kontynuacjach dla danej polityki. |
+| Estymacja baseline w PPO | Cel przewagi `A_t = G_t - V(s_t)` używa MC `G_t`. |
+| Nauczanie RL | Najprostszy algorytm, który faktycznie działa — odarcie z bootstrapowania pokazuje sedno. |
 
-Modern deep-RL algorithms (PPO, SAC) interpolate between pure MC (full returns) and pure TD (one-step bootstrap) via `n`-step returns or GAE. Both endpoints are instances of the same estimator.
+Nowoczesne algorytmy deep-RL (PPO, SAC) interpolują między czystym MC (pełne zwroty) a czystym TD (jednokrokowy bootstrap) przez *n*-step returns lub GAE. Oba końce są instancjami tego samego estymatora.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-mc-evaluator.md`:
+Zapisz jako `outputs/skill-mc-evaluator.md`:
 
 ```markdown
 ---
 name: mc-evaluator
-description: Evaluate a policy via Monte Carlo rollouts and produce a convergence report with DP-comparison if available.
+description: Ewaluuj politykę przez Monte Carlo rollouts i produkuj raport zbieżności z porównaniem do DP jeśli dostępne.
 version: 1.0.0
 phase: 9
 lesson: 3
@@ -176,29 +176,29 @@ Given an environment (episodic, with reset+step API) and a policy, output:
 Refuse to run MC on non-episodic tasks without a finite horizon cap. Refuse to report V^π estimates from fewer than 100 episodes per state for tabular tasks. Flag any policy with zero-variance actions as an exploration risk.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Implement first-visit MC evaluation of the uniform-random policy on 4×4 GridWorld. Run 10,000 episodes. Plot `V(0,0)` as a function of episode count against the DP answer.
-2. **Medium.** Implement ε-greedy MC control with `ε ∈ {0.01, 0.1, 0.3}`. Compare mean return after 20,000 episodes. What does the curve look like? Where does the bias-variance tradeoff live?
-3. **Hard.** Implement *off-policy* MC with importance sampling: collect data under uniform-random policy `μ`, estimate `V^π` for the deterministic optimal policy `π`. Compare plain IS vs per-decision IS vs weighted IS. Which has lowest variance?
+1. **Łatwe.** Zaimplementuj first-visit MC evaluation dla polityki uniform-random na GridWorld 4×4. Uruchom 10 000 epizodów. Wykreśl `V(0,0)` jako funkcję liczby epizodów wobec odpowiedzi DP.
+2. **Średnie.** Zaimplementuj ε-greedy MC control z `ε ∈ {0.01, 0.1, 0.3}`. Porównaj średni zwrot po 20 000 epizodów. Jak wygląda krzywa? Gdzie żyje kompromis bias-wariancja?
+3. **Trudne.** Zaimplementuj *off-policy* MC z importance sampling: zbieraj dane pod polityką uniform-random `μ`, oszacuj `V^π` dla deterministycznej optymalnej polityki `π`. Porównaj plain IS vs per-decision IS vs weighted IS. Który ma najniższą wariancję?
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| Monte Carlo | "Random sampling" | Estimate expectations by averaging over iid samples from the distribution. |
-| Return `G_t` | "Future reward" | Sum of discounted rewards from step `t` to episode end: `Σ_{k≥0} γ^k r_{t+k+1}`. |
-| First-visit MC | "Count each state once" | Only the first visit in an episode contributes to the value estimate. |
-| Every-visit MC | "Use all visits" | Every visit contributes; slightly biased but more sample-efficient. |
-| ε-greedy | "Exploration noise" | Pick greedy action with prob `1-ε`; random action with prob `ε`. |
-| Importance sampling | "Correcting for sampling from the wrong distribution" | Reweight returns by `π(a|s)/μ(a|s)` products to estimate `V^π` from `μ` data. |
-| On-policy | "Learn from my own data" | Target policy = behavior policy. Vanilla MC, PPO, SARSA. |
-| Off-policy | "Learn from someone else's data" | Target policy ≠ behavior policy. Importance-sampled MC, Q-learning, DQN. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|--------------------------|
+| Monte Carlo | "Losowe próbkowanie" | Oszacowuj oczekiwania przez uśrednianie po iid próbkach z rozkładu. |
+| Return `G_t` | "Przyszła nagroda" | Suma zdyskontowanych nagród od kroku `t` do końca epizodu: `Σ_{k≥0} γ^k r_{t+k+1}`. |
+| First-visit MC | "Licz każdy stan raz" | Tylko pierwsza wizyta w epizodzie przyczynia się do oszacowania wartości. |
+| Every-visit MC | "Użyj wszystkich wizyt" | Każda wizyta przyczynia się; lekko obciążony ale bardziej próbkowo efektywny. |
+| ε-greedy | "Szum eksploracji" | Wybierz zachłanną akcję z prawdopodobieństwem `1-ε`; losową akcję z prawdopodobieństwem `ε`. |
+| Importance sampling | "Korygowanie próbkowania z niewłaściwego rozkładu" | Zważ zwroty przez `π(a|s)/μ(a|s)` iloczyny, żeby oszacować `V^π` z danych `μ`. |
+| On-policy | "Ucz się z moich własnych danych" | Polityka docelowa = polityka behawioralna. Vanilla MC, PPO, SARSA. |
+| Off-policy | "Ucz się z czyichś innych danych" | Polityka docelowa ≠ polityka behawioralna. Importance-sampled MC, Q-learning, DQN. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Sutton & Barto (2018). Ch. 5 — Monte Carlo Methods](http://incompleteideas.net/book/RLbook2020.pdf) — the canonical treatment.
-- [Singh & Sutton (1996). Reinforcement Learning with Replacing Eligibility Traces](https://link.springer.com/article/10.1007/BF00114726) — first-visit vs every-visit analysis.
-- [Precup, Sutton, Singh (2000). Eligibility Traces for Off-Policy Policy Evaluation](http://incompleteideas.net/papers/PSS-00.pdf) — off-policy MC and variance control.
-- [Mahmood et al. (2014). Weighted Importance Sampling for Off-Policy Learning](https://arxiv.org/abs/1404.6362) — modern low-variance IS estimators.
-- [Tesauro (1995). TD-Gammon, A Self-Teaching Backgammon Program](https://dl.acm.org/doi/10.1145/203330.203343) — the first large-scale empirical demonstration of MC/TD self-play converging to superhuman play; conceptual precursor to every lesson in the second half of this phase.
+- [Sutton & Barto (2018). Ch. 5 — Monte Carlo Methods](http://incompleteideas.net/book/RLbook2020.pdf) — kanoniczne opracowanie.
+- [Singh & Sutton (1996). Reinforcement Learning with Replacing Eligibility Traces](https://link.springer.com/article/10.1007/BF00114726) — analiza first-visit vs every-visit.
+- [Precup, Sutton, Singh (2000). Eligibility Traces for Off-Policy Policy Evaluation](http://incompleteideas.net/papers/PSS-00.pdf) — off-policy MC i kontrola wariancji.
+- [Mahmood et al. (2014). Weighted Importance Sampling for Off-Policy Learning](https://arxiv.org/abs/1404.6362) — nowoczesne estymatory IS o niskiej wariancji.
+- [Tesauro (1995). TD-Gammon, A Self-Teaching Backgammon Program](https://dl.acm.org/doi/10.1145/203330.203343) — pierwsza na dużą skalę empiryczna demonstracja MC/TD self-play zbiegającego do nadludzkiej gry; konceptualny prekursor każdej lekcji w drugiej połowie tej fazy.

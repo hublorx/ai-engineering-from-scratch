@@ -1,62 +1,62 @@
-# Visual Autoregressive Modeling (VAR): Next-Scale Prediction
+﻿# Modelowanie Wizualne Autoregresyjne (VAR): Predykcja Następnej Skali
 
-> Diffusion models sample iteratively in time (denoising steps). VAR samples iteratively in scale — it predicts a 1x1 token, then 2x2, then 4x4, up to the final resolution, each scale conditioning on the previous. The 2024 paper showed VAR matches GPT-style scaling laws for image generation and beats DiT at the same compute budget. This lesson builds the core mechanism.
+> Modele dyfuzyjne próbkują iteracyjnie w czasie (kroki odszumiania). VAR próbkuje iteracyjnie w skali — przewiduje token 1x1, następnie 2x2, następnie 4x4, aż do finalnej rozdzielczości, każda skala warunkowana przez poprzednią. Artykuł z 2024 roku wykazał, że VAR dorównuje prawom skalującym w stylu GPT dla generowania obrazów i bije DiT przy tym samym budżecie obliczeniowym. Ta lekcja buduje podstawowy mechanizm.
 
-**Type:** Build
-**Languages:** Python (with PyTorch)
-**Prerequisites:** Phase 7 Lesson 03 (Multi-Head Attention), Phase 8 Lesson 06 (DDPM)
-**Time:** ~90 minutes
+**Typ:** Zbuduj
+**Języki:** Python (z PyTorch)
+**Wymagania wstępne:** Lekcja 03 fazy 7 (Multi-Head Attention), Lekcja 06 fazy 8 (DDPM)
+**Czas:** ~90 minut
 
-## The Problem
+## Problem
 
-Autoregressive generation dominated language modeling because it scales predictably: more compute, more parameters, lower perplexity, better outputs. Image generation had two main AR attempts before 2024: PixelRNN/PixelCNN (pixel-by-pixel) and DALL-E 1 / Parti / MuseGAN (token-by-token on VQ-VAE codes).
+Generacja autoregresyjna zdominowała modelowanie języka, ponieważ skaluje się przewidywalnie: więcej obliczeń, więcej parametrów, niższa perplexity, lepsze wyniki. Generacja obrazów miała dwa główne podejścia AR przed 2024: PixelRNN/PixelCNN (piksel po pikselu) i DALL-E 1 / Parti / MuseGAN (token po tokenie na kodach VQ-VAE).
 
-Both suffered from a generation-order problem. Pixels and tokens are arranged in a 2D grid, but the AR model has to visit them in a 1D raster order. An early corner pixel has no idea what the image eventually becomes. Generation quality scaled worse than GPT-on-text and never reached diffusion-model quality at matched compute.
+Oba cierpiały z powodu problemu kolejności generacji. Piksle i tokeny są ułożone w siatkę 2D, ale model AR musi je odwiedzać w kolejności rastrowej 1D, bo wczesny piksel w rogu nie ma pojęcia, czym obraz ostatecznie się stanie. Jakość generacji skalowała się gorzej niż GPT na tekście i nigdy nie osiągnęła jakości modeli dyfuzyjnych przy dopasowanym zestawie obliczeń.
 
-VAR fixes the generation-order problem by changing what is being generated. Instead of predicting image tokens one by one in space, VAR predicts a whole image at increasing resolutions. Step 1: predict a 1x1 token (the overall image "summary"). Step 2: predict a 2x2 grid of tokens (coarser features). Step 3: predict a 4x4 grid. Step K: predict the final (H/8)x(W/8) grid.
+VAR naprawia problem kolejności generacji, zmieniając to, co jest generowane. Zamiast przewidywać tokeny obrazowe jeden po drugim w przestrzeni, VAR przewiduje cały obraz w rosnących rozdzielczościach. Krok 1: przewiduj token 1x1 (podsumowanie całego obrazu). Krok 2: przewiduj siatkę tokenów 2x2 (grubsze cechy). Krok 3: przewiduj siatkę 4x4. Krok K: przewiduj finalną siatkę (H/p)x(W/p).
 
-Each scale attends to all previous scales (causally in "scale order") and parallel within its own scale. The order problem disappears: the whole image at scale k is produced in one transformer pass.
+Każda skala uczestniczy we wszystkich poprzednich skalach (przyczynowo w "kolejności skalowej") i równolegle w ramach własnej skali. Problem kolejności znika: cały obraz w skali k jest produkowany w jednym przejściu transformatora.
 
-## The Concept
+## Koncepcja
 
-### VQ-VAE Multi-Scale Tokenizer
+### Wieloskalowy tokenizer VQ-VAE
 
-VAR needs a **multi-scale discrete tokenizer**. For an image x, it produces a sequence of progressively higher-resolution token grids:
+VAR potrzebuje **wieloskalowego tokenizera dyskretnego**. Dla obrazu x produkuje on sekwencję progresywnie wyższych rozdzielczości siatek tokenów:
 
 ```
 x -> encoder -> latent f
-f -> tokenize at 1x1: token grid z_1 of shape (1, 1)
-f -> tokenize at 2x2: token grid z_2 of shape (2, 2)
+f -> tokenizacja przy 1x1: siatka tokenów z_1 of shape (1, 1)
+f -> tokenizacja przy 2x2: siatka tokenów z_2 of shape (2, 2)
 ...
-f -> tokenize at (H/p)x(W/p): token grid z_K of shape (H/p, W/p)
+f -> tokenizacja przy (H/p)x(W/p): siatka tokenów z_K of shape (H/p, W/p)
 ```
 
-Each z_k uses the same codebook (typical size 4096-16384). The tokenization at each scale is not independent — it is trained so that summing the residuals at each scale reconstructs f:
+Każde z_k używa tego samego słownika kodów (typowy rozmiar 4096-16384). Tokenizacja na każdej skali nie jest niezależna — jest trenowana tak, że sumowanie residuów na każdej skali rekonstruuje f:
 
 ```
 f ≈ upsample(embed(z_1), target_size) + ... + upsample(embed(z_K), target_size)
 ```
 
-This is a **residual VQ** variant. Scale k captures what scales 1..k-1 missed. Decoder takes the sum of all scale embeddings and produces the image.
+To jest wariant **residualnego VQ**. Skala k przechwytuje to, co skale 1..k-1 przegapiły. Dekoder bierze sumę wszystkich osadzeń skalowych i produkuje obraz.
 
-The multi-scale VQ tokenizer is trained once (like VQGAN) and then frozen. All the generative work is done by the autoregressive model on top.
+Wieloskalowy tokenizer VQ jest trenowany raz (jak VQGAN) i potem zamrożony. Cała praca generatywna jest wykonywana przez model autoregresyjny na wierzchu.
 
-### Next-Scale Prediction
+### Predykcja następnej skali
 
-The generative model is a transformer that sees tokens from all previous scales and predicts the tokens at the next scale.
+Model generatywny to transformator, który widzi tokeny ze wszystkich poprzednich skal i przewiduje tokeny na następnej skali.
 
-Input sequence structure:
+Struktura sekwencji wejściowej:
 ```
 [START, z_1 tokens, z_2 tokens, z_3 tokens, ..., z_K tokens]
 ```
 
-Position embeddings encode both scale index and spatial position within the scale. Attention is causal in scale order: token at scale k, position (i, j) can attend to all tokens at scales 1..k and to tokens at scale k itself that come earlier in whatever intra-scale order is used (VAR uses fixed positional attention with no intra-scale causality — all positions within a scale are predicted in parallel).
+Osadzenia pozycyjne kodują zarówno indeks skali, jak i pozycję przestrzenną w skali. Uwaga jest przyczynowa w kolejności skalowej: token na skali k, pozycja (i, j) może uczestniczyć we wszystkich tokenach na skalach 1..k i w tokenach na skali k samej, które przychodzą wcześniej w dowolnej wewnątrzskalowej kolejności (VAR używa stałej uwagi pozycyjnej bez wewnątrzskalowej przyczynowości — wszystkie pozycje w skali są przewidywane równolegle).
 
-Training loss: at each scale k, predict the tokens z_k given all prior-scale tokens. Cross-entropy loss on the discrete VQ codes. Same structure as GPT except the "sequence" is now scale-structured.
+Funkcja straty treningowej: na każdej skali k, przewiduj tokeny z_k przy danych wszystkich poprzednich tokenów skalowych. Funkcja straty entropii krzyżowej na dyskretnych kodach VQ. Ta sama struktura jak GPT, z wyjątkiem że "sekwencja" jest teraz uporządkowana w skali.
 
-### Generation
+### Generacja
 
-At inference:
+Podczas wnioskowania:
 ```
 generate z_1 = sample from p(z_1)                    # 1 token
 generate z_2 = sample from p(z_2 | z_1)              # 4 tokens in parallel
@@ -66,73 +66,73 @@ decode: f = sum of embed-and-upsample scales 1..K
 image = VAE_decoder(f)
 ```
 
-For K = 10 scales, generation is 10 transformer forward passes. Each pass produces its entire scale in parallel — no per-token autoregression within a scale. For a 256x256 image this is roughly 10 passes vs DiT's 28-50.
+Dla K = 10 skal, generacja to 10 przejść transformatora. Każde przejście produkuje całą swoją skalę równolegle — brak autoregresji per-token w skali. Dla obrazu 256x256 to mniej więcej 10 przejść vs 28-50 DiT.
 
-### Why Next-Scale Wins Over Next-Token
+### Dlaczego następna skala wygrywa z następnym tokenem
 
-Three structural wins:
-1. **Coarse-to-fine aligns with natural image statistics.** Human visual perception and image datasets both exhibit scale-dependent regularities: low-frequency structure is stable and predictable; high-frequency detail is conditional on low-frequency content. Next-scale prediction exploits this.
-2. **Parallel generation within scale.** Unlike GPT-style token AR, VAR produces all tokens at a scale in one step. Effective generation length is log-scale instead of linear.
-3. **No generation order bias.** Tokens at scale k see all of scale k-1; there is no "left-of" or "above" bias that forces early tokens to commit before late context is available.
+Trzy strukturalne zwycięstwa:
+1. **Grubsze do drobniejszego alignuje się ze statystykami naturalnych obrazów.** Ludzka percepcja wizualna i zestawy danych obrazów wykazują regularności zależne od skali: niskoczęstotliwościowa struktura jest stabilna i przewidywalna; wysokoczęstotliwościowy szczegół jest warunkowany przez zawartość niskich częstotliwości. Predykcja następnej skali to wykorzystuje.
+2. **Równoległa generacja w skali.** W przeciwieństwie do tokenowej AR w stylu GPT, VAR produkuje wszystkie tokeny w skali w jednym kroku. Efektywna długość generacji jest logarytmiczna zamiast liniowa.
+3. **Brak obciążenia kolejnością generacji.** Tokeny na skali k widzą całą skalę k-1; nie ma obciążenia "na lewo od" lub "nad" które zmusza wczesne tokeny do podejmowania decyzji przed dostępności późniejszego kontekstu.
 
-### Scaling Law
+### Prawo skalujące
 
-Tian et al. demonstrated that VAR follows a power-law scaling curve for FID on ImageNet — just like GPT does for perplexity. Doubling parameters or compute reliably halves error. This was the first image-generative model to exhibit this kind of scaling behavior as cleanly as language models. The result is that VAR-scale predictions become predictable from compute, not empirical guesses per architecture.
+Tian i in. wykazali, że VAR podąża za krzywą prawa potęgowego dla FID na ImageNet — dokładnie jak GPT robi dla perplexity. Podwajanie parametrów lub obliczeń wiarygodnie zmniejsza błąd o połowę. To był pierwszy generatywny model obrazowy, który wykazuje tego typu zachowanie skalowania tak czysto jak modele językowe. Wynik jest taki, że predykcje VAR-scale stają się przewidywalne z obliczeń, nie empiryczne zgadywania per architektura.
 
-### Relationship to Diffusion
+### Związek z dyfuzją
 
-VAR and diffusion share the same data-compression story: both break the generation problem into a sequence of easier subproblems.
+VAR i dyfuzja dzielą tę samą historię kompresji danych: oba rozbijają problem generacji na sekwencję łatwiejszych podproblemów.
 
-- Diffusion: gradually add noise, learn to undo one step.
-- VAR: gradually add resolution, learn to predict the next scale.
+- Dyfuzja: stopniowo dodaje szum, uczy się cofać jeden krok.
+- VAR: stopniowo dodaje rozdzielczość, uczy się przewidywać następną skalę.
 
-They are different axes through the problem. Both yield tractable conditional distributions. Empirically VAR is faster at inference (fewer passes, all parallel within a scale) and matches or beats DiT on class-conditional ImageNet. Text-conditional VAR (VARclip, HART) is an active research direction.
+To są różne osie przez problem. Obie dają tractable rozkłady warunkowe. Empirycznie VAR jest szybszy przy wnioskowaniu (mniej przejść, wszystko równoległe w skali) i dorównuje lub przebija DiT na klasowo-kondycjonalnym ImageNet. Text-kondycjonalny VAR (VARclip, HART) to aktywny kierunek badań.
 
-## Build It
+## Zbuduj to
 
-In `code/main.py` you will:
-1. Build a tiny **multi-scale VQ tokenizer** on synthetic "image" data (2D Gaussian rings).
-2. Train a **VAR-style transformer** to next-scale-predict the tokens.
-3. Sample by calling the transformer 4 times (4 scales) and decoding.
-4. Verify that scale-ordered training makes generation parallel within a scale.
+W `code/main.py`:
+1. Zbuduj miniaturowy **wieloskalowy tokenizer VQ** na syntetycznych danych "obrazowych" (2D pierścienie Gaussowskie).
+2. Trenuj **transformator w stylu VAR** do predykcji następnej skali tokenów.
+3. Próbkuj wywołując transformator 4 razy (4 skale) i dekodując.
+4. Zweryfikuj, że trening uporządkowany w skali sprawia, że generacja jest równoległa w skali.
 
-This is a toy implementation. The point is to see the scale-structured attention mask and the parallel-within-scale generation actually working.
+To jest implementacja pomocnicza. Chodzi o to, żeby zobaczyć maskę uwagi uporządkowaną w skali i równoległą generację w skali faktycznie działającą.
 
-## Ship It
+## Wyślij to
 
-This lesson produces `outputs/skill-var-tokenizer-designer.md` — a skill for designing a multi-scale tokenizer: number of scales, scale ratios, codebook size, residual sharing, decoder architecture.
+Ta lekcja produkuje `outputs/skill-var-tokenizer-designer.md` — umiejętność projektowania wieloskalowego tokenizera: liczba skal, proporcje skal, rozmiar słownika kodów, współdzielenie residuów, architektura dekodera.
 
-## Exercises
+## Ćwiczenia
 
-1. **Scale count ablation.** Train VAR with 4, 6, 8, 10 scales. Measure reconstruction quality vs number of autoregressive passes. More scales = finer residuals = better quality but more passes.
+1. **Ablacja liczby skal.** Trenuj VAR z 4, 6, 8, 10 skalami. Mierz jakość rekonstrukcji vs liczbę autoregresyjnych przejść. Więcej skal = drobniejsze residua = lepsza jakość, ale więcej przejść.
 
-2. **Codebook size.** Train tokenizers with codebook sizes 512, 4096, 16384. Larger codebooks give better reconstruction but harder prediction. Find the knee.
+2. **Rozmiar słownika kodów.** Trenuj tokenizery z rozmiarami słownika kodów 512, 4096, 16384. Większe słowniki kodów dają lepszą rekonstrukcję, ale trudniejsze przewidywanie. Znajdź kolano.
 
-3. **Parallel-within-scale check.** For a trained VAR, measure the attention pattern explicitly. Within scale k, does the model attend to cross-scale positions but not intra-scale? Verify the mask implementation.
+3. **Sprawdzenie równoległości w skali.** Dla trenowanego VAR, zmierz wzorzec uwagi jawnie. W skali k, czy model uczestniczy w pozycjach międzyskalowych, ale nie wewnątrzskalowych? Zweryfikuj implementację maski.
 
-4. **VAR vs DiT scaling.** For the same ImageNet class-conditional task, train VAR and DiT at matched param budgets (e.g., 33M, 130M, 458M). Plot FID vs compute. VAR should pull ahead of DiT at each size — reproduce the paper's result at small scale.
+4. **VAR vs DiT skalowanie.** Dla tego samego zadania klasowo-kondycjonalnego ImageNet, trenuj VAR i DiT przy dopasowanych budżetach parametrów (np. 33M, 130M, 458M). Wykreśl FID vs obliczenia. VAR powinien wyprzedzać DiT przy każdym rozmiarze — odtwórz wynik artykułu w małej skali.
 
-5. **Text conditioning.** Extend VAR to take a text embedding (CLIP pooled) as an extra conditioning input via adaLN. This is the HART recipe. How much does FID improve on text-aligned sampling?
+5. **Kondycjonowanie tekstowe.** Rozszerz VAR o osadzenie tekstowe (CLIP pooled) jako dodatkowe wejście kondycjonalne przez adaLN. To jest przepis HART. O ile poprawia się FID na próbkowaniu wyrównanym z tekstem?
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| VAR | "Visual AutoRegressive" | Image generation by next-scale prediction over a pyramid of VQ token grids |
-| Next-scale prediction | "Predict coarser, then finer" | The model predicts tokens at increasing resolution scales, conditioning on all previous scales |
-| Multi-scale VQ tokenizer | "Residual VQ" | VQ-VAE that produces K token grids of increasing resolution, with decoder summing all scales |
-| Scale k | "Pyramid level k" | One of K resolution levels, from 1x1 at k=1 up to (H/p)x(W/p) at k=K |
-| Parallel-within-scale | "One forward per scale" | All tokens at scale k are predicted in one transformer pass, not autoregressively |
-| Causal-across-scales | "Scale-ordered attention" | Token at scale k can attend to all of scales 1..k but not scales k+1..K |
-| Residual VQ | "Additive tokenization" | Each scale's tokens encode the residual left by lower scales; decoder sums all scale embeddings |
-| VAR scaling law | "Image GPT scaling" | FID follows a predictable power law in compute, like language models' perplexity |
-| HART | "Hybrid VAR + text" | Text-conditional VAR variant combining MaskGIT-style iterative decoding with VAR's scale structure |
-| Scale position embedding | "(scale, row, col) triple" | Positional encoding carries both the scale index and spatial coordinates within the scale |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-------------------------|
+| VAR | "Visual AutoRegressive" | Generacja obrazów przez predykcję następnej skali nad piramidą siatek tokenów VQ |
+| Predykcja następnej skali | "Przewiduj grubsze, potem drobniejsze" | Model przewiduje tokeny w rosnących rozdzielczościach, warunkując na wszystkich poprzednich skalach |
+| Wieloskalowy tokenizer VQ | "Residual VQ" | VQ-VAE który produkuje K siatek tokenów rosnącej rozdzielczości, z deoderem sumującym wszystkie skale |
+| Skala k | "Poziom piramidy k" | Jeden z K poziomów rozdzielczości, od 1x1 przy k=1 do (H/p)x(W/p) przy k=K |
+| Równoległe w skali | "Jedno przejście na skalę" | Wszystkie tokeny w skali k są przewidywane w jednym przejściu transformatora, nie autoregresyjnie |
+| Przyczynowe w skalach | "Uwaga uporządkowana w skali" | Token na skali k może uczestniczyć we wszystkim z skal 1..k, ale nie w skalach k+1..K |
+| Residualne VQ | "Additive tokenization" | Tokeny każdej skali kodują residuum pozostawione przez niższe skale; dekoder sumuje wszystkie osadzenia skalowe |
+| Prawo skalujące VAR | "Image GPT scaling" | FID podąża za przewidywalnym prawem potęgowym w obliczeniach, jak perplexity modeli językowych |
+| HART | "Hybrid VAR + text" | Wariant VAR kondycjonalny tekstowo łączący dekodowanie iteracyjne w stylu MaskGIT ze strukturą skalową VAR |
+| Osadzenie pozycji skali | "(scale, row, col) triple" | Kodowanie pozycyjne niesie zarówno indeks skali, jak i współrzędne przestrzenne w skali |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Tian et al., 2024 — "Visual Autoregressive Modeling: Scalable Image Generation via Next-Scale Prediction"](https://arxiv.org/abs/2404.02905) — the VAR paper, canonical reference
-- [Peebles and Xie, 2022 — "Scalable Diffusion Models with Transformers"](https://arxiv.org/abs/2212.09748) — DiT, the diffusion comparison baseline
-- [Esser et al., 2021 — "Taming Transformers for High-Resolution Image Synthesis"](https://arxiv.org/abs/2012.09841) — VQGAN, the tokenizer family VAR's multi-scale tokenizer extends
-- [van den Oord et al., 2017 — "Neural Discrete Representation Learning"](https://arxiv.org/abs/1711.00937) — VQ-VAE, the foundation of discrete image tokenization
-- [Tang et al., 2024 — "HART: Efficient Visual Generation with Hybrid Autoregressive Transformer"](https://arxiv.org/abs/2410.10812) — text-conditional VAR
+- [Tian et al., 2024 — "Visual Autoregressive Modeling: Scalable Image Generation via Next-Scale Prediction"](https://arxiv.org/abs/2404.02905) — artykuł VAR, kanoniczne odniesienie
+- [Peebles and Xie, 2022 — "Scalable Diffusion Models with Transformers"](https://arxiv.org/abs/2212.09748) — DiT, linia bazowa porównania dyfuzji
+- [Esser et al., 2021 — "Taming Transformers for High-Resolution Image Synthesis"](https://arxiv.org/abs/2012.09841) — VQGAN, rodzina tokenizera którą wieloskalowy tokenizer VAR rozszerza
+- [van den Oord et al., 2017 — "Neural Discrete Representation Learning"](https://arxiv.org/abs/1711.00937) — VQ-VAE, fundament dyskretnej tokenizacji obrazów
+- [Tang et al., 2024 — "HART: Efficient Visual Generation with Hybrid Autoregressive Transformer"](https://arxiv.org/abs/2410.10812) — VAR kondycjonalny tekstem

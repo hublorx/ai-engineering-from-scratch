@@ -1,55 +1,55 @@
 # Deep Q-Networks (DQN)
 
-> 2013: Mnih trained one Q-learning network on raw pixels, beat every classical RL agent on seven Atari games. 2015: extended to 49 games, published in Nature, sparked the deep-RL era. DQN is Q-learning plus three tricks that make function approximation stable.
+> 2013: Mnih wytrenował jedną sieć Q-learning na surowych pikselach, pokonał każdego klasycznego agenta RL na siedmiu grach Atari. 2015: rozszerzono do 49 gier, opublikowano w Nature, zapoczątkowano erę deep-RL. DQN to Q-learning plus trzy triki, które stabilizują aproksymację funkcji.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 3 · 03 (Backpropagation), Phase 9 · 04 (Q-learning, SARSA)
-**Time:** ~75 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 3 · 03 (Backpropagation), Phase 9 · 04 (Q-learning, SARSA)
+**Czas:** ~75 minut
 
-## The Problem
+## Problem
 
-Tabular Q-learning needs a separate Q-value for every (state, action) pair. A chess board has ~10⁴³ states. An Atari frame is 210×160×3 = 100,800 features. Tabular RL dies at thousands of states, let alone billions.
+Tabular Q-learning potrzebuje osobnej Q-wartości dla każdej pary (stan, akcja). Szachownica ma ~10⁴³ stanów. Klatka Atari to 210×160×3 = 100 800 cech. Tabular RL umiera przy tysiącach stanów, nie mówiąc o miliardach.
 
-The fix is obvious in hindsight: replace the Q-table with a neural network, `Q(s, a; θ)`. But obvious-in-hindsight took decades. Naive function approximation with Q-learning diverges under the "deadly triad" — function approximation + bootstrapping + off-policy learning. Mnih et al. (2013, 2015) identified three engineering tricks that stabilize learning:
+Poprawka jest oczywista wstecz: zastąp tablicę Q siecią neuronową, `Q(s, a; θ)`. Ale to, co oczywiste wstecz, zajęło dziesięciolecia. Naiwna aproksymacja funkcji z Q-learning rozbiega się w obliczu "śmiertelnej triady" — aproksymacja funkcji + bootstrapping + off-policy learning. Mnih et al. (2013, 2015) zidentyfikowali trzy triki inżynieryjne, które stabilizują uczenie:
 
-1. **Experience replay** decorrelates transitions.
-2. **Target network** freezes the bootstrap target.
-3. **Reward clipping** normalizes gradient magnitudes.
+1. **Experience replay** dekoreluje przejścia.
+2. **Target network** zamraża cel bootstrapowy.
+3. **Reward clipping** normalizuje wielkości gradientów.
 
-DQN on Atari was the first time a single architecture with a single hyperparameter set solved dozens of control problems from raw pixels. Everything "deep-RL" built since — DDQN, Rainbow, Dueling, Distributional, R2D2, Agent57 — is stacked on top of this three-trick base.
+DQN na Atari był pierwszym razem, gdy pojedyncza architektura z jednym zestawem hiperparametrów rozwiązała dziesiątki problemów sterowania z surowych pikseli. Wszystko, co "deep-RL" zbudowało od tego czasu — DDQN, Rainbow, Dueling, Distributional, R2D2, Agent57 — jest nałożone na tę bazę z trzema trikami.
 
-## The Concept
+## Koncepcja
 
-![DQN training loop: env, replay buffer, online net, target net, Bellman TD loss](../assets/dqn.svg)
+![Pętla treningowa DQN: env, replay buffer, online net, target net, Bellman TD loss](../assets/dqn.svg)
 
-**The objective.** DQN minimizes the one-step TD loss on a neural Q-function:
+**Cel.** DQN minimalizuje jednokrokowy TD loss na neuronowej funkcji Q:
 
 `L(θ) = E_{(s,a,r,s')~D} [ (r + γ max_{a'} Q(s', a'; θ^-) - Q(s, a; θ))² ]`
 
-`θ` = online network, updated every step by gradient descent. `θ^-` = target network, periodically copied from `θ` (every ~10,000 steps). `D` = replay buffer of past transitions.
+`θ` = online network, aktualizowana co krok przez gradient descent. `θ^-` = target network, okresowo kopiowana z `θ` (co ~10 000 kroków). `D` = replay buffer przeszłych przejść.
 
-**The three tricks, in order of importance:**
+**Trzy triki, w kolejności ważności:**
 
-**Experience replay.** A ring buffer of `~10⁶` transitions. Each training step samples a minibatch uniformly at random. This breaks temporal correlation (successive frames are nearly identical), lets the network learn from rare rewarding transitions many times, and decorrelates consecutive gradient updates. Without it, on-policy TD with a neural net diverges on Atari.
+**Experience replay.** Ring buffer `~10⁶` przejść. Każdy krok treningowy próbkuje minibatch losowo równomiernie. To łamie korelację czasową (kolejne klatki są prawie identyczne), pozwala sieci uczyć się od rzadkich nagradzających przejść wielokrotnie i dekoleruje kolejne aktualizacje gradientów. Bez niego on-policy TD z siecią neuronową rozbiega się na Atari.
 
-**Target network.** Using the same network `Q(·; θ)` on both sides of the Bellman equation makes the target move every update — "chasing your own tail." The fix: keep a second network `Q(·; θ^-)` with frozen weights. Every `C` steps, copy `θ → θ^-`. This stabilizes the regression target for thousands of gradient steps at a time. Soft updates `θ^- ← τ θ + (1-τ) θ^-` (used in DDPG, SAC) are a smoother variant.
+**Target network.** Używanie tej samej sieci `Q(·; θ)` po obu stronach równania Bellmana sprawia, że cel porusza się z każdą aktualizacją — "gonisz własny ogon." Poprawka: trzymaj drugą sieć `Q(·; θ^-)` z zamrożonymi wagami. Co `C` kroków kopiuj `θ → θ^-`. To stabilizuje cel regresji dla tysięcy kroków gradientowych naraz. Miękkie aktualizacje `θ^- ← τ θ + (1-τ) θ^-` (używane w DDPG, SAC) to gładsza odmiana.
 
-**Reward clipping.** Atari reward magnitudes vary from 1 to 1000+. Clipping to `{-1, 0, +1}` stops any single game from dominating the gradient. Wrong when reward magnitude matters; fine for Atari where only sign matters.
+**Reward clipping.** Wielkości nagród Atari wahają się od 1 do 1000+. Obcięcie do `{-1, 0, +1}` powstrzymuje dowolną grę od dominowania gradientu. Błędne gdy wielkość nagrody ma znaczenie; w porządku dla Atari, gdzie liczy się tylko znak.
 
-**Double DQN.** Hasselt (2016) fixes maximization bias: use the online net to *select* the action, the target net to *evaluate* it.
+**Double DQN.** Hasselt (2016) naprawia bias maksymalizacji: użyj online net do *wyboru* akcji, target net do jej *ewaluacji*.
 
 `target = r + γ Q(s', argmax_{a'} Q(s', a'; θ); θ^-)`
 
-Drop-in replacement, consistently better. Use it by default.
+Zastąpienie drop-in, konsekwentnie lepsze. Używaj domyślnie.
 
-**Other improvements (Rainbow, 2017):** prioritized replay (sample high-TD-error transitions more), dueling architecture (separate `V(s)` and advantage heads), noisy networks (learned exploration), n-step returns, distributional Q (C51/QR-DQN), multi-step bootstrapping. Each adds a few percent; the gains are roughly additive.
+**Inne usprawnienia (Rainbow, 2017):** prioritized replay (próbkuj przejścia o wysokim TD-error częściej), architektura dueling (osobne głowy `V(s)` i advantage), noisy networks (nauczone eksploracja), n-step returns, distributional Q (C51/QR-DQN), multi-step bootstrapping. Każde dodaje kilka procent; zyski są w przybliżeniu addytywne.
 
-## Build It
+## Zbuduj to
 
-The code here is stdlib-only numpy-free — we use a hand-rolled single-hidden-layer MLP on a tiny continuous GridWorld, so every training step runs in microseconds. The algorithm is identical to Atari DQN at scale.
+Kod tutaj jest wyłącznie stdlib bez numpy-free — używamy ręcznie napisanej sieci MLP z jedną ukrytą warstwą na małym ciągłym GridWorld, więc każdy krok treningowy działa w mikrosekundach. Algorytm jest identyczny z DQN na Atari w skali.
 
-### Step 1: replay buffer
+### Krok 1: replay buffer
 
 ```python
 class ReplayBuffer:
@@ -64,9 +64,9 @@ class ReplayBuffer:
         return rng.sample(self.buf, batch)
 ```
 
-~50,000 capacity for Atari; 5,000 suffices for our toy env.
+~50 000 pojemności dla Atari; 5 000 wystarczy dla naszego środowiska zabawki.
 
-### Step 2: a tiny Q-network (manual MLP)
+### Krok 2: malutka sieć Q (manual MLP)
 
 ```python
 class QNet:
@@ -81,9 +81,9 @@ class QNet:
         return q, h
 ```
 
-Forward pass: linear → ReLU → linear. That is the entire net.
+Forward pass: linear → ReLU → linear. To jest cała sieć.
 
-### Step 3: the DQN update
+### Krok 3: aktualizacja DQN
 
 ```python
 def train_step(online, target, batch, gamma, lr):
@@ -100,11 +100,11 @@ def train_step(online, target, batch, gamma, lr):
     apply_sgd(online, grads, lr / len(batch))
 ```
 
-The shape is Q-learning from Lesson 04 with two differences: (a) we backprop through a differentiable `Q(·; θ)` instead of indexing a table, (b) the target uses `Q(·; θ^-)`.
+ Kształt to Q-learning z Lesson 04 z dwiema różnicami: (a) backpropagujemy przez różniczkowalną `Q(·; θ)` zamiast indeksować tablicę, (b) cel używa `Q(·; θ^-)`.
 
-### Step 4: the outer loop
+### Krok 4: zewnętrzna pętla
 
-For each episode, act ε-greedy on `Q(·; θ)`, push transitions into the buffer, sample a minibatch, take a gradient step, periodically sync `θ^- ← θ`. The pattern:
+Dla każdego epizodu, działaj ε-greedy na `Q(·; θ)`, pushuj przejścia do buffora, próbkuj minibatch, wykonaj krok gradientowy, okresowo sync `θ^- ← θ`. Wzorzec:
 
 ```python
 for episode in range(N):
@@ -120,36 +120,36 @@ for episode in range(N):
         s = s_next
 ```
 
-On our tiny GridWorld with a 16-dim one-hot state, the agent learns a near-optimal policy in ~500 episodes. On Atari, scale this to 200M frames and add a CNN feature extractor.
+Na naszym małym GridWorld z 16-wymiarowym stanem one-hot, agent uczy się niemal-optymalnej polityki w ~500 epizodach. Na Atari, skaluj to do 200M klatek i dodaj ekstraktor cech CNN.
 
-## Pitfalls
+## Pułapki
 
-- **Deadly triad.** Function approximation + off-policy + bootstrapping can diverge. DQN mitigates with target net + replay; do not remove either.
-- **Exploration.** ε must decay, typically from 1.0 to 0.01 over the first ~10% of training. Without enough early exploration the Q-net converges to a local basin.
-- **Overestimation.** `max` over noisy Q is upward-biased. Always use Double DQN in production.
-- **Reward scale.** Clip or normalize rewards; the gradient magnitude is proportional to reward magnitude.
-- **Replay buffer coldstart.** Don't train until the buffer has a few thousand transitions. Early gradients on ~20 samples overfit.
-- **Target sync frequency.** Too frequent ≈ no target net; too infrequent ≈ stale targets. Atari DQN uses 10,000 env steps. Rule of thumb: sync every ~1/100 of training horizon.
-- **Observation preprocessing.** Atari DQN stacks 4 frames to make state Markov. Any env with velocity info needs frame-stacking or recurrent state.
+- **Śmiertelna triada.** Aproksymacja funkcji + off-policy + bootstrapping może się rozejść. DQN łagodzi to target net + replay; nie usuwaj żadnego z nich.
+- **Eksploracja.** ε musi opadać, typowo od 1.0 do 0.01 przez pierwsze ~10% treningu. Bez wystarczającej wczesnej eksploracji Q-net zbiega się do lokalnego basenu.
+- **Nadestymacja.** `max` nad zaszumionym Q jest biasowane w górę. Zawsze używaj Double DQN w produkcji.
+- **Skala nagród.** Obcinaj lub normalizuj nagrody; wielkość gradientu jest proporcjonalna do wielkości nagrody.
+- **Coldstart buffora replay.** Nie trenuj dopóki buffer nie ma kilku tysięcy przejść. Wczesne gradienty na ~20 próbkach przeuczają się.
+- **Częstotliwość sync target.** Zbyt częsta ≈ brak target net; zbyt rzadka ≈ zgniłe cele. Atari DQN używa 10 000 kroków env. Zasada kciuka: sync co ~1/100 horyzontu treningowego.
+- **Preprocessing obserwacji.** Atari DQN stackuje 4 klatki żeby uczynić stan Markowa. Każde env z info o prędkości potrzebuje frame-stackingu lub rekurencyjnego stanu.
 
-## Use It
+## Użyj tego
 
-In 2026, DQN is rarely state-of-the-art but remains the reference off-policy algorithm:
+W 2026 DQN rzadko jest state-of-the-art, ale pozostaje referencyjnym algorytmem off-policy:
 
-| Task | Method of choice | Why not DQN? |
-|------|------------------|--------------|
-| Discrete-action Atari-like | Rainbow DQN or Muesli | Same framework, more tricks. |
-| Continuous control | SAC / TD3 (Phase 9 · 07) | DQN has no policy network. |
-| On-policy / high-throughput | PPO (Phase 9 · 08) | No replay buffer; easier to scale. |
-| Offline RL | CQL / IQL / Decision Transformer | Conservative Q targets, no bootstrapping blowups. |
-| Large discrete action spaces (recommender) | DQN with action embedding, or IMPALA | Fine; decoration matters. |
-| LLM RL | PPO / GRPO | Sequence-level, not step-level; different loss. |
+| Zadanie | Metoda z wyboru | Dlaczego nie DQN? |
+|---------|------------------|-------------------|
+| Dyskretne akcje Atari-like | Rainbow DQN lub Muesli | Ten sam framework, więcej tricków. |
+| Sterowanie ciągłe | SAC / TD3 (Phase 9 · 07) | DQN nie ma sieci polityki. |
+| On-policy / wysoka przepustowość | PPO (Phase 9 · 08) | Brak replay buffer; łatwiej skalować. |
+| Offline RL | CQL / IQL / Decision Transformer | Conservative Q targets, brak bootstrap blowups. |
+| Duże przestrzenie dyskretnych akcji (rekomendacje) | DQN z action embedding, lub IMPALA | W porządku; dekoracja ma znaczenie. |
+| LLM RL | PPO / GRPO | Poziom sekwencyjny, nie krokowy; inny loss. |
 
-The lessons still travel. Replay and target networks appear in SAC, TD3, DDPG, SAC-X, AlphaZero's self-play buffer, and every offline RL method. Reward clipping lives on as advantage normalization in PPO. The architecture is the blueprint.
+Lekcje nadal podróżują. Replay i target networks pojawiają się w SAC, TD3, DDPG, SAC-X, buforze self-play AlphaZero i każdej metodzie offline RL. Reward clipping żyje dalej jako normalizacja advantage w PPO. Architektura jest blueprintem.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-dqn-trainer.md`:
+Zapisz jako `outputs/skill-dqn-trainer.md`:
 
 ```markdown
 ---
@@ -173,32 +173,32 @@ Given a discrete-action environment (observation shape, action count, horizon, r
 Refuse to ship a DQN with no target network, no replay buffer, or ε held at 1. Refuse continuous-action tasks (route to SAC / TD3). Flag any reward range > 10× per-step mean as needing clipping or scale normalization.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Run `code/main.py`. Plot the per-episode return curve. How many episodes until the running mean exceeds -10?
-2. **Medium.** Disable the target network (use the online net for both sides of the Bellman target). Measure training instability — does return oscillate or diverge?
-3. **Hard.** Add Double DQN: use the online net to pick `argmax a'`, target net to evaluate. Compare bias of `Q(s_0, best_a)` vs true `V*(s_0)` after 1,000 episodes with vs without Double DQN on a noisy-reward GridWorld.
+1. **Łatwe.** Uruchom `code/main.py`. Narysuj krzywą returnu per-epizod. Ile epizodów dopóki średnia krocząca nie przekroczy -10?
+2. **Średnie.** Wyłącz target network (użyj online net dla obu stron celu Bellmana). Zmierz niestabilność treningu — czy return oscyluje lub się rozbiega?
+3. **Trudne.** Dodaj Double DQN: użyj online net do wybrania `argmax a'`, target net do ewaluacji. Porównaj bias `Q(s_0, best_a)` vs prawdziwe `V*(s_0)` po 1,000 epizodów z vs bez Double DQN na zaszumionym GridWorld.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| DQN | "Deep Q-learning" | Q-learning with a neural Q-function, replay buffer, and target network. |
-| Experience replay | "Shuffled transitions" | Ring buffer sampled uniformly each gradient step; decorrelates data. |
-| Target network | "Frozen bootstrap" | Periodic copy of Q used in the Bellman target; stabilizes training. |
-| Deadly triad | "Why RL diverges" | Function approximation + bootstrapping + off-policy = no convergence guarantee. |
-| Double DQN | "Fix for maximization bias" | Online net selects action, target net evaluates it. |
-| Dueling DQN | "V and A heads" | Decompose Q = V + A - mean(A); same output, better gradient flow. |
-| Rainbow | "All the tricks" | DDQN + PER + dueling + n-step + noisy + distributional in one. |
-| PER | "Prioritized Replay" | Sample transitions proportional to TD-error magnitude. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-----------------------|
+| DQN | "Deep Q-learning" | Q-learning z neuronową funkcją Q, replay buffer i target network. |
+| Experience replay | "Shuffled transitions" | Ring buffer próbkowany równomiernie każdego kroku gradientowego; dekoleruje dane. |
+| Target network | "Frozen bootstrap" | Okresowa kopia Q używana w celu Bellmana; stabilizuje trening. |
+| Deadly triad | "Why RL diverges" | Aproksymacja funkcji + bootstrapping + off-policy = brak gwarancji zbieżności. |
+| Double DQN | "Fix for maximization bias" | Online net wybiera akcję, target net ją ewaluuje. |
+| Dueling DQN | "V and A heads" | Dekomponuj Q = V + A - mean(A); ten sam output, lepszy przepływ gradientu. |
+| Rainbow | "All the tricks" | DDQN + PER + dueling + n-step + noisy + distributional w jednym. |
+| PER | "Prioritized Replay" | Próbkuj przejścia proporcjonalnie do wielkości TD-error. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Mnih et al. (2013). Playing Atari with Deep Reinforcement Learning](https://arxiv.org/abs/1312.5602) — the 2013 NeurIPS workshop paper that kicked off deep RL.
-- [Mnih et al. (2015). Human-level control through deep reinforcement learning](https://www.nature.com/articles/nature14236) — the Nature paper, 49-game DQN.
+- [Mnih et al. (2013). Playing Atari with Deep Reinforcement Learning](https://arxiv.org/abs/1312.5602) — artykuł z warsztatów NeurIPS 2013, który zapoczątkował deep RL.
+- [Mnih et al. (2015). Human-level control through deep reinforcement learning](https://www.nature.com/articles/nature14236) — artykuł Nature, DQN na 49 gier.
 - [Hasselt, Guez, Silver (2016). Deep Reinforcement Learning with Double Q-learning](https://arxiv.org/abs/1509.06461) — DDQN.
 - [Wang et al. (2016). Dueling Network Architectures](https://arxiv.org/abs/1511.06581) — dueling DQN.
-- [Hessel et al. (2018). Rainbow: Combining Improvements in Deep RL](https://arxiv.org/abs/1710.02298) — the stacked-tricks paper.
-- [OpenAI Spinning Up — DQN](https://spinningup.openai.com/en/latest/algorithms/dqn.html) — clear modern exposition.
-- [Sutton & Barto (2018). Ch. 9 — On-policy Prediction with Approximation](http://incompleteideas.net/book/RLbook2020.pdf) — the textbook treatment of the "deadly triad" (function approximation + bootstrapping + off-policy) that DQN's target network and replay buffer are designed to tame.
-- [CleanRL DQN implementation](https://docs.cleanrl.dev/rl-algorithms/dqn/) — reference single-file DQN used in ablation studies; good to read alongside this lesson's from-scratch version.
+- [Hessel et al. (2018). Rainbow: Combining Improvements in Deep RL](https://arxiv.org/abs/1710.02298) — artykuł o składaniu tricków.
+- [OpenAI Spinning Up — DQN](https://spinningup.openai.com/en/latest/algorithms/dqn.html) — jasne nowoczesne przedstawienie.
+- [Sutton & Barto (2018). Ch. 9 — On-policy Prediction with Approximation](http://incompleteideas.net/book/RLbook2020.pdf) — podręcznikowe omówienie "śmiertelnej triady" (aproksymacja funkcji + bootstrapping + off-policy), którą target network i replay buffer DQNa mają łagodzić.
+- [CleanRL DQN implementation](https://docs.cleanrl.dev/rl-algorithms/dqn/) — referencyjny single-file DQN używany w studiach ablacyjnych; dobry do przeczytania obok wersji from-scratch z tej lekcji.

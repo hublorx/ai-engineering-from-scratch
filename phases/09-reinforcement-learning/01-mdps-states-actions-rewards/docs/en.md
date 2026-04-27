@@ -1,48 +1,48 @@
-# MDPs, States, Actions & Rewards
+# MDP-y, Stany, Akcje i Nagrody
 
-> A Markov Decision Process is five things: states, actions, transitions, rewards, a discount. Everything in RL — Q-learning, PPO, DPO, GRPO — optimizes over this shape. Learn it once, read the rest of reinforcement learning for free.
+> Proces decyzyjny Markova to pięć elementów: stany, akcje, przejścia, nagrody, dyskonto. Wszystko w RL — Q-learning, PPO, DPO, GRPO — optymalizuje się nad tym kształtem. Naucz się tego raz, a przeczytasz resztę reinforcement learning za darmo.
 
-**Type:** Learn
-**Languages:** Python
-**Prerequisites:** Phase 1 · 06 (Probability & Distributions), Phase 2 · 01 (ML Taxonomy)
-**Time:** ~45 minutes
+**Typ:** Nauka
+**Języki:** Python
+**Wymagania wstępne:** Faza 1 · 06 (Prawdopodobieństwo i rozkłady), Faza 2 · 01 (Taksonomia ML)
+**Szacowany czas:** ~45 minut
 
-## The Problem
+## Problem
 
-You are writing a chess bot. Or an inventory planner. Or a trading agent. Or the PPO loop that trains a reasoning model. Four different domains, one surprising fact: all four collapse to the same mathematical object.
+Piszesz bota do szachów. Albo planistę zapasów. Albo agenta tradingowego. Albo pętlę PPO, która trenuje model reasoning. Cztery różne domeny, jeden zaskakujący fakt: wszystkie cztery sprowadzają się do tego samego obiektu matematycznego.
 
-Supervised learning gives you `(x, y)` pairs and asks you to fit a function. Reinforcement learning gives you no labels — only a stream of states, the actions you took, and a scalar reward. Did the move win the game? Did the restock decision save money? Did the trade make a profit? Did the token the LLM just produced lead to a higher reward from the judge?
+Supervised learning daje ci pary `(x, y)` i prosi o dopasowanie funkcji. Reinforcement learning nie daje żadnych etykiet — tylko strumień stanów, akcje które wykonałeś, i skalar nagrodę. Czy ruch wygrał partię? Czy decyzja o uzupełnieniu zapasów zaoszczędziła pieniądze? Czy trade przyniósł zysk? Czy token, który właśnie wygenerował LLM dla modelu w języku angielskim, prowadził do wyższej nagrody od sędziego?
 
-You cannot learn from this stream until you formalize it. "What I saw," "what I did," "what happened next," "how good that was" — each has to become an object you can reason about. That formalization is a Markov Decision Process. Every RL algorithm in this phase, including the RLHF and GRPO loops at the end, optimizes over this shape.
+Nie możesz się uczyć z tego strumienia, dopóki go nie sformalizujesz. „Co widziałem", „co zrobiłem", „co stało się dalej", „jak dobre to było" — każde z nich musi stać się obiektem, o którym możesz myśleć. Ta formalizacja to proces decyzyjny Markova. Każdy algorytm RL w tej fazie, w tym pętle RLHF i GRPO na końcu, optymalizuje nad tym kształtem.
 
-## The Concept
+## Koncepcja
 
-![Markov decision process: states, actions, transitions, rewards, discount](../assets/mdp.svg)
+![Proces decyzyjny Markova: stany, akcje, przejścia, nagrody, dyskonto](../assets/mdp.svg)
 
-**The five objects.**
+**Pięć obiektów.**
 
-- **States** `S`. Everything the agent needs to decide. In GridWorld, the cell. In chess, the board. In an LLM, the context window plus any memory.
-- **Actions** `A`. The choices. Move up/down/left/right. Play a move. Emit a token.
-- **Transitions** `P(s' | s, a)`. Given state `s` and action `a`, the distribution over next state. Deterministic in chess, stochastic in inventory, almost-deterministic in LLM decoding.
-- **Rewards** `R(s, a, s')`. The scalar signal. Win = +1, loss = -1. Revenue minus cost. The log-likelihood ratio term in GRPO.
-- **Discount** `γ ∈ [0, 1)`. How much future reward counts vs present. `γ = 0.99` buys a horizon of ~100 steps; `γ = 0.9` buys ~10.
+- **Stany** `S`. Wszystko, czego agent potrzebuje do podjęcia decyzji. W GridWorld, komórka. W szachach, szachownica, a w LLM, okno kontekstowe plus dowolna pamięć.
+- **Akcje** `A`. Wybory. Ruch góra/dół/lewo/prawo. Wykonaj ruch. Emituj token.
+- **Przejścia** `P(s' | s, a)`. Mając stan `s` i akcję `a`, rozkład nad następnym stanem. Deterministyczne w szachach, stochastyczne w zarządzaniu zapasami, a prawie-deterministyczne w dekodowaniu LLM.
+- **Nagrody** `R(s, a, s')`. Sygnał skalarny. Wygrana = +1, przegrana = -1. Przychód minus koszt. Wyraz ilorazu logarytmicznego prawdopodobieństwa w GRPO.
+- **Dyskonto** `γ ∈ [0, 1)`. Ile przyszła nagroda liczy się w porównaniu z obecną. `γ = 0.99` kupuje horyzont ~100 kroków; `γ = 0.9` kupuje ~10.
 
-**The Markov property** `P(s_{t+1} | s_t, a_t) = P(s_{t+1} | s_0, a_0, …, s_t, a_t)`. The future depends only on the present state. If it does not, the state representation is incomplete — not a failure of the method, a failure of the state.
+**Własność Markova** `P(s_{t+1} | s_t, a_t) = P(s_{t+1} | s_0, a_0, …, s_t, a_t)`. Przyszłość zależy tylko od obecnego stanu. Jeśli tak nie jest, reprezentacja stanu jest niekompletna — to nie porażka metody, to porażka stanu.
 
-**Policies and returns.** A policy `π(a | s)` maps states to action distributions. The return `G_t = r_t + γ r_{t+1} + γ² r_{t+2} + …` is the discounted sum of future rewards. The value `V^π(s) = E[G_t | s_t = s]` is the expected return starting from `s` under policy `π`. The Q-value `Q^π(s, a) = E[G_t | s_t = s, a_t = a]` is the expected return starting with a specific action. Every RL algorithm estimates one of these two, then improves `π` accordingly.
+**Polityki i zwroty.** Polityka `π(a | s)` mapuje stany na rozkłady akcji. Zwrot `G_t = r_t + γ r_{t+1} + γ² r_{t+2} + …` to zdyskontowana suma przyszłych nagród. Wartość `V^π(s) = E[G_t | s_t = s]` to oczekiwany zwrot startując z `s` pod polityką `π`. Q-wartość `Q^π(s, a) = E[G_t | s_t = s, a_t = a]` to oczekiwany zwrot startując z konkretną akcją. Każdy algorytm RL szacuje jedną z tych dwóch, potem poprawia π, odpowiednio.
 
-**The Bellman equations.** The fixed-point equations that everything in this phase uses:
+**Równania Bellmana.** Równania punktu stałego, których wszystko w tej fazie używa:
 
 `V^π(s) = Σ_a π(a|s) Σ_{s', r} P(s', r | s, a) [r + γ V^π(s')]`
 `Q^π(s, a) = Σ_{s', r} P(s', r | s, a) [r + γ Σ_{a'} π(a'|s') Q^π(s', a')]`
 
-These split expected return into "this step's reward" plus "discounted value of where you land." Recursive. Every algorithm in Phase 9 either iterates this equation to convergence (dynamic programming), samples from it (Monte Carlo), or bootstraps it one step (temporal difference).
+Te równania rozbijają oczekiwany zwrot na "nagrodę tego kroku" plus "zdyskontowaną wartość miejsca, gdzie lądujesz." Rekurencyjne. Każdy algorytm w Fazie 9 albo iteruje to równanie do zbieżności (dynamic programming), albo próbkuje z niego (Monte Carlo), albo bootstrapuje o jeden krok (temporal difference).
 
-## Build It
+## Zbuduj to
 
-### Step 1: a tiny deterministic MDP
+### Krok 1: maleńki deterministyczny MDP
 
-A 4×4 GridWorld. Agent starts top-left, terminal at bottom-right, reward of -1 per step, actions `{up, down, left, right}`. See `code/main.py`.
+GridWorld 4×4. Agent startuje w lewym górnym rogu, stan terminalny w prawym dolnym rogu, nagroda -1 za krok, akcje `{up, down, left, right}`. Zobacz `code/main.py`.
 
 ```python
 GRID = 4
@@ -59,11 +59,11 @@ def step(state, action):
     return (nr, nc), -1.0, (nr, nc) == TERMINAL
 ```
 
-Five lines. That is the entire environment. Deterministic transitions, constant step penalty, absorbing terminal state.
+Pięć linii. To jest całe środowisko. Deterministyczne przejścia, stała kara za krok, absorbujący stan terminalny.
 
-### Step 2: roll out a policy
+### Krok 2: roll out polityki
 
-A policy is a function from state to action distribution. The simplest: uniform random.
+Polityka to funkcja ze stanu do rozkładu akcji. Najprostsza: równomiernie losowa.
 
 ```python
 def uniform_policy(state):
@@ -81,11 +81,11 @@ def rollout(policy, max_steps=200):
     return total, steps
 ```
 
-Run the random policy 1000 times. Average return is around -60 to -80 for this 4×4 board. The optimal return is -6 (straight-line path down-right). Closing that gap is everything in Phase 9.
+Uruchom losową politykę 1000 razy. Średni zwrot to około -60 do -80 dla tej planszy 4×4. Optymalny zwrot to -6 (prosta ścieżka w dół-prawo). Zamykanie tej luki to wszystko w Fazie 9.
 
-### Step 3: compute `V^π` exactly via the Bellman equation
+### Krok 3: oblicz `V^π` dokładnie przez równanie Bellmana
 
-For small MDPs the Bellman equation is a linear system. Enumerate states, apply the expectation, iterate until the values stop changing.
+Dla małych MDP równanie Bellmana to układ równań liniowych. Wylicz stany, zastosuj oczekiwanie, iteruj aż wartości przestaną się zmieniać.
 
 ```python
 def policy_evaluation(policy, gamma=0.99, tol=1e-6):
@@ -105,39 +105,39 @@ def policy_evaluation(policy, gamma=0.99, tol=1e-6):
             return V
 ```
 
-This is iterative policy evaluation. It is the first algorithm in Sutton & Barto and the theoretical foundation of every RL method that follows.
+To jest iteracyjna ewaluacja polityki. To jest pierwszy algorytm w Sutton & Barto i teoretyczny fundament każdej metody RL, która następuje.
 
-### Step 4: `γ` is a hyperparameter with physical meaning
+### Krok 4: `γ` to hiperparametr z fizycznym znaczeniem
 
-Effective horizon is roughly `1 / (1 - γ)`. `γ = 0.9` → 10 steps. `γ = 0.99` → 100 steps. `γ = 0.999` → 1000 steps.
+Efektywny horyzont to w przybliżeniu `1 / (1 - γ)`. `γ = 0.9` → 10 kroków. `γ = 0.99` → 100 kroków. `γ = 0.999` → 1000 kroków.
 
-Too low and the agent acts myopically. Too high and credit assignment becomes noisy, because many early steps share responsibility for far-future reward. LLM RLHF typically uses `γ = 1` because episodes are short and bounded. Control tasks use `0.95–0.99`. Long-horizon strategy games use `0.999`.
+Zbyt niska wartość, a agent działa krótkowzrocznie. Zbyt wysoka, a przypisanie zasług staje się nieznośne, bo wiele wczesnych kroków dzieli odpowiedzialność za odległą przyszłą nagrodę. LLM RLHF typowo używa `γ = 1`, bo epizody są krótkie i ograniczone. Zadania control używają `0.95–0.99`. Gry strategiczne z dalekim horyzontem używają `0.999`.
 
-## Pitfalls
+## Pułapki
 
-- **Non-Markovian state.** If you need the last three observations to decide, the "state" is not just the current observation. Fix: stack frames (DQN on Atari stacks 4) or use a recurrent state (LSTM/GRU over observations).
-- **Sparse rewards.** Win-only rewards make learning nearly impossible in large state spaces. Shape rewards (intermediate signal) or bootstrap with imitation (Phase 9 · 09).
-- **Reward hacking.** Optimizing a proxy reward often produces pathological behavior. OpenAI's boat-racing agent spun in circles collecting powerups forever instead of finishing the race. Always define reward from the target outcome, not the proxy.
-- **Discount mis-spec.** `γ = 1` on an infinite-horizon task makes every value infinite. Always cap with either a finite horizon or `γ < 1`.
-- **Reward scale.** Rewards of {+100, -100} vs {+1, -1} give identical optimal policies but vastly different gradient magnitudes. Normalize to `[-1, 1]`-ish before plugging into PPO/DQN.
+- **Nie-Markowski stan.** Jeśli potrzebujesz trzech ostatnich obserwacji do decyzji, "stan" to nie tylko obecna obserwacja. Fix: stackuj ramki (DQN na Atari stackuje 4) albo użyj rekurencyjnego stanu (LSTM/GRU nad obserwacjami).
+- **Rzadkie nagrody.** Nagrody tylko za wygraną sprawiają, że nauka jest prawie niemożliwa w dużych przestrzeniach stanów. Kształtuj nagrody (sygnał pośredni) albo bootstrapuj z imitacji (Faza 9 · 09).
+- **Hackowanie nagród.** Optymalizacja proxy reward często produkuje patologiczne zachowanie. Agent wyścigów łodzi od OpenAI kręcił się w kółko zbierając powerupy wiecznie, zamiast finiszować wyścig. Zawsze definiuj reward z docelowego wyniku, nie z proxy.
+- **Błędne dyskonto.** `γ = 1` na zadaniu nieskończonego horyzontu sprawia, że każda wartość jest nieskończona. Zawsze capuj albo skończonym horyzontem albo `γ < 1`.
+- **Skala nagrody.** Nagrody {+100, -100} vs {+1, -1} dają identyczne optymalne polityki, ale radykalnie różne wielkości gradientu. Normalizuj do `[-1, 1]` przed włożeniem do PPO/DQN.
 
-## Use It
+## Użyj tego
 
-The 2026 stack reduces every RL pipeline to an MDP before touching code:
+Stack 2026 redukuje każdy pipeline RL do MDP przed dotknięciem kodu:
 
-| Situation | State | Action | Reward | γ |
-|-----------|-------|--------|--------|---|
-| Control (locomotion, manipulation) | Joint angles + velocities | Continuous torques | Task-specific shaped | 0.99 |
-| Games (chess, Go, poker) | Board + history | Legal move | Win=+1 / loss=-1 | 1.0 (finite) |
-| Inventory / pricing | Stock + demand | Order qty | Revenue - cost | 0.95 |
-| RLHF for LLMs | Context tokens | Next token | Reward-model score at end | 1.0 (episode ~200 tokens) |
-| GRPO for reasoning | Prompt + partial response | Next token | Verifier 0/1 at end | 1.0 |
+| Sytuacja | Stan | Akcja | Nagroda | γ |
+|-----------|------|--------|--------|---|
+| Control (locomotion, manipulation) | Kąty + prędkości stawów | Ciągłe momenty | Kształtowana pod zadanie | 0.99 |
+| Gry (szachy, Go, poker) | Plansza + historia | Legalny ruch | Wygrana=+1 / przegrana=-1 | 1.0 (skończony) |
+| Inventory / pricing | Zapasy + popyt | Ilość zamówienia | Przychód - koszt | 0.95 |
+| RLHF dla LLM | Tokeny kontekstu | Następny token | Wynik reward model na końcu | 1.0 (epizod ~200 tokenów) |
+| GRPO dla reasoning | Prompt + częściowa odpowiedź | Następny token | Weryfikator 0/1 na końcu | 1.0 |
 
-Write the five tuples before writing any training loop. Most "RL does not work" bug reports trace back to an MDP formulation that was broken on paper.
+Napisz pięć krotek przed napisaniem jakiejkolwiek pętli trenowania. Większość raportów "RL nie działa" sięga do MDP formulation, który był zepsuty na papierze.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-mdp-modeler.md`:
+Zapisz jako `outputs/skill-mdp-modeler.md`:
 
 ```markdown
 ---
@@ -160,29 +160,29 @@ Given a task (control / game / recommendation / LLM fine-tuning), output:
 Refuse to ship any MDP where the state is non-Markovian without explicit mention of frame-stacking or recurrent state. Refuse any reward that was not defined in terms of the target outcome. Flag any `γ ≥ 1.0` on an infinite-horizon task. Flag any reward range >100x the typical step reward as a likely gradient-explosion source.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Implement the 4×4 GridWorld and random-policy rollout in `code/main.py`. Run 10,000 episodes. Report mean and std of return. Compare to the optimal return (-6).
-2. **Medium.** Run `policy_evaluation` with `γ ∈ {0.5, 0.9, 0.99}` for the uniform-random policy. Print `V` as a 4×4 grid for each. Explain why the state values near the terminal grow faster with larger `γ`.
-3. **Hard.** Turn the GridWorld stochastic: each action slips to an adjacent direction with probability `p = 0.1`. Re-evaluate the uniform policy. Does `V[start]` get better or worse? Why?
+1. **Łatwe.** Zaimplementuj GridWorld 4×4 i rollout z losową polityką w `code/main.py`. Uruchom 10,000 epizodów. Raportuj średnią i std zwrotu. Porównaj do optymalnego zwrotu (-6).
+2. **Średnie.** Uruchom `policy_evaluation` z `γ ∈ {0.5, 0.9, 0.99}` dla polityki równomiernie losowej. Wydrukuj `V` jako siatkę 4×4 dla każdej. Wyjaśnij, dlaczego wartości stanów blisko terminala rosną szybciej z większym `γ`.
+3. **Trudne.** Zrób GridWorld stochastycznym: każda akcja slipuje do sąsiedniego kierunku z prawdopodobieństwem `p = 0.1`. Przeewaluuj politykę równomiernie losową. Czy `V[start]` robi się lepsze czy gorsze? Dlaczego?
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| MDP | "Reinforcement learning setup" | Tuple `(S, A, P, R, γ)` satisfying the Markov property. |
-| State | "What the agent sees" | Sufficient statistic for future dynamics under the chosen policy class. |
-| Policy | "Agent's behavior" | Conditional distribution `π(a | s)` or deterministic map `s → a`. |
-| Return | "Total reward" | Discounted sum `Σ γ^t r_t` from the current step. |
-| Value | "How good a state is" | Expected return under `π` starting from `s`. |
-| Q-value | "How good an action is" | Expected return under `π` starting from `s` with first action `a`. |
-| Bellman equation | "Dynamic programming recursion" | Fixed-point decomposition of value / Q into one-step reward plus discounted successor value. |
-| Discount `γ` | "Future vs present" | Geometric weight on far-future reward; effective horizon `~1/(1-γ)`. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|--------------------------|
+| MDP | "Ustawienie reinforcement learning" | Krotka `(S, A, P, R, γ)` spełniająca własność Markova. |
+| Stan | "Co agent widzi" | Dostateczna statystyka dla przyszłych dynamik pod wybraną klasą polityk. |
+| Polityka | "Zachowanie agenta" | Warunkowy rozkład `π(a | s)` albo deterministyczne mapowanie `s → a`. |
+| Zwrot | "Całkowita nagroda" | Zdyskontowana suma `Σ γ^t r_t` od obecnego kroku. |
+| Wartość | "Jak dobry jest stan" | Oczekiwany zwrot pod `π` startując z `s`. |
+| Q-wartość | "Jak dobra jest akcja" | Oczekiwany zwrot pod `π` startując z `s` z pierwszą akcją `a`. |
+| Równanie Bellmana | "Rekurencja dynamic programming" | Dekompozycja punktu stałego wartości / Q na jedno-krokową nagrodę plus zdyskontowaną wartość następnika. |
+| Dyskonto `γ` | "Przyszłość vs obecność" | Geometryczna waga na odległą przyszłą nagrodę; efektywny horyzont `~1/(1-γ)`. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Sutton & Barto (2018). Reinforcement Learning: An Introduction, 2nd ed.](http://incompleteideas.net/book/RLbook2020.pdf) — the textbook. Ch. 3 covers MDPs and Bellman equations; Ch. 1 motivates the reward hypothesis that underlies every subsequent lesson.
-- [Bellman (1957). Dynamic Programming](https://press.princeton.edu/books/paperback/9780691146683/dynamic-programming) — the origin of the Bellman equation.
-- [OpenAI Spinning Up — Part 1: Key Concepts](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html) — concise MDP primer from a deep-RL angle.
-- [Puterman (2005). Markov Decision Processes](https://onlinelibrary.wiley.com/doi/book/10.1002/9780470316887) — the operations-research reference on MDPs and exact solution methods.
-- [Littman (1996). Algorithms for Sequential Decision Making (PhD thesis)](https://www.cs.rutgers.edu/~mlittman/papers/thesis-main.pdf) — the cleanest derivation of MDPs as a dynamic-programming specialization.
+- [Sutton & Barto (2018). Reinforcement Learning: An Introduction, 2nd ed.](http://incompleteideas.net/book/RLbook2020.pdf) — podręcznik. Rozdz. 3 obejmuje MDP i równania Bellmana; Rozdz. 1 motywuje hipotezę nagrody, która leży u podstaw każdej kolejnej lekcji.
+- [Bellman (1957). Dynamic Programming](https://press.princeton.edu/books/paperback/9780691146683/dynamic-programming) — źródło równania Bellmana.
+- [OpenAI Spinning Up — Part 1: Key Concepts](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html) — zwięzły primer MDP z głębokiego kąta RL.
+- [Puterman (2005). Markov Decision Processes](https://onlinelibrary.wiley.com/doi/book/10.1002/9780470316887) — opsresearchowa referencja na MDP i dokładne metody rozwiązywania.
+- [Littman (1996). Algorithms for Sequential Decision Making (PhD thesis)](https://www.cs.rutgers.edu/~mlittman/papers/thesis-main.pdf) — najczystsza derivacja MDP jako specjalizacja dynamic programming.

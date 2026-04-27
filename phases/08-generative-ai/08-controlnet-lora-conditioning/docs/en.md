@@ -1,37 +1,37 @@
-# ControlNet, LoRA & Conditioning
+# ControlNet, LoRA i warunkowanie
 
-> Text alone is a clumsy control signal. ControlNet lets you clone a pretrained diffusion model and steer it with a depth map, pose skeleton, scribble, or edge image. LoRA lets you fine-tune a 2B-parameter model by training 10 million parameters. Together they turned Stable Diffusion from a toy into the 2026 image pipeline that ships at every agency.
+> Sam tekst jest niezdarnym sygnałem sterującym. ControlNet pozwala sklonować wstępnie wytrenowany model dyfuzyjny i kierować nim za pomocą mapy głębi, szkieletu pozy, szkicu lub obrazu krawędzi. LoRA pozwala dostroić model z 2B parametrów, trenując 10 milionów parametrów. Razem zamieniły Stable Diffusion z zabawki w potok obrazów 2026, który trafia do każdej agencji.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 8 · 07 (Latent Diffusion), Phase 10 (LLMs from Scratch — for LoRA foundation)
-**Time:** ~75 minutes
+**Typ:** Buduj
+**Języki:** Python
+**Wymagania wstępne:** Faza 8 · 07 (Dyfuzja latentna), Faza 10 (LLM-y od podstaw — podstawy LoRA)
+**Czas:** ~75 minut
 
-## The Problem
+## Problem
 
-A prompt like "a woman in a red dress walking a dog on a busy street" gives the model no information about *where* the dog is, *what pose* the woman is in, or *the perspective* of the street. Text pins down about 10% of what you need to specify an image. The rest is visual and cannot be described efficiently in words.
+Prompt jak "kobieta w czerwonej sukience prowadząca psa po ruchliwej ulicy" nie dostarcza modelowi żadnych informacji o *tym, gdzie* jest pies, *w jakiej pozie* jest kobieta, lub *z jakiej perspektywy* jest ulica. Tekst określa około 10% tego, co musisz wskazać, by opisać obraz. Reszta jest wizualna i nie może być efektywnie opisana słowami.
 
-Training a new conditional model from scratch for every signal (pose, depth, canny, segmentation) is prohibitive. You want to keep the 2.6B-param SDXL backbone frozen, attach a small side-network that reads the conditioning, and have it nudge the backbone's intermediate features. That is ControlNet.
+Trenowanie nowego modelu warunkowego od zera dla każdego sygnału (poza, głębia, canny, segmentacja) jest niedopuszczalne. Chcesz zamrozić rdzeń SDXL z 2,6B parametrów, dołączyć małą sieć boczną, która odczytuje warunkowanie, i sprawić, by delikatnie nudge'owała pośrednie cechy rdzenia. To jest ControlNet.
 
-You also want to teach the model new concepts (your face, your product, your style) without retraining the full model. You want a 100x smaller delta. That is LoRA — low-rank adapters that plug into existing attention weights.
+Chcesz też nauczyć model nowych koncepcji (swojej twarzy, swojego produktu, swojego stylu) bez ponownego treningu pełnego modelu. Chcesz delty 100x mniejszej. To jest LoRA — adaptery niskiego rzędu, które wpinają się w istniejące wagi uwagi.
 
-ControlNet + LoRA + text = the 2026 practitioner's toolkit. Most production image pipelines layer 2-5 LoRAs, 1-3 ControlNets, and an IP-Adapter on top of an SDXL / SD3 / Flux base.
+ControlNet + LoRA + tekst = toolkit praktyka 2026. Większość produkcyjnych potoków obrazów warstwuje 2-5 LoRA, 1-3 ControlNety i IP-Adapter na szczycie bazy SDXL / SD3 / Flux.
 
-## The Concept
+## Koncepcja
 
-![ControlNet clones the encoder; LoRA adds low-rank deltas](../assets/controlnet-lora.svg)
+![ControlNet klonuje enkoder; LoRA dodaje niskie rzędy delty](../assets/controlnet-lora.svg)
 
 ### ControlNet (Zhang et al., 2023)
 
-Take a pretrained SD. *Clone* the encoder half of the U-Net. Freeze the original. Train the clone to accept an extra conditioning input (edges, depth, pose). Connect the clone back to the decoder half of the original with *zero-convolution* skip connections (1×1 convs initialized to zero — start as a no-op, learn a delta).
+Weź wstępnie wytrenowany SD. *Sklonuj* połowę enkodera U-Net. Zamroź oryginał. Trenuj klona, by akceptował dodatkowe wejście warunkowe (krawędzie, głębia, poza). Połącz klona z powrotem z częścią dekodera oryginału za pomocą *skip connections* zero-konwolucyjnych (konwolucje 1×1 zainicjowane zerowo — startują jako no-op, uczą się delty).
 
 ```
-SD U-Net decoder:   ... ← orig_enc_features + zero_conv(controlnet_enc(condition))
+Dekoder SD U-Net:   ... ← orig_enc_features + zero_conv(controlnet_enc(condition))
 ```
 
-Zero-conv init means ControlNet starts as identity — no harm even before training. Train on 1M (prompt, condition, image) triples with the standard diffusion loss.
+Inicjalizacja zero-conv oznacza, że ControlNet startuje jako identyczność — bez szkody nawet przed treningiem. Trenuj na 1M trójek (prompt, warunek, obraz) ze standardową stratą dyfuzyjną.
 
-Per-modality ControlNets ship as small side models (~360M for SDXL, ~70M for SD 1.5). You can compose them at inference:
+ControlNety per-modalność są dostarczane jako małe modele boczne (~360M dla SDXL, ~70M dla SD 1.5). Możesz je komponować podczas wnioskowania:
 
 ```
 features += weight_a * control_a(depth) + weight_b * control_b(pose)
@@ -39,118 +39,118 @@ features += weight_a * control_a(depth) + weight_b * control_b(pose)
 
 ### LoRA (Hu et al., 2021)
 
-For any linear layer `W ∈ R^{d×d}` in the model, freeze `W` and add a low-rank delta:
+Dla dowolnej warstwy liniowej `W ∈ R^{d×d}` w modelu, zamroź `W` i dodaj deltę niskiego rzędu:
 
 ```
 W' = W + ΔW,  ΔW = B @ A,  A ∈ R^{r×d},  B ∈ R^{d×r}
 ```
 
-with `r << d`. Rank 4-16 is standard for attention, rank 64-128 for heavy fine-tunes. Number of new parameters: `2 · d · r` instead of `d²`. For SDXL attention with `d=640`, `r=16`: 20k params per adapter instead of 410k — a 20x reduction. Across the whole model: a LoRA is usually 20-200MB vs the base 5GB.
+gdzie `r << d`. Rząd 4-16 jest standardowy dla uwagi, rząd 64-128 dla ciężkich dostrojek. Liczba nowych parametrów: `2 · d · r` zamiast `d²`. Dla uwagi SDXL z `d=640`, `r=16`: 20k parametrów na adapter zamiast 410k — redukcja 20x. W całym modelu: LoRA ma zwykle 20-200MB vs baza 5GB.
 
-At inference you can scale the LoRA: `W' = W + α · B @ A`. `α = 0.5-1.5` is normal. Multiple LoRAs stack additively (with the usual caveat that they interact in non-linear ways).
+Podczas wnioskowania możesz skalować LoRA: `W' = W + α · B @ A`. `α = 0.5-1.5` jest normalne. Wiele LoRA składa się addytywnie (z usual caveat że wchodzą w interakcje w nieliniowy sposób).
 
 ### IP-Adapter (Ye et al., 2023)
 
-A tiny adapter that accepts an *image* as conditioning (alongside text). Uses the CLIP image encoder to produce image tokens, injects them into cross-attention alongside text tokens. ~20MB per base model. Lets you do "generate an image in the style of this reference" without a LoRA.
+Mały adapter, który akceptuje *obraz* jako warunkowanie (obok tekstu). Używa enkodera obrazów CLIP do tworzenia tokenów obrazu, wstrzykuje je do cross-attention obok tokenów tekstowych. ~20MB na bazowy model. Pozwala na "generuj obraz w stylu tego referencyjnego" bez LoRA.
 
-## Composability matrix
+## Macierz kompozycyjności
 
-| Tool | What it controls | Size | When to use |
+| Narzędzie | Co kontroluje | Rozmiar | Kiedy używać |
 |------|------------------|------|-------------|
-| ControlNet | Spatial structure (pose, depth, edges) | 70-360MB | Exact layout, composition |
-| LoRA | Style, subject, concept | 20-200MB | Personalization, style |
-| IP-Adapter | Style or subject from reference image | 20MB | No text can describe the look |
-| Textual Inversion | Single concept as a new token | 10KB | Legacy, mostly replaced by LoRA |
-| DreamBooth | Full fine-tune on a subject | 2-5GB | Strong identity, high compute |
-| T2I-Adapter | Lighter ControlNet alternative | 70MB | Edge devices, inference budget |
+| ControlNet | Strukturę przestrzenną (poza, głębia, krawędzie) | 70-360MB | Dokładny układ, kompozycja |
+| LoRA | Styl, podmiot, koncepcję | 20-200MB | Personalizacja, styl |
+| IP-Adapter | Styl lub podmiot z obrazu referencyjnego | 20MB | Żaden tekst nie może opisać wyglądu |
+| Textual Inversion | Pojedynczą koncepcję jako nowy token | 10KB | Starsze, głównie zastąpione przez LoRA |
+| DreamBooth | Pełne dostrojenie podmiotu | 2-5GB | Silna tożsamość, wysokie obliczenia |
+| T2I-Adapter | Lżejsza alternatywa dla ControlNet | 70MB | Urządzenia brzegowe, budżet wnioskowania |
 
-ControlNet ≈ spatial. LoRA ≈ semantic. Use both.
+ControlNet ≈ przestrzenne. LoRA ≈ semantyczne. Używaj obu.
 
-## Build It
+## Zbuduj to
 
-`code/main.py` simulates the two mechanisms on 1-D:
+`code/main.py` symuluje oba mechanizmy na 1-D:
 
-1. **LoRA.** A pretrained linear layer `W`. Freeze it. Train a low-rank `B @ A` such that `W + BA` matches a target linear layer. Show that `r = 1` is enough to learn a rank-1 correction perfectly.
+1. **LoRA.** Wstępnie trenowana warstwa liniowa `W`. Zamroź ją. Trenuj niskiego rzędu `B @ A` tak, by `W + BA` pasowało do docelowej warstwy liniowej. Pokaż, że `r = 1` wystarczy, by idealnie nauczyć się poprawki rzędu 1.
 
-2. **ControlNet-lite.** A "frozen base" predictor and a "side network" that reads an extra signal. The side network's output is gated by a learnable scalar initialized to zero (our version of zero-conv). Train and watch the gate ramp up.
+2. **ControlNet-lite.** "Zamrożona baza" predyktor i "sieć boczna", która odczytuje dodatkowy sygnał. Wyjście sieci bocznej jest bramkowane przez skalarny parametr uczący się zainicjowany zerem (nasza wersja zero-conv). Trenuj i obserwuj, jak bramka się rampuje.
 
-### Step 1: LoRA math
+### Krok 1: Matematyka LoRA
 
 ```python
 def lora(W, A, B, x, alpha=1.0):
-    # W is frozen; A, B are the trainable low-rank factors.
+    # W jest zamrożona; A, B to trenowalne czynniki niskiego rzędu.
     return [W[i][j] * x[j] for i, j in ...] + alpha * (B @ (A @ x))
 ```
 
-### Step 2: zero-init side network
+### Krok 2: sieć boczna z zerową inicjalizacją
 
 ```python
 side_out = control_net(x, condition)
-gated = gate * side_out  # gate initialized to 0
+gated = gate * side_out  # bramka zainicjowana 0
 h = base(x) + gated
 ```
 
-At step 0 the output is identical to base. Early training updates `gate` slowly — no catastrophic drift.
+W kroku 0 wyjście jest identyczne z bazą. Wczesny trening aktualizuje `gate` powoli — brak katastroficznego dryfu.
 
-## Pitfalls
+## Pułapki
 
-- **Over-scaling LoRAs.** `α = 2` or `α = 3` is a common "make it stronger" hack that produces over-stylized / broken outputs. Keep `α ≤ 1.5`.
-- **ControlNet weight conflict.** Using a Pose ControlNet at weight 1.0 and a Depth ControlNet at weight 1.0 usually overshoots. Sum of weights ≈ 1.0 is a safe default.
-- **LoRA on the wrong base.** SDXL LoRAs silently no-op on SD 1.5 because the attention dimensions do not match. Diffusers will warn in 0.30+.
-- **Textual Inversion drift.** Tokens trained on one checkpoint drift badly on another. LoRA is more portable.
-- **LoRA weight-merging and storage.** You can bake a LoRA into the base model weights for faster inference (no runtime addition), but you lose the ability to scale `α` at runtime. Keep both versions.
+- **Nadmierne skalowanie LoRA.** `α = 2` lub `α = 3` to popularny hack "zrób to silniejszym", który produkuje nadmiernie stylizowane / złamane wyjścia. Utrzymuj `α ≤ 1.5`.
+- **Konflikt wag ControlNet.** Używanie ControlNet-Pozy przy wadze 1.0 i ControlNet-Głębi przy wadze 1.0 zwykle przekracza. Suma wag ≈ 1.0 to bezpieczny default.
+- **LoRA na niewłaściwej bazie.** LoRA SDXL cicho no-op na SD 1.5 bo wymiary uwagi nie pasują. Diffusers ostrzeże od wersji 0.30+.
+- **Dryf Textual Inversion.** Tokeny trenowane na jednym checkpoincie dryfują fatalnie na innym. LoRA jest bardziej przenośna.
+- **Łączenie wag i przechowywanie LoRA.** Możesz wypiec LoRA w wagi modelu bazowego dla szybszego wnioskowania (brak runtime'owego dodawania), ale tracisz możliwość skalowania `α` w runtime. Trzymaj obie wersje.
 
-## Use It
+## Użyj tego
 
-| Goal | 2026 pipeline |
+| Cel | Potok 2026 |
 |------|---------------|
-| Reproduce a brand's art style | LoRA trained on ~30 curated images at rank 32 |
-| Put my face in a generated image | DreamBooth or LoRA + IP-Adapter-FaceID |
-| Specific pose + prompt | ControlNet-Openpose + SDXL + text |
-| Depth-aware composition | ControlNet-Depth + SD3 |
-| Reference + prompt | IP-Adapter + text |
-| Exact layout | ControlNet-Scribble or ControlNet-Canny |
-| Background replace | ControlNet-Seg + Inpainting (Lesson 09) |
-| Fast 1-step style | LCM-LoRA on SDXL-Turbo |
+| Odtworzyć styl artystyczny marki | LoRA trenowana na ~30 kuratorowanych obrazach przy rzędzie 32 |
+| Wstawić moją twarz w wygenerowany obraz | DreamBooth lub LoRA + IP-Adapter-FaceID |
+| Konkretna poza + prompt | ControlNet-Openpose + SDXL + tekst |
+| Kompozycja świadoma głębi | ControlNet-Depth + SD3 |
+| Referencja + prompt | IP-Adapter + tekst |
+| Dokładny układ | ControlNet-Scribble lub ControlNet-Canny |
+| Zamiana tła | ControlNet-Seg + Inpainting (Lekcja 09) |
+| Szybki styl 1-krokowy | LCM-LoRA na SDXL-Turbo |
 
-## Ship It
+## Wyślij to
 
-Save `outputs/skill-sd-toolkit-composer.md`. Skill takes a task (input assets: prompt, optional reference image, optional pose, optional depth, optional scribble) and outputs the tool stack, weights, and a reproducible seed protocol.
+Zapisz `outputs/skill-sd-toolkit-composer.md`. Umiejętność przyjmuje zadanie (aktywa wejściowe: prompt, opcjonalny obraz referencyjny, opcjonalna poza, opcjonalna głębia, opcjonalny szkic) i wyprowadza stos narzędzi, wagi i odtwarzalny protokół seed.
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** In `code/main.py`, vary the LoRA rank `r` from 1 to 4. At what rank does the LoRA exactly match a rank-2 target delta?
-2. **Medium.** Train two separate LoRAs on two target transforms. Load them together and show their additive interaction. When does the interaction break linearity?
-3. **Hard.** Use diffusers to stack: SDXL-base + Canny-ControlNet (weight 0.8) + a style LoRA (α 0.8) + IP-Adapter (weight 0.6). Measure FID-vs-prompt-adherence trade-off as the stack weights vary.
+1. **Łatwe.** W `code/main.py`, zmień rząd LoRA `r` od 1 do 4. Przy jakim rzędzie LoRA dokładnie dopasuje docelową deltę rzędu 2?
+2. **Średnie.** Trenuj dwie osobne LoRA na dwóch transformacjach docelowych. Załaduj je razem i pokaż ich addytywną interakcję. Kiedy interakcja łamie liniowość?
+3. **Trudne.** Użyj diffusers do stosu: SDXL-base + Canny-ControlNet (waga 0.8) + styl LoRA (α 0.8) + IP-Adapter (waga 0.6). Zmierz kompromis FID-vs-przestrzeganie-promptu jak wagi stosu się zmieniają.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|-----------------|-----------------------|
-| ControlNet | "Spatial control" | Cloned encoder + zero-conv skips; reads a conditioning image. |
-| Zero convolution | "Starts as identity" | 1×1 conv initialized to zero; ControlNet starts as no-op. |
-| LoRA | "Low-rank adapter" | `W + B @ A`, `r << d`; 100x fewer params than a full fine-tune. |
-| rank r | "The knob" | LoRA compression; 4-16 typical, 64+ for heavy personalization. |
-| α | "LoRA strength" | Runtime scaling of the LoRA delta. |
-| IP-Adapter | "Reference image" | Small image-conditioning adapter via CLIP-image tokens. |
-| DreamBooth | "Full subject fine-tune" | Train the full model on ~30 images of a subject. |
-| Textual Inversion | "New token" | Learn a new word embedding only; legacy, mostly replaced. |
+| ControlNet | "Kontrola przestrzenna" | Sklonowany enkoder + zero-conv skips; odczytuje obraz warunkowy. |
+| Zero convolution | "Startuje jako identyczność" | Konwolucja 1×1 zainicjowana zerowo; ControlNet startuje jako no-op. |
+| LoRA | "Adapter niskiego rzędu" | `W + B @ A`, `r << d`; 100x mniej parametrów niż pełne dostrojenie. |
+| rząd r | "Pokrętło" | Kompresja LoRA; 4-16 typowe, 64+ dla ciężkiej personalizacji. |
+| α | "Siła LoRA" | Runtime skalowanie delty LoRA. |
+| IP-Adapter | "Obraz referencyjny" | Mały adapter warunkowania obrazem przez tokeny CLIP-image. |
+| DreamBooth | "Pełne dostrojenie podmiotu" | Trenuj pełny model na ~30 obrazach podmiotu. |
+| Textual Inversion | "Nowy token" | Naucz się tylko nowego word embedding; starsze, głównie zastąpione. |
 
-## Production note: LoRA swaps, ControlNet lanes, multi-tenant serving
+## Uwaga produkcyjna: Zamiany LoRA, paski ControlNet, wielodostępne serwowanie
 
-A real text-to-image SaaS serves hundreds of LoRAs and a dozen ControlNets over the same base checkpoint. The serving problem looks a lot like LLM multi-tenancy (the production literature covers the LLM case under continuous batching and LoRAX / S-LoRA):
+Prawdziwy SaaS text-to-image serwuje setki LoRA i tuzin ControlNetów na tym samym checkpoincie bazowym. Problem serwowania wygląda bardzo podobnie do wielodostępności LLM (literatura produkcyjna pokrywa przypadek LLM pod continuous batching i LoRAX / S-LoRA):
 
-- **Hot-swap LoRAs, do not merge.** Merging `W' = W + α·B·A` into the base gives ~3-5% faster per-step inference but freezes `α` and the base. Keep LoRAs hot in VRAM as rank-r deltas; diffusers exposes `pipe.load_lora_weights()` + `pipe.set_adapters([...], adapter_weights=[...])` for per-request activation. Swap cost is the `2 · d · r · num_layers` weights — MB-scale, sub-second.
-- **ControlNet as a second attention lane.** The cloned encoder runs in parallel with the base. Two ControlNets at weight 1.0 each = two extra forward passes per step, not one merged pass. Batch-size headroom drops quadratically. Budget for ~1.5× step cost per active ControlNet.
-- **Quantized LoRAs too.** If you quantized the base (see Lesson 07, Flux on 8GB), the LoRA delta also quantizes cleanly to 8-bit or 4-bit. QLoRA-style loading lets you stack 5-10 LoRAs on top of a 4-bit Flux base without blowing memory.
+- **Hot-swap LoRA, nie łącz.** Łączenie `W' = W + α·B·A` w bazę daje ~3-5% szybsze wnioskowanie na krok ale zamraża `α` i bazę. Trzymaj LoRA gorące w VRAM jako delty rzędu-r; diffusers eksponuje `pipe.load_lora_weights()` + `pipe.set_adapters([...], adapter_weights=[...])` dla aktywacji per-request. Koszt zamiany to wagi `2 · d · r · num_layers` — skala MB, pod-sekunda.
+- **ControlNet jako drugi pas uwagi.** Sklonowany enkoder działa równolegle z bazą. Dwa ControlNety przy wadze 1.0 każdy = dwa dodatkowe przebiegi forward na krok, nie jeden scalony przebieg. Głowa batch size spada kwadratowo. Budżetuj na ~1.5× koszt kroku na aktywny ControlNet.
+- **Skwantowane LoRA też.** Jeśli skwantowałeś bazę (patrz Lekcja 07, Flux na 8GB), delta LoRA też skwantowuje się czysto do 8-bit lub 4-bit. Ładowanie w stylu QLoRA pozwala stosować 5-10 LoRA na szczycie 4-bitowego Flux bez rozsadzenia pamięci.
 
-Flux-specific: Niels' Flux-on-8GB notebook quantizes the base to 4-bit; stacking a style LoRA (`pipe.load_lora_weights("user/style-lora")`) on that quantized base at `weight_name="pytorch_lora_weights.safetensors"` still works. This is the recipe most SaaS agencies ship in 2026.
+Specyficzne dla Flux: notebook Nielsa Flux-on-8GB kwantuje bazę do 4-bit; stosowanie styl LoRA (`pipe.load_lora_weights("user/style-lora")`) na tej skwantowanej bazie przy `weight_name="pytorch_lora_weights.safetensors"` nadal działa. To jest przepis, który większość SaaS agencji wysyła w 2026.
 
-## Further Reading
+## Dalsze czytanie
 
 - [Zhang, Rao, Agrawala (2023). Adding Conditional Control to Text-to-Image Diffusion Models](https://arxiv.org/abs/2302.05543) — ControlNet.
-- [Hu et al. (2021). LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685) — LoRA (originally for LLMs; ports to diffusion).
+- [Hu et al. (2021). LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685) — LoRA (pierwotnie dla LLM; porty na dyfuzję).
 - [Ye et al. (2023). IP-Adapter: Text Compatible Image Prompt Adapter](https://arxiv.org/abs/2308.06721) — IP-Adapter.
-- [Mou et al. (2023). T2I-Adapter: Learning Adapters to Dig Out More Controllable Ability](https://arxiv.org/abs/2302.08453) — lighter alternative to ControlNet.
+- [Mou et al. (2023). T2I-Adapter: Learning Adapters to Dig Out More Controllable Ability](https://arxiv.org/abs/2302.08453) — lżejsza alternatywa dla ControlNet.
 - [Ruiz et al. (2023). DreamBooth: Fine Tuning Text-to-Image Diffusion Models for Subject-Driven Generation](https://arxiv.org/abs/2208.12242) — DreamBooth.
-- [HuggingFace Diffusers — ControlNet / LoRA / IP-Adapter docs](https://huggingface.co/docs/diffusers/training/controlnet) — reference pipelines.
+- [HuggingFace Diffusers — ControlNet / LoRA / IP-Adapter docs](https://huggingface.co/docs/diffusers/training/controlnet) — referencyjne potoki.

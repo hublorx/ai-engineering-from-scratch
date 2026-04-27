@@ -1,86 +1,86 @@
-# Flow Matching & Rectified Flows
+# Flow Matching i Rectified Flows
 
-> Diffusion models take 20-50 sampling steps because they walk a curved path from noise to data. Flow matching (Lipman et al., 2023) and rectified flow (Liu et al., 2022) trained straight paths. Straighter paths mean fewer steps mean faster inference. Stable Diffusion 3, Flux.1, and AudioCraft 2 all switched to flow matching in 2024.
+> Modele dyfuzyjne potrzebują 20-50 kroków próbkowania, ponieważ podążają zakrzywioną ścieżką od szumu do danych. Flow matching (Lipman i in., 2023) oraz rectified flow (Liu i in., 2022) trenowały proste ścieżki. Prostsze ścieżki oznaczają mniej kroków, co oznacza szybszą inferencję. Stable Diffusion 3, Flux.1 i AudioCraft 2 wszystkie przeszły na flow matching w 2024 roku.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 8 · 06 (DDPM), Phase 1 · Calculus
-**Time:** ~45 minutes
+**Typ:** Zbuduj to
+**Języki:** Python
+**Wymagania wstępne:** Faza 8 · 06 (DDPM), Faza 1 · Rachunek różniczkowy
+**Czas:** ~45 minut
 
-## The Problem
+## Problem
 
-DDPM's reverse process is a 1000-step stochastic walk from `N(0, I)` back to the data distribution. DDIM collapsed it to 20-50 deterministic steps. You want fewer steps — ideally one. The blocker is that the ODE solving the reverse process is stiff; the path is curved.
+Odwrotny proces DDPM to 1000-krokowy losowy marsz od `N(0, I)` z powrotem do rozkładu danych. DDIM skrócił go do 20-50 deterministycznych kroków. Chcesz mniej kroków — idealnie jeden. Przeszkodą jest to, że ODE rozwiązujące proces odwrotny jest sztywne; ścieżka jest zakrzywiona.
 
-If you could train the model such that the path from noise to data was a *straight line*, a single Euler step from `t=1` to `t=0` would work. Flow matching builds this directly: define a straight-line interpolation from `x_1 ∼ N(0, I)` to `x_0 ∼ data`, train a vector field `v_θ(x, t)` to match its time derivative, integrate at inference.
+Gdybyś mógł tak trenować model, aby ścieżka od szumu do danych była *linią prostą*, pojedynczy krok Eulera od `t=1` do `t=0` by zadziałał. Flow matching buduje to bezpośrednio: zdefiniuj interpolację liniową od `x_1 ∼ N(0, I)` do `x_0 ∼ dane`, trenuj pole wektorowe `v_θ(x, t)`, aby dopasować jego pochodną czasową, całkuj podczas inferencji.
 
-Rectified flow (Liu 2022) goes further: iteratively straighten the paths with a reflow procedure that produces a progressively closer-to-linear ODE. After two reflow iterations, a 2-step sampler matches 50-step DDPM quality.
+Rectified flow (Liu 2022) idzie dalej: iteracyjnie prostuje ścieżki za pomocą procedury reflow, która tworzy progresywnie bardziej liniowe ODE. Po dwóch iteracjach reflow, sampler 2-krokowy dorównuje jakości 50-krokowego DDPM.
 
-## The Concept
+## Koncepcja
 
-![Flow matching: straight-line interpolation between noise and data](../assets/flow-matching.svg)
+![Flow matching: interpolacja liniowa między szumem a danymi](../assets/flow-matching.svg)
 
-### Straight-line flow
+### Prosta ścieżka przepływu
 
-Define:
+Zdefiniuj:
 
 ```
 x_t = t · x_1 + (1 - t) · x_0,   t ∈ [0, 1]
 ```
 
-where `x_0 ~ data` and `x_1 ~ N(0, I)`. The time derivative along this straight line is constant:
+gdzie `x_0 ~ dane` i `x_1 ~ N(0, I)`. Pochodna czasowa wzdłuż tej prostej jest stała:
 
 ```
 dx_t / dt = x_1 - x_0
 ```
 
-Define a neural vector field `v_θ(x_t, t)` and train it to match this derivative:
+Zdefiniuj neuronowe pole wektorowe `v_θ(x_t, t)` i trenuj je, aby dopasować tę pochodną:
 
 ```
 L = E_{x_0, x_1, t} || v_θ(x_t, t) - (x_1 - x_0) ||²
 ```
 
-This is the **conditional flow matching** loss (Lipman 2023). Training is simulation-free: you never unroll the ODE. Just sample `(x_0, x_1, t)` and regress.
+To jest **warunkowa funkcja straty flow matching** (Lipman 2023). Trening jest wolny od symulacji: nigdy nie rozwijaj ODE. Po prostu próbkuj `(x_0, x_1, t)` i regresuj.
 
-### Sampling
+### Próbkowanie
 
-At inference, integrate the learned vector field *backwards* in time:
+Podczas inferencji, całkuj nauczone pole wektorowe *wstecz* w czasie:
 
 ```
 x_{t-Δt} = x_t - Δt · v_θ(x_t, t)
 ```
 
-Start at `x_1 ~ N(0, I)`, Euler-step down to `t=0`.
+Zacznij od `x_1 ~ N(0, I)`, krok Eulera w dół do `t=0`.
 
 ### Rectified flow (Liu 2022)
 
-Straight-line flow works but the learned paths are *not actually straight* — they curve because many `x_0`s can map to the same `x_1`. Rectified flow's reflow step:
+Prosta ścieżka przepływu działa, ale nauczone ścieżki *nie są faktycznie proste* — zakrzywiają się, ponieważ wiele `x_0` może być mapowanych na to samo `x_1`. Krok reflow rectified flow:
 
-1. Train flow model v_1 with random pairings.
-2. Sample N pairs `(x_1, x_0)` by integrating v_1 from `x_1` to its landing `x_0`.
-3. Train v_2 on those paired examples. Because the pairs are now "ODE-matched", the straight-line interpolant between them is genuinely flatter.
-4. Repeat.
+1. Trenuj model przepływu v_1 z losowymi parami.
+2. Próbkuj N par `(x_1, x_0)` przez całkowanie v_1 od `x_1` do jego docelowego `x_0`.
+3. Trenuj v_2 na tych sparowanych przykładach. Ponieważ pary są teraz "dopasowane przez ODE", interpolacja liniowa między nimi jest rzeczywiście bardziej płaska.
+4. Powtórz.
 
-In practice 2 reflow iterations get you to near-linear, enabling 2-4 step inference. SDXL-Turbo, SD3-Turbo, LCM are all distilled-from-flow-matching models.
+W praktyce 2 iteracje reflow pozwalają osiągnąć niemal liniowy przepływ, umożliwiając inferencję w 2-4 krokach. SDXL-Turbo, SD3-Turbo, LCM to wszystko modele zdestylowane z flow matching.
 
-### Why this won for images in 2024
+### Dlaczego to wygrało dla obrazów w 2024 roku
 
-Three reasons:
+Trzy powody:
 
-1. **Simulation-free training** — no ODE unrolling during training, trivial to implement.
-2. **Better loss geometry** — straight paths have consistent signal-to-noise, whereas DDPM ε-loss has bad SNR at edges of the schedule.
-3. **Faster inference** — 4-8 steps at SDXL-Turbo quality; 1 step with consistency distillation.
+1. **Trening wolny od symulacji** — brak rozwijania ODE podczas treningu, trywialne do wdrożenia.
+2. **Lepsza geometria funkcji straty** — proste ścieżki mają spójny stosunek sygnału do szumu, podczas gdy funkcja straty ε DDPM ma zły SNR na brzegach harmonogramu.
+3. **Szybsza inferencja** — 4-8 kroków w jakości SDXL-Turbo; 1 krok z destylacją spójności.
 
-## Flow matching vs DDPM — the exact connection
+## Flow matching vs DDPM — dokładne połączenie
 
-Flow matching with a Gaussian-conditional path is diffusion *with a specific noise schedule*. Pick the `x_t = α(t) x_0 + σ(t) x_1` schedule and flow matching recovers Stratonovich-reformulated diffusion with `v = α'·x_0 - σ'·x_1`. The two are algebraically equivalent for Gaussian paths.
+Flow matching ze ścieżką warunkową Gaussa to dyfuzja *z określonym harmonogramem szumu*. Wybierz harmonogram `x_t = α(t) x_0 + σ(t) x_1` i flow matching odzyskuje dyfuzję sformułowaną w sensie Stratonowicza z `v = α'·x_0 - σ'·x_1`. Te dwa są algebraicznie równoważne dla ścieżek Gaussa.
 
-What flow matching added: the *clarity* of the target (a plain velocity), a cleaner loss, and the license to experiment with non-Gaussian interpolants.
+Co dodał flow matching: *jasność* celu (zwykła prędkość), czystsza funkcja straty i swoboda eksperymentowania z interpolantami niewymiarowymi Gaussa.
 
-## Build It
+## Zbuduj to
 
-`code/main.py` implements 1-D flow matching on a two-mode Gaussian mixture. The vector field `v_θ(x, t)` is a tiny MLP trained with the straight-line target. At inference, integrate 1, 2, 4, and 20 Euler steps and compare sample quality.
+`code/main.py` implementuje 1-wymiarowy flow matching na dwumodalnej mieszaninie Gaussa. Pole wektorowe `v_θ(x, t)` to mały MLP trenowany z prostoliniowym celem. Podczas inferencji, całkuj 1, 2, 4 i 20 kroków Eulera i porównaj jakość próbek.
 
-### Step 1: training loss
+### Krok 1: funkcja straty treningu
 
 ```python
 def train_step(x0, net, rng, lr):
@@ -93,7 +93,7 @@ def train_step(x0, net, rng, lr):
     # backprop + update
 ```
 
-### Step 2: multi-step inference
+### Krok 2: wieloetapowa inferencja
 
 ```python
 def sample(net, num_steps):
@@ -105,72 +105,72 @@ def sample(net, num_steps):
     return x
 ```
 
-### Step 3: compare step counts
+### Krok 3: porównaj liczbę kroków
 
-Expect the 4-step sampler to already match the 20-step quality — a big deal for latency.
+Oczekuj, że sampler 4-krokowy już dorówna jakości 20-krokowego — to duża sprawa dla opóźnień.
 
-## Pitfalls
+## Pułapki
 
-- **Time parameterization.** Flow matching uses `t ∈ [0, 1]` with `t=0` at data, `t=1` at noise. DDPM uses `t ∈ [0, T]` with `t=0` at data, `t=T` at noise. Same direction, different scale. Papers get this wrong constantly.
-- **Schedule choice.** Rectified flow's straight line is "the" flow-matching schedule, but you can use cosine or logit-normal t-sampling (SD3 does this) for better scale coverage.
-- **Reflow cost.** Generating the paired dataset for reflow is a full inference pass per sample. Only do reflow when you really need 1-2 step inference.
-- **Classifier-free guidance still applies.** Just swap ε for v in the linear combination: `v_cfg = (1+w) v_cond - w v_uncond`.
+- **Parametryzacja czasu.** Flow matching używa `t ∈ [0, 1]` z `t=0` przy danych, `t=1` przy szumie. DDPM używa `t ∈ [0, T]` z `t=0` przy danych, `t=T` przy szumie. Ten sam kierunek, inna skala. Artykuły stale to mylą.
+- **Wybór harmonogramu.** Prosta linia rectified flow to "ten" harmonogram flow matching, ale możesz użyć cosinusowego lub logit-normalnego próbkowania t (SD3 to robi) dla lepszego pokrycia skali.
+- **Koszt reflow.** Generowanie sparowanego zbioru danych dla reflow to pełny przebieg inferencji na próbkę. Rób reflow tylko gdy naprawdę potrzebujesz inferencji w 1-2 krokach.
+- **Classifier-free guidance nadal obowiązuje.** Po prostu zamień ε na v w kombinacji liniowej: `v_cfg = (1+w) v_cond - w v_uncond`.
 
-## Use It
+## Użyj tego
 
-| Use case | 2026 stack |
+| Przypadek użycia | Stos technologiczny 2026 |
 |----------|-----------|
-| Text-to-image, best quality | Flow matching: SD3, Flux.1-dev |
-| Text-to-image, 1-4 steps | Distilled flow matching: Flux.1-schnell, SD3-Turbo, SDXL-Turbo |
-| Real-time inference | Consistency distillation from a flow-matched base (LCM, PCM) |
-| Audio generation | Flow matching: Stable Audio 2.5, AudioCraft 2 |
-| Video generation | Flow matching mixed with diffusion (Sora, Veo, Stable Video) |
-| Science / physics (particle trajectories, molecules) | Flow matching + equivariant vector field |
+| Tekst-do-obrazu, najlepsza jakość | Flow matching: SD3, Flux.1-dev |
+| Tekst-do-obrazu, 1-4 kroki | Zdestylowany flow matching: Flux.1-schnell, SD3-Turbo, SDXL-Turbo |
+| Inferencja w czasie rzeczywistym | Destylacja spójności z bazy flow-matched (LCM, PCM) |
+| Generowanie audio | Flow matching: Stable Audio 2.5, AudioCraft 2 |
+| Generowanie wideo | Flow matching zmieszany z dyfuzją (Sora, Veo, Stable Video) |
+| Nauka / fizyka (trajektorie cząstek, cząsteczki) | Flow matching + equiwariantne pole wektorowe |
 
-Whenever a paper says "faster than diffusion" in 2025-2026, it is almost always flow matching + distillation.
+Za każdym razem, gdy artykuł mówi "szybszy niż dyfuzja" w 2025-2026, prawie zawsze jest to flow matching + destylacja.
 
-## Ship It
+## Wyślij to
 
-Save `outputs/skill-fm-tuner.md`. Skill takes a diffusion-style model spec and converts it to a flow-matching training config: schedule choice, time sampling distribution (uniform / logit-normal), optimizer, reflow plan, target step count, eval protocol.
+Zapisz `outputs/skill-fm-tuner.md`. Skill przyjmuje specyfikację modelu w stylu dyfuzji i konwertuje ją na konfigurację treningową flow matching: wybór harmonogramu, rozkład próbkowania czasu (jednostajny / logit-normalny), optymalizator, plan reflow, docelowa liczba kroków, protokół ewaluacji.
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Run `code/main.py` and compare 1-step vs 20-step MSE vs the true data distribution.
-2. **Medium.** Switch from uniform `t` sampling to logit-normal (concentrates sampling at mid-t). Does the model quality improve?
-3. **Hard.** Implement one reflow iteration: generate paired (x_0, x_1) by integrating the first model, train a second model on the pairs, and compare 1-step sample quality.
+1. **Łatwe.** Uruchom `code/main.py` i porównaj MSE 1-krokowe vs 20-krokowe vs prawdziwy rozkład danych.
+2. **Średnie.** Przełącz z jednostajnego próbkowania t na logit-normalne (koncentruje próbkowanie w połowie t). Czy jakość modelu się poprawia?
+3. **Trudne.** Zaimplementuj jedną iterację reflow: generuj sparowane (x_0, x_1) przez całkowanie pierwszego modelu, trenuj drugi model na parach i porównaj jakość próbek 1-krokowych.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|-----------------|-----------------------|
-| Flow matching | "Straight-line diffusion" | Train `v_θ(x, t)` to match `x_1 - x_0` along an interpolant. |
-| Rectified flow | "Reflow" | Iterative procedure that straightens learned flows. |
-| Velocity field | "v_θ" | Output of the model — the direction to move `x_t`. |
-| Straight-line interpolant | "The path" | `x_t = (1-t)·x_0 + t·x_1`; trivial target derivative. |
-| Euler sampler | "1st order ODE solver" | Simplest integrator; works well when paths are straight. |
-| Logit-normal t | "SD3 sampling" | Concentrate `t` sampling toward mid-values where gradients are strongest. |
-| Consistency distillation | "1-step sampler" | Train a student to map any `x_t` directly to `x_0`. |
-| CFG with velocity | "v-CFG" | `v_cfg = (1+w) v_cond - w v_uncond`; same trick, new variable. |
+| Flow matching | "Prostoliniowa dyfuzja" | Trenuj `v_θ(x, t)`, aby dopasować `x_1 - x_0` wzdłuż interpolantu. |
+| Rectified flow | "Reflow" | Iteracyjna procedura prostująca nauczone przepływy. |
+| Pole prędkości | "v_θ" | Wyjście modelu — kierunek ruchu `x_t`. |
+| Interpolant prostoliniowy | "Ścieżka" | `x_t = (1-t)·x_0 + t·x_1`; trywialna pochodna celu. |
+| Sampler Eulera | "Solver ODE 1. rzędu" | Najprostszy integrator; dobrze działa gdy ścieżki są proste. |
+| Logit-normalne t | "Próbkowanie SD3" | Koncentruj próbkowanie `t` ku wartościom pośrednim, gdzie gradienty są najsilniejsze. |
+| Destylacja spójności | "Sampler 1-krokowy" | Trenuj studenta, aby mapował dowolne `x_t` bezpośrednio na `x_0`. |
+| CFG z prędkością | "v-CFG" | `v_cfg = (1+w) v_cond - w v_uncond`; ten sam trik, nowa zmienna. |
 
-## Production note: Flux.1-schnell is flow matching at its fastest
+## Uwaga produkcyjna: Flux.1-schnell to flow matching w najszybszej wersji
 
-Flow matching's production win is Flux.1-schnell — a flow-matched DiT distilled to 1-4 inference steps while keeping Flux-dev-grade quality. Niels' "Run Flux on an 8GB machine" notebook is the reference deployment recipe: T5 + CLIP encode, quantized MMDiT denoise (in 4 steps for schnell vs 50 for dev), VAE decode. The cost accounting:
+Produkcyjny sukces flow matching to Flux.1-schnell — DiT z flow matching, zdestylowany do 1-4 kroków inferencji przy zachowaniu jakości Flux-dev. Notes Nielsa "Uruchom Flux na maszynie 8GB" to referencyjna recepta wdrożeniowa: kodowanie T5 + CLIP, kwantyzowany MMDiT denoise (w 4 krokach dla schnell vs 50 dla dev), dekodowanie VAE. Księgowanie kosztów:
 
-| Variant | Steps | Latency at 1024² on L4 | Total FLOPs (relative) |
+| Wariant | Kroki | Opóźnienie przy 1024² na L4 | Całkowite FLOPS (względne) |
 |---------|-------|------------------------|------------------------|
-| Flux.1-dev (raw) | 50 | ~15 s | 1.0× |
-| Flux.1-schnell | 4 | ~1.2 s | 0.08× (12× faster) |
+| Flux.1-dev (surowy) | 50 | ~15 s | 1.0× |
+| Flux.1-schnell | 4 | ~1.2 s | 0.08× (12× szybciej) |
 | SDXL-base | 30 | ~4 s | 0.25× |
 | SDXL-Lightning 2-step | 2 | ~0.3 s | 0.03× |
 
-The production rule: **flow-matched base + distillation = the 2026 default for fast text-to-image.** Every major vendor ships this combo: SD3-Turbo (SD3 + flow + distillation), Flux-schnell (Flux-dev + rectified-flow straightening), CogView-4-Flash. Pure diffusion bases exist only for legacy checkpoints.
+Reguła produkcyjna: **bazowy model flow-matched + destylacja = domyślny wybór 2026 dla szybkiego tekstu-do-obrazu.** Każdy główny dostawca wysyła tę kombinację: SD3-Turbo (SD3 + flow + destylacja), Flux-schnell (Flux-dev + prostowanie rectified-flow), CogView-4-Flash. Czyste bazy dyfuzyjne istnieją tylko dla legacy checkpointów.
 
-## Further Reading
+## Dalsze czytanie
 
 - [Liu, Gong, Liu (2022). Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow](https://arxiv.org/abs/2209.03003) — rectified flow.
-- [Lipman et al. (2023). Flow Matching for Generative Modeling](https://arxiv.org/abs/2210.02747) — flow matching.
-- [Esser et al. (2024). Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) — SD3, rectified flow at scale.
-- [Albergo, Vanden-Eijnden (2023). Stochastic Interpolants](https://arxiv.org/abs/2303.08797) — general framework that covers FM + diffusion.
-- [Song et al. (2023). Consistency Models](https://arxiv.org/abs/2303.01469) — 1-step distillation of diffusion / flow.
-- [Sauer et al. (2023). Adversarial Diffusion Distillation (SDXL-Turbo)](https://arxiv.org/abs/2311.17042) — turbo variant.
-- [Black Forest Labs (2024). Flux.1 models](https://blackforestlabs.ai/announcing-black-forest-labs/) — flow matching in production.
+- [Lipman i in. (2023). Flow Matching for Generative Modeling](https://arxiv.org/abs/2210.02747) — flow matching.
+- [Esser i in. (2024). Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) — SD3, rectified flow na skali.
+- [Albergo, Vanden-Eijnden (2023). Stochastic Interpolants](https://arxiv.org/abs/2303.08797) — ogólna ramówka obejmująca FM + dyfuzję.
+- [Song i in. (2023). Consistency Models](https://arxiv.org/abs/2303.01469) — destylacja 1-krokowa dyfuzji / przepływu.
+- [Sauer i in. (2023). Adversarial Diffusion Distillation (SDXL-Turbo)](https://arxiv.org/abs/2311.17042) — wariant turbo.
+- [Black Forest Labs (2024). Flux.1 models](https://blackforestlabs.ai/announcing-black-forest-labs/) — flow matching w produkcji.

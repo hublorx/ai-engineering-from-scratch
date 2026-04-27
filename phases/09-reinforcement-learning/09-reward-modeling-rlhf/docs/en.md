@@ -1,64 +1,64 @@
-# Reward Modeling & RLHF
+# Modelowanie nagród i RLHF
 
-> Humans cannot write a reward function for "good assistant response," but they can compare two responses and pick the better one. Fit a reward model to those comparisons, then RL the language model against it. Christiano 2017. InstructGPT 2022. The recipe that turned GPT-3 into ChatGPT. In 2026 it is mostly being replaced by DPO — but the mental model stays.
+> Ludzie nie mogą napisać funkcji nagrody dla „dobrej odpowiedzi asystenta", ale potrafią porównać dwie odpowiedzi i wybrać lepszą. Dopasuj model nagród do tych porównań, a następnie zastosuj RL wobec modelu językowego. Christiano 2017. InstructGPT 2022. Przepis, który zamienił GPT-3 w ChatGPT. W 2026 roku jest w większości zastępowany przez DPO — ale mentalny model zostaje.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 5 · 05 (Sentiment), Phase 9 · 08 (PPO)
-**Time:** ~45 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Faza 5 · 05 (Sentiment), Faza 9 · 08 (PPO)
+**Szacowany czas:** ~45 minut
 
-## The Problem
+## Problem
 
-You trained a language model on the next-token-prediction objective. It writes grammatical English. It also lies, rambles, and refuses to refuse. You cannot fix this with more pretraining — web text is the problem, not the cure.
+Trenowałeś model językowy na zadaniu przewidywania następnego tokena. Pisze poprawną gramatycznie angielszczyznę. Kłamie jednak, plecie i odmawia odmowy. Nie możesz tego naprawić kolejnym pretrainingiem — tekst z internetu jest problemem, nie rozwiązaniem.
 
-You want a *scalar reward* that says "response A is better than response B for instruction X." Writing that reward function by hand is impossible. "Helpfulness" is not a closed-form expression over tokens. But humans can compare two outputs and mark a preference. That is cheap to collect at scale.
+Chcesz *skalarne wartości nagrody*, które powiedzą „odpowiedź A jest lepsza niż odpowiedź B dla instrukcji X." Zapisanie tej funkcji nagrody ręcznie jest niemożliwe. „Pomocność" nie jest wyrażeniem w zamkniętej formie nad tokenami. Ludzie potrafią jednak porównać dwa wyniki i zaznaczyć preferencję. Jest to tanie do zbierania na skalę.
 
-RLHF (Christiano et al. 2017; Ouyang et al. 2022) converts preferences into a reward model, then optimizes the LM via PPO against that reward. In three steps: SFT → RM → PPO. It is the recipe that shipped ChatGPT, Claude, Gemini, and every other aligned-LLM in 2023–2025.
+RLHF (Christiano et al. 2017; Ouyang et al. 2022) konwertuje preferencje na model nagród, a następnie optymalizuje LM poprzez PPO wobec tej nagrody. W trzech krokach: SFT → RM → PPO. To jest przepis, który dostarczył ChatGPT, Claude, Gemini i każdego innego wyrównanego LLM w latach 2023–2025.
 
-In 2026 the PPO step is mostly replaced by DPO (Phase 10 · 08) because it is cheaper and nearly as good for alignment tuning. But the *reward model* piece still underlies every Best-of-N sampler, every RL-from-verifiable-rewards pipeline, and every reasoning model using a process reward model. Understand RLHF and you understand the entire alignment stack.
+W 2026 roku krok PPO jest w większości zastępowany przez DPO (Faza 10 · 08), ponieważ jest tańszy i niemal równie dobry do dostrajania wyrównania. Ale element *modelu nagród* nadal stanowi podstawę każdego samplera Best-of-N, każdego potoku RL-from-verifiable-rewards i każdego modelu rozumowania używającego process reward model. Zrozum RLHF, a zrozumiesz cały stos wyrównania.
 
-## The Concept
+## Koncepcja
 
-![Three-stage RLHF: SFT, RM training on pairwise prefs, PPO with KL penalty](../assets/rlhf.svg)
+![Trójstopniowy RLHF: SFT, trening RM na parach preferencji, PPO z penalizacją KL](../assets/rlhf.svg)
 
-**Stage 1: Supervised Fine-Tuning (SFT).** Start from a pretrained base model. Fine-tune on human-written demonstrations of the target behavior (instruction-following responses, helpful replies, etc.). Result: a model `π_SFT` that is *biased toward good behavior* but still has an unbounded action space.
+**Etap 1: Supervised Fine-Tuning (SFT).** Zacznij od pretrained base model. Dostrój na ludzkich przykładachdemonstracji docelowego zachowania (odpowiedzi podążające za instrukcjami, pomocne odpowiedzi, itp.). Wynik: model `π_SFT`, który jest *obciążony ku dobrym zachowaniom*, ale wciąż ma nieograniczoną przestrzeń akcji.
 
-**Stage 2: Reward Model training.**
+**Etap 2: Trening modelu nagród.**
 
-- Collect pairs of responses `(y_+, y_-)` to prompts `x`, labeled by humans as "y_+ is preferred over y_-."
-- Train a reward model `R_φ(x, y)` to assign higher scores to `y_+`.
-- Loss: the **Bradley-Terry pairwise logistic**:
+- Zbierz pary odpowiedzi `(y_+, y_-)` na prompty `x`, oznaczone przez ludzi jako „y_+ jest preferowane nad y_-."
+- Trenuj model nagród `R_φ(x, y)`, aby przypisywał wyższe wyniki do `y_+`.
+- Funkcja strat: **Bradley-Terry pairwise logistic**:
 
   `L(φ) = -E[ log σ(R_φ(x, y_+) - R_φ(x, y_-)) ]`
 
-  σ is the sigmoid. The difference in reward implies a log-odds of preference. BT has been the standard since 1952 (Bradley-Terry) and is the dominant choice in modern RLHF.
+  σ to sigmoida. Różnica w nagrodzie implikuje log-odds preferencji. BT jest standardem od 1952 (Bradley-Terry) i dominującym wyborem w nowoczesnym RLHF.
 
-- `R_φ` is usually initialized from the SFT model with a scalar head on top. Same transformer backbone; a single linear layer outputs the reward.
+- `R_φ` jest zwykle inicjalizowany z modelu SFT z dodatkową głowicą skalarną. Ten sam transformer backbone; pojedyncza warstwa liniowa wyprowadza nagrodę.
 
-**Stage 3: PPO against the RM with KL penalty.**
+**Etap 3: PPO wobec RM z penalizacją KL.**
 
-- Initialize the trainable policy `π_θ` from `π_SFT`. Keep a frozen *reference* `π_ref = π_SFT`.
-- Reward at the end of a response `y`:
+- Inicjalizuj trenowalną politykę `π_θ` z `π_SFT`. Trzymaj zamrożonego *referencyjnego* `π_ref = π_SFT`.
+- Nagroda na końcu odpowiedzi `y`:
 
   `r_total(x, y) = R_φ(x, y) - β · KL(π_θ(·|x) || π_ref(·|x))`
 
-  The KL penalty prevents `π_θ` from drifting arbitrarily from `π_SFT` — it is a *regularizer*, not a hard trust region. `β` typically `0.01`-`0.05`.
-- Run PPO (Lesson 08) with this reward. Advantages are computed on the token-level trajectory, but the RM scores only the full response.
+  Kara KL zapobiega dryfowaniu `π_θ` dowolnie od `π_SFT` — jest to *regularizer*, nie twardy trust region. `β` typowo `0.01`-`0.05`.
+- Uruchom PPO (Lekcja 08) z tą nagrodą. Przewagi są obliczane na poziomie token trajectory, ale RM ocenia tylko pełną odpowiedź.
 
-**Why the KL?** Without it, PPO will happily find reward-hacking strategies — the RM was only trained on in-distribution completions. An out-of-distribution response might score higher than any human-written one. The KL keeps `π_θ` near the manifold where the RM was trained. It is the single most important knob in RLHF.
+**Dlaczego KL?** Bez niego PPO chętnie znajdzie strategie reward-hackingu — RM był trenowany tylko na completions in-distribution. Odpowiedź out-of-distribution może mieć wyższy wynik niż jakakolwiek napisana przez człowieka. KL utrzymuje `π_θ` blisko manifold, gdzie RM był trenowany. To jest najważniejszy knob w RLHF.
 
-**2026 status:**
+**Status w 2026:**
 
-- **DPO** (Rafailov 2023): closed-form algebra collapses Stage 2+3 into a single supervised loss over preference data. No RM, no PPO. Same quality on alignment benchmarks for a fraction of the compute. Covered in Phase 10 · 08.
-- **GRPO** (DeepSeek 2024–2025): PPO with a group-relative baseline instead of a critic, reward from a *verifier* (code runs / math answer matches) instead of a human-trained RM. Dominant for reasoning models. Covered in Phase 9 · 12.
-- **Process reward models (PRMs):** score partial solutions (each reasoning step), used in both RLHF and GRPO variants for reasoning.
-- **Constitutional AI / RLAIF:** use an aligned LLM to generate preferences instead of humans. Scales the preference budget.
+- **DPO** (Rafailov 2023): algebra w zamkniętej formie łączy Etap 2+3 w pojedynczą nadzorowaną funkcję strat na danych preferencji. Bez RM, bez PPO. Ta sama jakość na benchmarkach wyrównania za ułamek compute. Omówione w Faza 10 · 08.
+- **GRPO** (DeepSeek 2024–2025): PPO z grupowo-relatywnym baseline zamiast critic, nagroda z *verifier* (uruchomienia kodu / dopasowania odpowiedzi matematycznej) zamiast human-trained RM. Dominujące dla modeli rozumowania. Omówione w Faza 9 · 12.
+- **Process reward models (PRMs):** oceniają częściowe rozwiązania (każdy krok rozumowania), używane zarówno w RLHF jak i wariantach GRPO dla rozumowania.
+- **Constitutional AI / RLAIF:** używają wyrównanego LLM do generowania preferencji zamiast ludzi. Skaluje budżet preferencji.
 
-## Build It
+## Zbuduj to
 
-This lesson uses tiny synthetic "prompts" and "responses" represented as strings. The RM is a linear scorer over a bag-of-tokens representation. No real LLM — the *shape* of the pipeline matters, not the scale. See `code/main.py`.
+Ta lekcja używa miniaturowych syntetycznych „promptów" i „odpowiedzi" reprezentowanych jako stringi. RM to liniowy scorer nad reprezentacją bag-of-tokens. Żaden prawdziwy LLM — *kształt* potoku ma znaczenie, nie skala. Zobacz `code/main.py`.
 
-### Step 1: synthetic preference data
+### Krok 1: syntetyczne dane preferencji
 
 ```python
 PROMPTS = ["help me", "answer me", "explain this"]
@@ -72,11 +72,11 @@ def make_pair(rng):
     return (x, y_good, y_bad)
 ```
 
-In real RLHF this is replaced by human labelers. The shape — `(prompt, preferred_response, rejected_response)` — is identical.
+W prawdziwym RLHF jest to zastępowane przez human labelers. Kształt — `(prompt, preferred_response, rejected_response)` — jest identyczny.
 
-### Step 2: Bradley-Terry reward model
+### Krok 2: Bradley-Terry reward model
 
-Linear score: `R(x, y) = w · bag(y)`. Train to minimize the BT pairwise log-loss:
+Liniowy wynik: `R(x, y) = w · bag(y)`. Trenuj, aby zminimalizować BT pairwise log-loss:
 
 ```python
 def rm_train_step(w, x, y_pos, y_neg, lr):
@@ -89,11 +89,11 @@ def rm_train_step(w, x, y_pos, y_neg, lr):
         w[tok] -= lr * (1 - p) * cnt
 ```
 
-After a few hundred updates, `w` assigns positive weights to good-word tokens and negative to bad.
+Po kilkuset aktualizacjach `w` przypisuje dodatnie wagi dobrym słowom i ujemne złym.
 
-### Step 3: PPO-like policy on top of RM
+### Krok 3: PPO-like policy na szczycie RM
 
-Our toy policy produces a single token from a vocabulary. We score the token under the RM, compute `log π_θ(token | prompt)`, add a KL-to-reference penalty, and apply the clipped PPO surrogate.
+Nasza toy policy produkuje pojedynczy token ze słownika. Oceniamy token pod RM, obliczamy `log π_θ(token | prompt)`, dodajemy karę KL do referencji i stosujemy obcięty PPO surrogate.
 
 ```python
 def rlhf_step(theta, ref, w, prompt, rng, eps=0.2, beta=0.1, lr=0.05):
@@ -107,13 +107,13 @@ def rlhf_step(theta, ref, w, prompt, rng, eps=0.2, beta=0.1, lr=0.05):
     ...
 ```
 
-### Step 4: monitor the KL
+### Krok 4: monitoruj KL
 
-Track mean `KL(π_θ || π_ref)` every update. If it creeps past `~5-10` the policy has drifted far from `π_SFT` — lower `β` is rising or reward hacking is starting. This is the top diagnostic in real RLHF.
+Śledź średnie `KL(π_θ || π_ref)` przy każdej aktualizacji. Jeśli wzrośnie powyżej `~5-10`, polityka znacznie odbiegła od `π_SFT` — niższy `β` rośnie lub reward hacking się zaczyna. To jest najważniejsze diagnostyczne w prawdziwym RLHF.
 
-### Step 5: the production recipe with TRL
+### Krok 5: przepis produkcyjny z TRL
 
-Once you understand the toy pipeline, here is the same loop as a real library user writes it. Hugging Face's [TRL](https://huggingface.co/docs/trl) is the reference implementation — `RewardTrainer` for Stage 2 and `PPOTrainer` (with a KL-to-reference built in) for Stage 3.
+Gdy już zrozumiesz toy pipeline, oto ta sama pętla jako kod pisany przez użytkownika prawdziwej biblioteki. Hugging Face [TRL](https://huggingface.co/docs/trl) to referencyjna implementacja — `RewardTrainer` dla Etapu 2 i `PPOTrainer` (z wbudowanym KL-to-reference) dla Etapu 3.
 
 ```python
 # Stage 2: reward model from pairwise preferences
@@ -155,40 +155,40 @@ for batch in dataloader:
     # stats includes: mean_kl, clip_frac, value_loss — the three PPO diagnostics
 ```
 
-Three things the library does for you. `adap_kl_ctrl=True` implements the adaptive-β schedule: if observed KL exceeds `target_kl`, β doubles; if below half, β halves. The reference model is frozen by convention — you must not accidentally share parameters with `policy`. And the value head lives on the same backbone as the policy (`AutoModelForCausalLMWithValueHead` attaches a scalar MLP head), which is why TRL reports `policy/kl` and `value/loss` separately.
+Trzy rzeczy, które biblioteka robi za ciebie. `adap_kl_ctrl=True` implementuje adaptacyjny harmonogram β: jeśli obserwowane KL przekracza `target_kl`, β podwaja się; jeśli poniżej połowy, β połowicznie się zmniejsza. Reference model jest zamrożony z konwencji — nie możesz przypadkowo dzielić parametrów z `policy`. A value head żyje na tym samym backbone co policy (`AutoModelForCausalLMWithValueHead` dołącza skalarną warstwę MLP), dlatego TRL raportuje `policy/kl` i `value/loss` oddzielnie.
 
-## Pitfalls
+## Pułapki
 
-- **Over-optimization / reward hacking.** The RM is imperfect; `π_θ` finds adversarial completions that score high but are bad. Symptoms: reward climbs indefinitely while human eval score plateaus or drops. Fix: stop early, raise `β`, broaden RM training data.
-- **Length hacking.** RMs trained on helpful responses often implicitly reward length. The policy learns to pad responses. Remediation: length-normalized reward, or RLAIF with a length-aware RM.
-- **Too-small RM.** The RM needs to be at least as large as the policy. A tiny RM cannot faithfully score the policy's outputs.
-- **KL tuning.** Too low β → drift and reward hacking. Too high β → policy barely changes. The standard trick is an *adaptive* β that targets a fixed KL per step.
-- **Preference-data noise.** ~30% of human labels are noisy or ambiguous. Calibrate by training the RM on agreement-filtered data or use a temperature on BT.
-- **Off-policy problems.** PPO data is slightly off-policy after the first epoch. Monitor clip fraction as in Lesson 08.
+- **Nad-optymalizacja / reward hacking.** RM jest niedoskonały; `π_θ` znajduje adversarial completions, które mają wysoki wynik, ale są złe. Objawy: nagroda rośnie w nieskończoność, podczas gdy human eval score płasko lub spada. Naprawa: zatrzymaj wcześnie, podnieś `β`, poszerz dane treningowe RM.
+- **Length hacking.** RM trenowane na pomocnych odpowiedziach często implikicie nagradzają długość. Polityka uczy się paddingować odpowiedzi. Remediacja: length-normalized reward, lub RLAIF z length-aware RM.
+- **Zbyt mały RM.** RM musi być co najmniej tak duży jak polityka. Mały RM nie może wiernie oceniać outputs polityki.
+- **Tuning KL.** Zbyt niskie β → dryf i reward hacking. Zbyt wysokie β → polityka prawie się nie zmienia. Standardowym trikiem jest *adaptacyjne* β, które celuje w ustalone KL na krok.
+- **Szum w danych preferencji.** ~30% ludzkich etykiet jest szumowych lub niejednoznacznych. Kalibruj przez trening RM na agreement-filtered data lub użyj temperature na BT.
+- **Problemy off-policy.** Dane PPO są lekko off-policy po pierwszej epoce. Monitoruj clip fraction jak w Lekcji 08.
 
-## Use It
+## Użyj tego
 
-RLHF in 2026 is layered:
+RLHF w 2026 jest warstwowe:
 
-| Layer | Target | Method |
-|-------|--------|--------|
-| Instruction following, helpfulness, harmlessness | Alignment | DPO (Phase 10 · 08) preferred over RLHF-PPO. |
-| Reasoning correctness (math, code) | Capability | GRPO with verifier reward (Phase 9 · 12). |
-| Long-horizon multi-step tasks | Agentic | PPO / GRPO with process reward models over steps. |
-| Safety / refusal behavior | Safety | RLHF-PPO with separate safety RM, or Constitutional AI. |
-| Best-of-N at inference | Fast alignment | Use RM at decode time; no policy training needed. |
-| Reward distillation | Inference compute | Train a small "reward head" on top of a frozen LM. |
+| Warstwa | Cel | Metoda |
+|--------|-----|--------|
+| Podążanie za instrukcjami, pomocność, nieszkodliwość | Wyrównanie | DPO (Faza 10 · 08) preferowane nad RLHF-PPO. |
+| Poprawność rozumowania (matematyka, kod) | Zdolność | GRPO z verifier reward (Faza 9 · 12). |
+| Długoterminowe wieloetapowe zadania | Agentyczność | PPO / GRPO z process reward models nad krokami. |
+| Bezpieczeństwo / zachowanie odmowy | Bezpieczeństwo | RLHF-PPO z oddzielnym safety RM, lub Constitutional AI. |
+| Best-of-N przy inference | Szybkie wyrównanie | Użyj RM przy decode time; nie potrzeba treningu polityki. |
+| Reward distillation | Inference compute | Trenuj małą „reward head" na zamrożonym LM. |
 
-RLHF was *the* method in 2022–2024. In 2026, production alignment pipelines are DPO-first, PPO-only for the RM-intensive or safety-critical steps.
+RLHF był *the* metodą w 2022–2024. W 2026 roku produkcyjne potoki wyrównania są DPO-first, PPO-only dla RM-intensywnych lub safety-critical kroków.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-rlhf-architect.md`:
+Zapisz jako `outputs/skill-rlhf-architect.md`:
 
 ```markdown
 ---
 name: rlhf-architect
-description: Design an RLHF / DPO / GRPO alignment pipeline for a language model, including RM, KL, and data strategy.
+description: Zaprojektuj potok wyrównania RLHF / DPO / GRPO dla modelu językowego, w tym RM, KL i strategię danych.
 version: 1.0.0
 phase: 9
 lesson: 9
@@ -206,34 +206,34 @@ Given a base LM, a target behavior (alignment / reasoning / refusal / agent), an
 Refuse to ship RLHF-PPO without a KL monitor. Refuse to use an RM smaller than the target policy. Refuse length-only rewards. Flag any pipeline that does not hold back a blind human-eval set as lacking over-optimization protection.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Train the Bradley-Terry reward model in `code/main.py` on 500 synthetic preference pairs. Measure pairwise accuracy on a held-out 100 pairs. Should exceed 90%.
-2. **Medium.** Run the toy PPO-RLHF loop with `β ∈ {0.0, 0.1, 1.0}`. For each, plot RM score vs KL-to-reference over updates. Which runs reward-hack?
-3. **Hard.** Implement DPO (closed-form preference-likelihood loss) on the same preference data and compare to the RLHF-PPO pipeline in compute used and final RM score achieved.
+1. **Łatwe.** Trenuj Bradley-Terry reward model w `code/main.py` na 500 syntetycznych parach preferencji. Zmierz pairwise accuracy na 100 wstrzymanych parach. Powinna przekroczyć 90%.
+2. **Średnie.** Uruchom toy PPO-RLHF loop z `β ∈ {0.0, 0.1, 1.0}`. Dla każdego, wykreśl RM score vs KL-to-reference przez aktualizacje. Które uruchomienia reward-hack?
+3. **Trudne.** Zaimplementuj DPO (closed-form preference-likelihood loss) na tych samych danych preferencji i porównaj do RLHF-PPO pipeline w użytym compute i osiągniętym końcowym RM score.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| RLHF | "Alignment RL" | Three-stage SFT + RM + PPO pipeline (Christiano 2017, Ouyang 2022). |
-| Reward Model (RM) | "The scoring net" | Learned scalar function fit to pairwise preferences via Bradley-Terry. |
-| Bradley-Terry | "Pairwise logistic loss" | `P(y_+ ≻ y_-) = σ(R(y_+) - R(y_-))`; the standard RM objective. |
-| KL penalty | "Stay near the reference" | `β · KL(π_θ || π_ref)` in the reward; the anti-reward-hacking regularizer. |
-| Reward hacking | "Goodhart's law" | Policy exploits RM flaws; symptoms: reward up, human eval flat. |
-| RLAIF | "AI-labeled preferences" | RLHF where labels come from another LM instead of humans. |
-| PRM | "Process Reward Model" | Scores partial reasoning steps; used in reasoning pipelines. |
-| Constitutional AI | "Anthropic's method" | AI-generated preferences guided by explicit rules. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|--------------------------|
+| RLHF | „Alignment RL" | Trójstopniowy potok SFT + RM + PPO (Christiano 2017, Ouyang 2022). |
+| Reward Model (RM) | „The scoring net" | Nauczona funkcja skalarna dopasowana do pairwise preferences przez Bradley-Terry. |
+| Bradley-Terry | „Pairwise logistic loss" | `P(y_+ ≻ y_-) = σ(R(y_+) - R(y_-))`; standardowy RM objective. |
+| KL penalty | „Stay near the reference" | `β · KL(π_θ || π_ref)` w nagrodzie; anti-reward-hacking regularizer. |
+| Reward hacking | „Goodhart's law" | Polityka wykorzystuje wady RM; objawy: nagroda w górę, human eval płasko. |
+| RLAIF | „AI-labeled preferences" | RLHF gdzie etykiety pochodzą od innego LM zamiast od ludzi. |
+| PRM | „Process Reward Model" | Ocenia częściowe kroki rozumowania; używane w reasoning pipelines. |
+| Constitutional AI | „Metoda Anthropic" | AI-generowane preferencje kierowane jawnymi regułami. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Christiano et al. (2017). Deep Reinforcement Learning from Human Preferences](https://arxiv.org/abs/1706.03741) — the paper that started RLHF.
-- [Ouyang et al. (2022). InstructGPT — Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155) — the recipe behind ChatGPT.
-- [Stiennon et al. (2020). Learning to summarize with human feedback](https://arxiv.org/abs/2009.01325) — earlier RLHF for summarization.
-- [Rafailov et al. (2023). Direct Preference Optimization](https://arxiv.org/abs/2305.18290) — DPO; the post-RLHF default in 2026.
-- [Bai et al. (2022). Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073) — RLAIF and self-critique loop.
+- [Christiano et al. (2017). Deep Reinforcement Learning from Human Preferences](https://arxiv.org/abs/1706.03741) — artykuł, który zapoczątkował RLHF.
+- [Ouyang et al. (2022). InstructGPT — Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155) — przepis za ChatGPT.
+- [Stiennon et al. (2020). Learning to summarize with human feedback](https://arxiv.org/abs/2009.01325) — wcześniejsze RLHF dla podsumowywania.
+- [Rafailov et al. (2023). Direct Preference Optimization](https://arxiv.org/abs/2305.18290) — DPO; post-RLHF default w 2026.
+- [Bai et al. (2022). Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073) — RLAIF i self-critique loop.
 - [Anthropic RLHF paper (Bai et al. 2022). Training a Helpful and Harmless Assistant](https://arxiv.org/abs/2204.05862) — the HH paper.
-- [Hugging Face TRL library](https://huggingface.co/docs/trl) — production `RewardTrainer` and `PPOTrainer`. Read the trainer source for the adaptive-KL and value-head details.
-- [Hugging Face — Illustrating Reinforcement Learning from Human Feedback](https://huggingface.co/blog/rlhf) by Lambert, Castricato, von Werra, Havrilla — the canonical walk-through of the three-stage pipeline with diagrams.
-- [von Werra et al. (2020). TRL: Transformer Reinforcement Learning](https://github.com/huggingface/trl) — the library; `examples/` has end-to-end RLHF scripts for Llama, Mistral, and Qwen.
-- [Sutton & Barto (2018). Ch. 17.4 — Designing Reward Signals](http://incompleteideas.net/book/RLbook2020.pdf) — the reward-hypothesis view; essential prerequisite for thinking about reward hacking.
+- [Hugging Face TRL library](https://huggingface.co/docs/trl) — produkcyjny `RewardTrainer` i `PPOTrainer`. Przeczytaj źródło trainera dla adaptive-KL i value-head details.
+- [Hugging Face — Illustrating Reinforcement Learning from Human Feedback](https://huggingface.co/blog/rlhf) autorstwa Lambert, Castricato, von Werra, Havrilla — kanoniczny przewodnik po trójstopniowym potoku z diagramami.
+- [von Werra et al. (2020). TRL: Transformer Reinforcement Learning](https://github.com/huggingface/trl) — biblioteka; `examples/` ma end-to-end RLHF scripts dla Llama, Mistral i Qwen.
+- [Sutton & Barto (2018). Ch. 17.4 — Designing Reward Signals](http://incompleteideas.net/book/RLbook2020.pdf) — reward-hypothesis view; niezbędne prerequisite dla myślenia o reward hackingu.
