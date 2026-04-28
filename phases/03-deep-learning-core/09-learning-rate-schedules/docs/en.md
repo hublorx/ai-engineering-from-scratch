@@ -1,82 +1,83 @@
-# Learning Rate Schedules and Warmup
+```markdown
+# Harmonogramy learning rate i warmup
 
-> The learning rate is the single most important hyperparameter. Not the architecture. Not the dataset size. Not the activation function. The learning rate. If you tune nothing else, tune this.
+> Learning rate to najważniejszy hiperparametr. Nie architektura. Nie rozmiar zbioru danych. Nie funkcja aktywacji. Learning rate. Jeśli dostroisz tylko jedną rzecz, dostrój tę.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Lesson 03.06 (Optimizers), Lesson 03.08 (Weight Initialization)
-**Time:** ~90 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Lesson 03.06 (Optimizery), Lesson 03.08 (Inicjalizacja wag)
+**Szacowany czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement constant, step decay, cosine annealing, warmup + cosine, and 1cycle learning rate schedules from scratch
-- Demonstrate the three failure modes of learning rate selection: divergence (too high), stalling (too low), and oscillation (no decay)
-- Explain why warmup is necessary for Adam-based optimizers and how it stabilizes early training
-- Compare convergence speed across all five schedules on the same task and select the appropriate one for a given training budget
+- Zaimplementować od podstaw harmonogramy learning rate: stały, step decay, cosine annealing, warmup + cosine oraz 1cycle
+- Zademonstrować trzy tryby awarii przy wyborze learning rate: dywergencję (zbyt wysoki), zastój (zbyt niski) oraz oscylację (brak decay)
+- Wyjaśnić, dlaczego warmup jest niezbędny dla optimizerów opartych na Adam i jak stabilizuje wczesne treningi
+- Porównać szybkość konwergencji wszystkich pięciu harmonogramów w ramach tego samego zadania i wybrać odpowiedni dla danego budżetu treningowego
 
-## The Problem
+## Problem
 
-Set the learning rate to 0.1. Training diverges -- loss jumps to infinity in 3 steps. Set it to 0.0001. Training crawls -- after 100 epochs, the model has barely moved from random. Set it to 0.01. Training works for 50 epochs, then the loss oscillates around a minimum it can never reach because the steps are too large.
+Ustaw learning rate na 0.1. Trening dywerguje -- loss skacze do nieskończoności w 3 krokach. Ustaw na 0.0001. Trening pełznie -- po 100 epokach model ledwo ruszył się od losowego. Ustaw na 0.01. Trening działa przez 50 epok, potem loss oscyluje wokół minimum, którego nigdy nie może osiągnąć, bo kroki są zbyt duże.
 
-The optimal learning rate is not a constant. It changes during training. Early on, you want large steps to cover ground quickly. Late in training, you want tiny steps to settle into a sharp minimum. The difference between a 90% accurate model and a 95% accurate model is often just the schedule.
+Optymalny learning rate nie jest stały. Zmienia się podczas treningu. Na początku chcesz dużych kroków, żeby szybko pokonać dystans. Pod koniec treningu chcesz mikroskopijnych kroków, żeby osiąść w ostrym minimum. Różnica między modelem o dokładności 90% a 95% często to tylko harmonogram.
 
-Every major model published in the last three years uses a learning rate schedule. Llama 3 used peak lr=3e-4 with 2000 warmup steps and cosine decay to 3e-5. GPT-3 used lr=6e-4 with warmup over 375 million tokens. These are not arbitrary choices. They are the result of extensive hyperparameter sweeps that cost millions of dollars.
+Każdy poważny model opublikowany w ciągu ostatnich trzech lat używa harmonogramu learning rate. Llama 3 używała peak lr=3e-4 z 2000 krokami warmup i cosine decay do 3e-5. GPT-3 używał lr=6e-4 z warmup przez 375 milionów tokenów. To nie są arbitralne wybory. To wynik intensywnych przeszukiwań hiperparametrów, które kosztowały miliony dolarów.
 
-You need to understand schedules because the defaults will not work for your problem. When you fine-tune a pretrained model, the right schedule is different than training from scratch. When you increase batch size, the warmup period needs to change. When training breaks at step 10,000, you need to know whether it's a schedule problem or something else.
+Musisz rozumieć harmonogramy, bo wartości domyślne nie zadziałają dla twojego problemu. Kiedy fine-tunujesz wstępnie wytrenowany model, właściwy harmonogram jest inny niż przy treningu od zera. Kiedy zwiększasz batch size, okres warmup musi się zmienić. Kiedy trening pęka na kroku 10 000, musisz wiedzieć, czy to problem harmonogramu czy coś innego.
 
-## The Concept
+## Koncepcja
 
-### Constant Learning Rate
+### Stały Learning Rate
 
-The simplest approach. Pick a number, use it for every step.
+Najprostsze podejście. Wybierz liczbę, używaj jej w każdym kroku.
 
 ```
 lr(t) = lr_0
 ```
 
-Rarely optimal. It's either too high for the end of training (oscillation around the minimum) or too low for the beginning (wasted compute on tiny steps). Works fine for small models and debugging. A terrible choice for anything that trains for more than an hour.
+Rzadko optymalny. Jest albo zbyt wysoki na końcu treningu (oscylacja wokół minimum) albo zbyt niski na początku (zmarnowany compute na mikroskopijne kroki). Sprawdza się dla małych modeli i debugowania. Okropny wybór dla wszystkiego, co trwa dłużej niż godzinę.
 
 ### Step Decay
 
-The old-school approach from the ResNet era. Cut the learning rate by a factor (usually 10x) at fixed epochs.
+Stare podejście z ery ResNet. Zmniejsz learning rate o czynnik (zwykle 10x) w ustalonych epokach.
 
 ```
 lr(t) = lr_0 * gamma^(floor(epoch / step_size))
 ```
 
-Where gamma = 0.1 and step_size = 30 means: lr drops by 10x every 30 epochs. ResNet-50 used this -- lr=0.1, drop by 10x at epochs 30, 60, and 90.
+Gdzie gamma = 0.1 i step_size = 30 oznacza: lr spada 10x co 30 epok. ResNet-50 tego używał -- lr=0.1, spadek 10x w epokach 30, 60 i 90.
 
-The problem: the optimal decay points depend on the dataset and architecture. Move to a different problem and you need to re-tune when to drop. The transitions are abrupt -- loss can spike when the rate suddenly changes.
+Problem: optymalne punkty decay zależą od zbioru danych i architektury. Przejdź do innego problemu, i musisz ponownie dostrajać, kiedy zmniejszać. Przejścia są gwałtowne -- loss może skoczyć, gdy stopa nagle się zmieni.
 
 ### Cosine Annealing
 
-Smooth decay from the maximum learning rate to a minimum, following a cosine curve:
+Gładki decay od maksymalnego learning rate do minimum, podążając za krzywą cosinus:
 
 ```
 lr(t) = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * t / T))
 ```
 
-Where t is the current step and T is the total number of steps.
+Gdzie t to bieżący krok, a T to całkowita liczba kroków.
 
-At t=0, the cosine term is 1, so lr = lr_max. At t=T, the cosine term is -1, so lr = lr_min. The decay is gentle at first, accelerates in the middle, and becomes gentle again near the end.
+Przy t=0, wyraz cosinus wynosi 1, więc lr = lr_max. Przy t=T, wyraz cosinus wynosi -1, więc lr = lr_min. Decay jest łagodny na początku, przyspiesza w środku i znów staje się łagodny pod koniec.
 
-This is the default for most modern training runs. No hyperparameters to tune beyond lr_max and lr_min. The cosine shape matches the empirical observation that most learning happens in the middle of training -- you want reasonable step sizes during that critical period.
+To domyślne ustawienie dla większości nowoczesnych treningów. Brak hiperparametrów do dostrajania poza lr_max i lr_min. Kształt cosinusa odpowiada empirycznej obserwacji, że najwięcej nauki dzieje się w środku treningu -- chcesz rozsądnych rozmiarów kroków w tym krytycznym okresie.
 
-### Warmup: Why You Start Small
+### Warmup: Dlaczego zaczynasz od małego
 
-Adam and other adaptive optimizers maintain running estimates of gradient mean and variance. At step 0, these estimates are initialized to zero. The first few gradient updates are based on garbage statistics. If your learning rate is large during this period, the model takes huge, poorly-directed steps.
+Adam i inne adaptive optimizery utrzymują bieżące estymaty średniej i wariancji gradientu. W kroku 0 te estymaty są inicjalizowane na zero. Pierwsze kilka aktualizacji gradientu opiera się na śmieciowych statystykach. Jeśli twój learning rate jest duży w tym okresie, model wykonuje ogromne, źle nakierowane kroki.
 
-Warmup fixes this. Start with a tiny learning rate (often lr_max / warmup_steps or even zero) and linearly ramp up to lr_max over the first N steps. By the time you reach the full learning rate, Adam's statistics have stabilized.
+Warmup to naprawia. Zacznij od mikroskopijnego learning rate (często lr_max / warmup_steps lub nawet zero) i liniowo zwiększaj do lr_max przez pierwsze N kroków. Kiedy osiągasz pełny learning rate, wiesz, że statystyki Adama się ustabilizowały.
 
 ```
-lr(t) = lr_max * (t / warmup_steps)     for t < warmup_steps
+lr(t) = lr_max * (t / warmup_steps)     dla t < warmup_steps
 ```
 
-Typical warmup: 1-5% of total training steps. Llama 3 trained for ~1.8 trillion tokens and warmed up for 2000 steps. GPT-3 warmed up over 375 million tokens.
+Typowy warmup: 1-5% całkowitej liczby kroków treningu. Llama 3 trenowała przez ~1.8 biliona tokenów i używała warmup przez 2000 kroków. GPT-3 używał warmup przez 375 milionów tokenów.
 
 ### Linear Warmup + Cosine Decay
 
-The modern default. Ramp up linearly, then decay with cosine:
+Nowoczesny domyślny. Zwiększaj liniowo, potem decay z cosinusem:
 
 ```
 if t < warmup_steps:
@@ -86,26 +87,26 @@ else:
     lr(t) = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * progress))
 ```
 
-This is what Llama, GPT, PaLM, and most modern transformers use. The warmup prevents early instability. The cosine decay settles the model into a good minimum.
+To jest to, czego używają Llama, GPT, PaLM i większość nowoczesnych transformerów. Warmup zapobiega wczesnej niestabilności. Cosine decay osadza model w dobrym minimum.
 
 ### 1cycle Policy
 
-Leslie Smith's discovery (2018): ramp the learning rate up from a low value to a high value in the first half of training, then ramp it back down in the second half. Counterintuitive -- why would you *increase* the learning rate midway through?
+Odkrycie Leslie'ego Smitha (2018): zwiększaj learning rate od niskiej wartości do wysokiej w pierwszej połowie treningu, potem zmniejszaj w drugiej połowie. Kontraintuicywne -- dlaczego zwiększać learning rate w połowie treningu?
 
-The theory: a high learning rate acts as regularization by adding noise to the optimization trajectory. The model explores more of the loss landscape during the ramp-up phase, finding better basins. The ramp-down phase then refines within the best basin found.
+Teoria: wysoki learning rate działa jako regularizacja przez dodawanie szumu do trajektorii optymalizacji. Model eksploruje większą część landscape'u loss w fazie zwiększania, znajdując lepsze baseny. Faza zmniejszania potem udoskonala w najlepszym znalezionym basenie.
 
 ```
-Phase 1 (0 to T/2):    lr ramps from lr_max/25 to lr_max
-Phase 2 (T/2 to T):    lr ramps from lr_max to lr_max/10000
+Faza 1 (0 do T/2):    lr rośnie od lr_max/25 do lr_max
+Faza 2 (T/2 do T):    lr maleje od lr_max do lr_max/10000
 ```
 
-1cycle often trains faster than cosine annealing for a fixed compute budget. The tradeoff: you must know the total number of steps in advance.
+1cycle często trenuje szybciej niż cosine annealing dla ustalonego budżetu compute. Zależność: musisz znać całkowitą liczbę kroków z góry.
 
-### Schedule Shapes
+### Kształty harmonogramów
 
 ```mermaid
 graph LR
-    subgraph "Constant"
+    subgraph "Stały"
         C1["lr"] --- C2["lr"] --- C3["lr"]
     end
 
@@ -114,7 +115,7 @@ graph LR
     end
 
     subgraph "Cosine Annealing"
-        CS1["lr_max"] --> CS2["gradual"] --> CS3["steep"] --> CS4["lr_min"]
+        CS1["lr_max"] --> CS2["stopniowo"] --> CS3["stromo"] --> CS4["lr_min"]
     end
 
     subgraph "Warmup + Cosine"
@@ -122,41 +123,41 @@ graph LR
     end
 ```
 
-### Decision Flowchart
+### Schemat decyzyjny
 
 ```mermaid
 flowchart TD
-    Start["Choosing a LR schedule"] --> Know{"Know total<br/>training steps?"}
+    Start["Wybieranie harmonogramu LR"] --> Know{"Znasz całkowitą<br/>liczbę kroków treningu?"}
 
-    Know -->|"Yes"| Budget{"Compute budget?"}
-    Know -->|"No"| Constant["Use constant LR<br/>with manual decay"]
+    Know -->|"Tak"| Budget{"Budżet compute?"}
+    Know -->|"Nie"| Constant["Użyj stałego LR<br/>z ręcznym decay"]
 
-    Budget -->|"Large (days/weeks)"| WarmCos["Warmup + Cosine Decay<br/>(Llama/GPT default)"]
-    Budget -->|"Small (hours)"| OneCycle["1cycle Policy<br/>(fastest convergence)"]
-    Budget -->|"Moderate"| Cosine["Cosine Annealing<br/>(safe default)"]
+    Budget -->|"Duży (dni/tygodnie)"| WarmCos["Warmup + Cosine Decay<br/>(domyślny dla Llama/GPT)"]
+    Budget -->|"Mały (godziny)"| OneCycle["1cycle Policy<br/>(najszybsza konwergencja)"]
+    Budget -->|"Umiarkowany"| Cosine["Cosine Annealing<br/>(bezpieczny domyślny)"]
 
-    WarmCos --> Warmup["Warmup = 1-5% of steps"]
-    OneCycle --> FindLR["Find lr_max with LR range test"]
-    Cosine --> MinLR["Set lr_min = lr_max / 10"]
+    WarmCos --> Warmup["Warmup = 1-5% kroków"]
+    OneCycle --> FindLR["Znajdź lr_max z LR range test"]
+    Cosine --> MinLR["Ustaw lr_min = lr_max / 10"]
 ```
 
-### Real Numbers from Published Models
+### Rzeczywiste liczby z opublikowanych modeli
 
 ```mermaid
 graph TD
-    subgraph "Published LR Configs"
-        L3["Llama 3 (405B)<br/>Peak: 3e-4<br/>Warmup: 2000 steps<br/>Schedule: Cosine to 3e-5"]
-        G3["GPT-3 (175B)<br/>Peak: 6e-4<br/>Warmup: 375M tokens<br/>Schedule: Cosine to 0"]
-        R50["ResNet-50<br/>Peak: 0.1<br/>Warmup: none<br/>Schedule: Step decay x0.1 at 30,60,90"]
-        B["BERT (340M)<br/>Peak: 1e-4<br/>Warmup: 10K steps<br/>Schedule: Linear decay"]
+    subgraph "Opublikowane konfiguracje LR"
+        L3["Llama 3 (405B)<br/>Peak: 3e-4<br/>Warmup: 2000 kroków<br/>Harmonogram: Cosine do 3e-5"]
+        G3["GPT-3 (175B)<br/>Peak: 6e-4<br/>Warmup: 375M tokenów<br/>Harmonogram: Cosine do 0"]
+        R50["ResNet-50<br/>Peak: 0.1<br/>Warmup: brak<br/>Harmonogram: Step decay x0.1 w 30,60,90"]
+        B["BERT (340M)<br/>Peak: 1e-4<br/>Warmup: 10K kroków<br/>Harmonogram: Linear decay"]
     end
 ```
 
-## Build It
+## Zbuduj to
 
-### Step 1: Schedule Functions
+### Krok 1: Funkcje harmonogramu
 
-Each function takes the current step and returns the learning rate at that step.
+Każda funkcja przyjmuje bieżący krok i zwraca learning rate dla tego kroku.
 
 ```python
 import math
@@ -194,9 +195,9 @@ def one_cycle_schedule(step, lr=0.01, total_steps=1000, **kwargs):
         return lr * (1 - progress) + (lr / 10000) * progress
 ```
 
-### Step 2: Visualize All Schedules
+### Krok 2: Wizualizuj wszystkie harmonogramy
 
-Print a text-based plot showing how each schedule evolves over training.
+Wydrukuj wykres tekstowy pokazujący, jak każdy harmonogram ewoluuje podczas treningu.
 
 ```python
 def visualize_schedule(name, schedule_fn, total_steps=500, **kwargs):
@@ -214,9 +215,9 @@ def visualize_schedule(name, schedule_fn, total_steps=500, **kwargs):
         print(f"  Step {s:4d}: lr={lr_val:.6f} {bar}")
 ```
 
-### Step 3: Training Network
+### Krok 3: Sieć treningowa
 
-A simple two-layer network on the circle dataset, same as previous lessons, but now we vary the schedule.
+Prosta dwuwarstwowa sieć na zbiorze danych circle, taka sama jak w poprzednich lekcjach, ale teraz zmieniamy harmonogram.
 
 ```python
 import random
@@ -300,21 +301,21 @@ def train_with_schedule(schedule_fn, schedule_name, data, epochs=300, base_lr=0.
     return epoch_losses
 ```
 
-### Step 4: Compare All Schedules
+### Krok 4: Porównaj wszystkie harmonogramy
 
-Train the same network with each schedule and compare final loss and convergence behavior.
+Trenuj tę samą sieć z każdym harmonogramem i porównaj finalny loss oraz zachowanie konwergencji.
 
 ```python
 def compare_schedules(data):
     configs = [
-        ("Constant", constant_schedule, {}),
+        ("Stały", constant_schedule, {}),
         ("Step Decay", step_decay_schedule, {"step_size": 15000, "gamma": 0.1}),
         ("Cosine", cosine_schedule, {"lr_min": 1e-5}),
         ("Warmup+Cosine", warmup_cosine_schedule, {"warmup_steps": 3000, "lr_min": 1e-5}),
         ("1cycle", one_cycle_schedule, {}),
     ]
 
-    print(f"\n{'Schedule':<20} {'Start Loss':>12} {'Mid Loss':>12} {'End Loss':>12} {'Best Loss':>12}")
+    print(f"\n{'Harmonogram':<20} {'Start Loss':>12} {'Mid Loss':>12} {'End Loss':>12} {'Best Loss':>12}")
     print("-" * 70)
 
     for name, schedule_fn, extra_kwargs in configs:
@@ -324,15 +325,15 @@ def compare_schedules(data):
         print(f"{name:<20} {losses[0]:>12.6f} {losses[mid_idx]:>12.6f} {losses[-1]:>12.6f} {best:>12.6f}")
 ```
 
-### Step 5: LR Too High vs Too Low
+### Krok 5: LR za wysoki vs za niski
 
-Demonstrate the three failure modes: too high (divergence), too low (crawling), and just right.
+Zademonstrować trzy tryby awarii: za wysoki (dywergencja), za niski (pełzanie) i w sam raz.
 
 ```python
 def lr_sensitivity(data):
     learning_rates = [1.0, 0.1, 0.01, 0.001, 0.0001]
 
-    print("\nLR Sensitivity (constant schedule, 100 epochs):")
+    print("\nWrażliwość LR (stały harmonogram, 100 epok):")
     print(f"  {'LR':>10} {'Start Loss':>12} {'End Loss':>12} {'Status':>15}")
     print("  " + "-" * 52)
 
@@ -342,21 +343,21 @@ def lr_sensitivity(data):
         end = losses[-1]
 
         if end > start or math.isnan(end) or end > 1.0:
-            status = "DIVERGED"
+            status = "DYWERGOWAŁ"
         elif end > start * 0.9:
-            status = "BARELY MOVED"
+            status = "SŁABO SIĘ UCZYŁ"
         elif end < 0.15:
-            status = "CONVERGED"
+            status = "ZKONWERGOWAŁ"
         else:
-            status = "LEARNING"
+            status = "UCZY SIĘ"
 
         end_str = f"{end:.6f}" if not math.isnan(end) else "NaN"
         print(f"  {lr:>10.4f} {start:>12.6f} {end_str:>12} {status:>15}")
 ```
 
-## Use It
+## Użyj tego
 
-PyTorch provides schedulers in `torch.optim.lr_scheduler`:
+PyTorch dostarcza schedulery w `torch.optim.lr_scheduler`:
 
 ```python
 import torch
@@ -373,7 +374,7 @@ for step in range(1000):
     scheduler.step()
 ```
 
-For warmup + cosine, use a lambda scheduler or the `get_cosine_schedule_with_warmup` from HuggingFace:
+Dla warmup + cosine użyj lambda schedulera lub `get_cosine_schedule_with_warmup` z HuggingFace:
 
 ```python
 from transformers import get_cosine_schedule_with_warmup
@@ -385,43 +386,45 @@ scheduler = get_cosine_schedule_with_warmup(
 )
 ```
 
-The HuggingFace function is what most Llama and GPT fine-tuning scripts use. When in doubt, use warmup + cosine with warmup = 3-5% of total steps. It works for almost everything.
+Funkcja HuggingFace to jest to, czego używa większość skryptów fine-tuning Llama i GPT. W razie wątpliwości użyj warmup + cosine z warmup = 3-5% całkowitej liczby kroków. Działa prawie zawsze.
 
-## Ship It
+## Dostarcz to
 
-This lesson produces:
-- `outputs/prompt-lr-schedule-advisor.md` -- a prompt that recommends the right learning rate schedule and hyperparameters for your training setup
+Ta lekcja tworzy:
 
-## Exercises
+- `outputs/prompt-lr-schedule-advisor.md` -- prompt, który rekomenduje właściwy harmonogram learning rate i hiperparametry dla twojej konfiguracji treningowej
 
-1. Implement exponential decay: lr(t) = lr_0 * gamma^t where gamma = 0.999. Compare to cosine annealing on the circle dataset.
+## Ćwiczenia
 
-2. Implement the learning rate range test (Leslie Smith): train for a few hundred steps while exponentially increasing the LR from 1e-7 to 1. Plot loss vs LR. The optimal max LR is just before the loss starts increasing.
+1. Zaimplementuj exponential decay: lr(t) = lr_0 * gamma^t gdzie gamma = 0.999. Porównaj z cosine annealing na zbiorze danych circle.
 
-3. Train with warmup + cosine but vary the warmup length: 0%, 1%, 5%, 10%, 20% of total steps. Find the sweet spot where training is most stable.
+2. Zaimplementuj learning rate range test (Leslie Smith): trenuj przez kilkaset kroków, eksponencjalnie zwiększając LR od 1e-7 do 1. Wykreśl loss vs LR. Optymalny max LR to tuż przed tym, **gdy** loss zaczyna rosnąć.
 
-4. Implement cosine annealing with warm restarts (SGDR): reset the learning rate to lr_max every T steps and decay again. Compare to standard cosine on a longer training run.
+3. Trenuj z warmup + cosine, ale zmień długość warmup: 0%, 1%, 5%, 10%, 20% całkowitej liczby kroków. Znajdź optymalny punkt, gdzie trening jest najbardziej stabilny.
 
-5. Build a "schedule surgeon" that monitors training loss and automatically switches from warmup to cosine when the loss stabilizes, and reduces lr if the loss plateaus for too long.
+4. Zaimplementuj cosine annealing z warm restarts (SGDR): resetuj learning rate do lr_max co T kroków i ponownie stosuj decay. Porównaj ze standardowym cosine na dłuższym treningu.
 
-## Key Terms
+5. Zbuduj "chirurga harmonogramu", który monitoruje training loss i automatycznie przełącza z warmup na cosine, gdy loss się ustabilizuje, oraz zmniejsza lr, jeśli loss plateau trwa zbyt długo.
 
-| Term | What people say | What it actually means |
+## Kluczowe terminy
+
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Learning rate | "How fast the model learns" | The scalar that multiplies the gradient to determine the parameter update size |
-| Schedule | "Change the LR over time" | A function that maps training step to learning rate, designed to optimize convergence |
-| Warmup | "Start with a small LR" | Linearly ramping the LR from near-zero to the target value over the first N steps to stabilize optimizer statistics |
-| Cosine annealing | "Smooth LR decay" | Decreasing the LR following a cosine curve from lr_max to lr_min over training |
-| Step decay | "Drop LR at milestones" | Multiplying the LR by a factor (usually 0.1) at fixed epoch intervals |
-| 1cycle policy | "Up then down" | Leslie Smith's method of ramping LR up then down in a single cycle for faster convergence |
-| LR range test | "Find the best learning rate" | Training briefly while increasing LR to find the value where loss starts diverging |
-| Cosine with warm restarts | "Reset and repeat" | Periodically resetting the LR to lr_max and decaying again (SGDR) |
-| Eta min | "The floor for the LR" | The minimum learning rate that the schedule decays to |
-| Peak learning rate | "The maximum LR" | The highest LR reached during training, typically after warmup |
+| Learning rate | "Jak szybko model się uczy" | Skalar, który mnoży gradient, co określa rozmiar aktualizacji parametrów |
+| Harmonogram | "Zmień LR w czasie" | Funkcja, która odwzorowuje krok treningu na learning rate, zaprojektowana, żeby optymalizować konwergencję |
+| Warmup | "Zacznij od małego LR" | Liniowe zwiększanie LR od bliskiego zera do docelowej wartości przez pierwsze N kroków, żeby ustabilizować statystyki optimizera |
+| Cosine annealing | "Gładki LR decay" | Zmniejszanie LR zgodnie z krzywą cosinus od lr_max do lr_min podczas treningu |
+| Step decay | "Zmniejsz LR w kamieniach milowych" | Mnożenie LR przez czynnik (zwykle 0.1) w ustalonych interwałach epok |
+| 1cycle policy | "W górę potem w dół" | Metoda Leslie'ego Smitha: zwiększanie LR potem zmniejszanie w jednym cyklu dla szybszej konwergencji |
+| LR range test | "Znajdź najlepszy learning rate" | Krótki trening z rosnącym LR, żeby znaleźć wartość, przy której loss zaczyna dywergować |
+| Cosine with warm restarts | "Resetuj i powtarzaj" | Okresowe resetowanie LR do lr_max i ponowne stosowanie decay (SGDR) |
+| Eta min | "Podłoga dla LR" | Minimalny learning rate, do którego harmonogram decyduje |
+| Peak learning rate | "Maksymalny LR" | Najwyższy LR osiągnięty podczas treningu, typowo po warmup |
 
-## Further Reading
+## Dalsza lektura
 
-- Loshchilov & Hutter, "SGDR: Stochastic Gradient Descent with Warm Restarts" (2017) -- introduced cosine annealing and warm restarts
-- Smith, "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates" (2018) -- the 1cycle policy paper
-- Touvron et al., "Llama 2: Open Foundation and Fine-Tuned Chat Models" (2023) -- documents the warmup + cosine schedule used at scale
-- Goyal et al., "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour" (2017) -- linear scaling rule and warmup for large batch training
+- Loshchilov & Hutter, "SGDR: Stochastic Gradient Descent with Warm Restarts" (2017) -- wprowadzenie cosine annealing i warm restarts
+- Smith, "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates" (2018) -- artykuł o 1cycle policy
+- Touvron et al., "Llama 2: Open Foundation and Fine-Tuned Chat Models" (2023) -- dokumentuje harmonogram warmup + cosine używany na skalę
+- Goyal et al., "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour" (2017) -- reguła liniowego skalowania i warmup dla treningu z dużymi batchami
+```

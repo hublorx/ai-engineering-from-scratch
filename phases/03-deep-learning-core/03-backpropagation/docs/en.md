@@ -1,38 +1,38 @@
-# Backpropagation from Scratch
+# Backpropagation od zera
 
-> Backpropagation is the algorithm that makes learning possible. Without it, neural networks are just expensive random number generators.
+> Backpropagation to algorytm, który umożliwia uczenie. Bez niego sieci neuronowe są tylko kosztownymi generatorami liczb losowych.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Lesson 03.02 (Multi-Layer Networks)
-**Time:** ~120 minutes
+**Typ:** Zbuduj
+**Języki:** Python
+**Wymagania wstępne:** Lekcja 03.02 (Sieci wielowarstwowe)
+**Szacowany czas:** ~120 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement a Value-based autograd engine that builds a computational graph and computes gradients via topological sort
-- Derive the backward pass for addition, multiplication, and sigmoid using the chain rule
-- Train a multi-layer network on XOR and circle classification using only your from-scratch backpropagation engine
-- Identify the vanishing gradient problem in deep sigmoid networks and explain why gradients shrink exponentially
+- Zaimplementować oparty na Value silnik autograd, który buduje graf obliczeniowy i oblicza gradienty poprzez sortowanie topologiczne
+- Wyprowadzić wsteczną propagację dla dodawania, mnożenia i sigmoidy przy użyciu reguły łańcuchowej
+- Trenować sieć wielowarstwową na klasyfikacji XOR i okręgu używając wyłącznie silnika backpropagation zbudowanego od zera
+- Zidentyfikować problem znikającego gradientu w głębokich sieciach sigmoid i wyjaśnić, dlaczego gradienty kurczą się wykładniczo
 
-## The Problem
+## Problem
 
-Your network has a single hidden layer with 768 inputs and 3072 outputs. That's 2,359,296 weights. It made a wrong prediction. Which weights caused the error? Testing each weight individually means 2.3 million forward passes. Backpropagation computes all 2.3 million gradients in a single backward pass. That's not an optimization. That's the difference between trainable and impossible.
+Twoja sieć ma jedną warstwę ukrytą z 768 wejściami i 3072 wyjściami. To 2 359 296 wag. Popełniła błędną predykcję. Które wagi spowodowały błąd? Testowanie każdej wagi indywidualnie oznacza 2,3 miliona przebiegów forward. Backpropagation oblicza wszystkie 2,3 miliona gradientów w jednym przebiegu wstecznym. To nie jest optymalizacja. To różnica między tym, co da się trenować, a tym, co jest niemożliwe.
 
-The naive approach: take one weight, nudge it by a tiny amount, run the forward pass again, measure whether the loss went up or down. That gives you the gradient for that weight. Now do it for every weight in the network. Multiply by thousands of training steps and millions of data points. You'd need geological time to train anything useful.
+Podejście naiwne: weź jedną wagę, delikatnie ją zmodyfikuj, uruchom ponownie przebieg forward, zmierz czy strata wzrosła czy spadła. To daje ci gradient dla tej wagi. Teraz zrób to dla każdej wagi w sieci. Pomnóż przez tysiące kroków treningowych i miliony punktów danych. Potrzebowałbyś czasu geologicznego, żeby wytrenować cokolwiek użytecznego.
 
-Backpropagation solves this. One forward pass, one backward pass, all gradients computed. The trick is the chain rule from calculus, applied systematically to a computational graph. This is the algorithm that made deep learning practical. Without it, we'd still be stuck on toy problems.
+Backpropagation rozwiązuje to. Jeden przebieg forward, jeden przebieg backward, wszystkie gradienty obliczone. Trik polega na regule łańcuchowej z rachunku różniczkowego, zastosowanej systematycznie do grafu obliczeniowego. To jest algorytm, który uczynił głębokie uczenie praktycznym. Bez niego nadal bylibyśmy uwiązani do problemów-zabawek.
 
-## The Concept
+## Koncepcja
 
-### The Chain Rule, Applied to Networks
+### Reguła łańcuchowa zastosowana do sieci
 
-You saw the chain rule in Phase 01, Lesson 05. Quick recap: if y = f(g(x)), then dy/dx = f'(g(x)) * g'(x). You multiply derivatives along the chain.
+Widziałeś regułę łańcuchową w Fazie 01, Lekcji 05. Szybkie przypomnienie: jeśli y = f(g(x)), to dy/dx = f'(g(x)) * g'(x). Mnożysz pochodne wzdłuż łańcucha.
 
-In a neural network, the "chain" is the sequence of operations from input to loss. Each layer applies weights, adds biases, passes through an activation. The loss function compares the final output to the target. Backpropagation traces this chain backward, computing how each operation contributed to the error.
+W sieci neuronowej "łańcuch" to sekwencja operacji od wejścia do straty. Każda warstwa aplikuje wagi, dodaje biasy, przepuszcza przez aktywację. Funkcja straty porównuje końcowe wyjście z celem. Backpropagation śledzi ten łańcuch wstecz, obliczając jak każda operacja przyczyniła się do błędu.
 
-### Computational Graphs
+### Grafy obliczeniowe
 
-Every forward pass builds a graph. Each node is an operation (multiply, add, sigmoid). Each edge carries a value forward and a gradient backward.
+Każdy przebieg forward buduje graf. Każdy węzeł to operacja (mnożenie, dodawanie, sigmoida). Każda krawędź niesie wartość do przodu i gradient do tyłu.
 
 ```mermaid
 graph LR
@@ -45,11 +45,11 @@ graph LR
     y["target"] --> loss
 ```
 
-Forward pass: values flow left to right. x and w produce z1 = w*x. Add b to get z2. Sigmoid gives activation a. Compare a to target y using the loss function.
+Przebieg forward: wartości płyną od lewej do prawej. x i w produkują z1 = w*x. Dodaj b żeby otrzymać z2. Sigmoida daje aktywację a. Porównaj a z celem y używając funkcji straty.
 
-Backward pass: gradients flow right to left. Start with dL/da (how loss changes with the activation). Multiply by da/dz2 (sigmoid derivative). That gives dL/dz2. Split into dL/db (which equals dL/dz2, since z2 = z1 + b) and dL/dz1. Then dL/dw = dL/dz1 * x and dL/dx = dL/dz1 * w.
+Przebieg backward: gradienty płyną od prawej do lewej. Zaczynamy od dL/da (jak strata zmienia się z aktywacją). Mnożymy przez da/dz2 (pochodna sigmoidy). To daje dL/dz2. Dzielimy na dL/db (który równa się dL/dz2, bo z2 = z1 + b) i dL/dz1. Następnie dL/dw = dL/dz1 * x i dL/dx = dL/dz1 * w.
 
-Every node in the graph has one job during the backward pass: take the gradient coming from above, multiply by its local derivative, and pass it down.
+Każdy węzeł w grafie ma jedno zadanie podczas przebiegu backward: weź gradient przychodzący z góry, pomnóż przez jego lokalną pochodną i przekaż w dół.
 
 ### Forward vs Backward
 
@@ -70,11 +70,11 @@ graph TB
     Forward --> Backward
 ```
 
-The forward pass stores every intermediate value: z, a, the inputs to each layer. The backward pass needs these stored values to compute gradients. This is the memory-computation tradeoff at the heart of backprop. You trade memory (storing activations) for speed (one pass instead of millions).
+Przebieg forward przechowuje każdą wartość pośrednią: z, a, wejścia każdej warstwy. Przebieg backward potrzebuje tych przechowanych wartości do obliczenia gradientów. To jest kompromis pamięć-obliczenia w sercu backpropagation. Tradeujesz pamięć (przechowywanie aktywacji) za szybkość (jeden przebieg zamiast milionów).
 
-### Gradient Flow Through a Network
+### Przepływ gradientu przez sieć
 
-For a 3-layer network, gradients chain through every layer:
+Dla sieci 3-warstwowej gradienty przechodzą przez każdą warstwę:
 
 ```mermaid
 graph RL
@@ -84,27 +84,27 @@ graph RL
     L1 -- "dL/dz1 = dL/da1 * sigmoid'(z1)" --> I["Input"]
 ```
 
-At each layer, the gradient gets multiplied by the sigmoid derivative. The sigmoid derivative is a * (1 - a), which maxes out at 0.25 (when a = 0.5). Three layers deep, the gradient has been multiplied by at most 0.25^3 = 0.0156. Ten layers deep: 0.25^10 = 0.000001.
+W każdej warstwie gradient jest mnożony przez pochodną sigmoidy. Pochodna sigmoidy to a * (1 - a), która osiąga maksimum 0.25 (gdy a = 0.5). Na głębokości trzech warstw gradient został pomnożony przez co najwyżej 0.25^3 = 0.0156. Na głębokości dziesięciu warstw: 0.25^10 = 0.000001.
 
-### Vanishing Gradients
+### Zanikające gradienty
 
-This is the vanishing gradient problem. Sigmoid squashes its output between 0 and 1. Its derivative is always less than 0.25. Stack enough sigmoid layers and gradients shrink to nothing. Early layers barely learn because they receive near-zero gradients.
+To jest problem znikającego gradientu. Sigmoida ściska swoje wyjście między 0 a 1. Jej pochodna jest zawsze mniejsza niż 0.25. Nałóż wystarczająco dużo warstw sigmoidy i gradienty kurczą się do zera. Wczesne warstwy prawie się nie uczą, bo otrzymują niemal zerowe gradienty.
 
 ```
-sigmoid(z):     Output range [0, 1]
-sigmoid'(z):    Max value 0.25 (at z = 0)
+sigmoid(z):     Zakres wyjścia [0, 1]
+sigmoid'(z):    Wartość maksymalna 0.25 (przy z = 0)
 
-After 5 layers:   gradient * 0.25^5 = 0.001x original
-After 10 layers:  gradient * 0.25^10 = 0.000001x original
+Po 5 warstwach:    gradient * 0.25^5 = 0.001x oryginału
+Po 10 warstwach:  gradient * 0.25^10 = 0.000001x oryginału
 ```
 
-This is why deep sigmoid networks are nearly impossible to train. The fix -- ReLU and its variants -- is the subject of Lesson 04. For now, understand that backprop works perfectly. The problem is what it's working through.
+To dlatego głębokie sieci sigmoid są niemal niemożliwe do wytrenowania. Poprawka -- ReLU i jej warianty -- to temat Lekcji 04. Na razie zrozum, że backpropagation działa perfekcyjnie. Problem stanowi to, przez co przechodzi.
 
-### Deriving Gradients for a 2-Layer Network
+### Wyprowadzanie gradientów dla sieci 2-warstwowej
 
-Concrete math for a network with input x, hidden layer with sigmoid, output layer with sigmoid, and MSE loss.
+Konkretna matematyka dla sieci z wejściem x, warstwą ukrytą z sigmoidą, warstwą wyjściową z sigmoidą i stratą MSE.
 
-Forward pass:
+Przebieg forward:
 ```
 z1 = W1 * x + b1
 a1 = sigmoid(z1)
@@ -113,7 +113,7 @@ a2 = sigmoid(z2)
 L = (a2 - y)^2
 ```
 
-Backward pass (applying chain rule step by step):
+Przebieg backward (aplikacja reguły łańcuchowej krok po kroku):
 ```
 dL/da2 = 2(a2 - y)
 da2/dz2 = a2 * (1 - a2)
@@ -130,13 +130,13 @@ dL/dW1 = dL/dz1 * x
 dL/db1 = dL/dz1
 ```
 
-Every gradient is a product of local derivatives traced back from the loss. That's all backpropagation is.
+Każdy gradient to iloczyn lokalnych pochodnych wyśledzonych wstecz od straty. To wszystko czym jest backpropagation.
 
-## Build It
+## Zbuduj to
 
-### Step 1: The Value Node
+### Krok 1: Węzeł Value
 
-Every number in our computation becomes a Value. It stores its data, its gradient, and how it was created (so it knows how to compute gradients backward).
+Każda liczba w naszych obliczeniach staje się Value. Przechowuje swoje dane, swój gradient i jak została stworzona (żeby wiedziała jak obliczyć gradienty wstecz).
 
 ```python
 class Value:
@@ -151,11 +151,11 @@ class Value:
         return f"Value(data={self.data:.4f}, grad={self.grad:.4f})"
 ```
 
-No gradient yet (0.0). No backward function yet (no-op). The `_children` track which Values produced this one, so we can topologically sort the graph later.
+Jeszcze nie ma gradientu (0.0). Jeszcze nie ma funkcji backward (pusta funkcja). `_children` śledzą które Value produkowały ten węzeł, żebyśmy mogli później posortować graf topologicznie.
 
-### Step 2: Operations with Backward Functions
+### Krok 2: Operacje z funkcjami backward
 
-Each operation creates a new Value and defines how gradients flow backward through it.
+Każda operacja tworzy nowy Value i definiuje jak gradienty płyną wstecz przez nią.
 
 ```python
 def __add__(self, other):
@@ -181,13 +181,13 @@ def __mul__(self, other):
     return out
 ```
 
-For addition: d(a+b)/da = 1, d(a+b)/db = 1. So both inputs get the output's gradient directly.
+Dla dodawania: d(a+b)/da = 1, d(a+b)/db = 1. Więc oba wejścia otrzymują gradient wyjścia bezpośrednio.
 
-For multiplication: d(a*b)/da = b, d(a*b)/db = a. Each input gets the other's value times the output gradient.
+Dla mnożenia: d(a*b)/da = b, d(a*b)/db = a. Każde wejście otrzymuje wartość drugiego pomnożoną przez gradient wyjścia.
 
-The `+=` is critical. A Value might be used in multiple operations. Its gradient is the sum of gradients from all paths.
+`+=` jest krytyczne. Value może być użyte w wielu operacjach. Jego gradient to suma gradientów ze wszystkich ścieżek.
 
-### Step 3: Sigmoid and Loss
+### Krok 3: Sigmoida i strata
 
 ```python
 import math
@@ -205,7 +205,7 @@ def sigmoid(self):
     return out
 ```
 
-Sigmoid derivative: sigmoid(x) * (1 - sigmoid(x)). We computed sigmoid(x) = s during the forward pass. Reuse it. No extra work.
+Pochodna sigmoidy: sigmoid(x) * (1 - sigmoid(x)). Obliczyliśmy sigmoid(x) = s podczas przebiegu forward. Użyj go ponownie. Bez dodatkowej pracy.
 
 ```python
 def mse_loss(predicted, target):
@@ -213,11 +213,11 @@ def mse_loss(predicted, target):
     return diff * diff
 ```
 
-MSE for a single output: (predicted - target)^2. We express subtraction as addition with a negated Value.
+MSE dla pojedynczego wyjścia: (predicted - target)^2. Wyrażamy odejmowanie jako dodawanie z zanegowanym Value.
 
-### Step 4: Backward Pass
+### Krok 4: Przebieg backward
 
-Topological sort ensures we process nodes in the right order -- a node's gradient is fully accumulated before we propagate through it.
+Sortowanie topologiczne zapewnia, że przetwarzamy węzły we właściwej kolejności -- gradient węzła jest w pełni skumulowany zanim go rozpropagujemy przez niego.
 
 ```python
 def backward(self):
@@ -237,9 +237,9 @@ def backward(self):
         v._backward()
 ```
 
-Start at the loss (gradient = 1.0, since dL/dL = 1). Walk backward through the sorted graph. Each node's `_backward` pushes gradients to its children.
+Zaczynamy od straty (gradient = 1.0, bo dL/dL = 1). Idziemy wstecz przez posortowany graf. Każdy węzeł `_backward` przesyła gradienty do swoich dzieci.
 
-### Step 5: Layer and Network
+### Krok 5: Warstwa i sieć
 
 ```python
 import random
@@ -297,9 +297,9 @@ class Network:
             p.grad = 0.0
 ```
 
-A Neuron takes inputs, computes weighted sum + bias, and applies sigmoid. Weight initialization scales by sqrt(2/n_inputs) to prevent sigmoid saturation in deeper networks. A Layer is a list of Neurons. A Network is a list of Layers. The `parameters()` method collects all learnable Values so we can update them.
+Neuron bierze wejścia, oblicza sumę ważoną + bias i aplikuje sigmoidę. Inicjalizacja wag skaluje przez sqrt(2/n_inputs) żeby zapobiec nasyceniu sigmoidy w głębszych sieciach. Warstwa to lista Neuronów. Sieć to lista Warstw. Metoda `parameters()` zbiera wszystkie uczące się Value, żebyśmy mogli je później aktualizować.
 
-### Step 6: Train on XOR
+### Krok 6: Trenuj na XOR
 
 ```python
 random.seed(42)
@@ -338,11 +338,11 @@ for inputs, target in xor_data:
     print(f"  {inputs} -> {pred.data:.4f} (expected {target})")
 ```
 
-Watch the loss decrease. From random predictions to correct XOR outputs, driven entirely by backpropagation computing gradients and nudging weights in the right direction.
+Obserwuj stratę malejącą. Od losowych predykcji do poprawnych wyjść XOR, napędzane całkowicie przez backpropagation obliczające gradienty i popychające wagi we właściwym kierunku.
 
-### Step 7: Circle Classification
+### Krok 7: Klasyfikacja okręgu
 
-In Lesson 02, you hand-tuned weights for circle classification. Now let the network learn them.
+W Lekcji 02 ręcznie dostrajałeś wagi dla klasyfikacji okręgu. Teraz niech sieć się ich nauczy.
 
 ```python
 random.seed(7)
@@ -386,13 +386,13 @@ for epoch in range(2000):
         print(f"Epoch {epoch:4d} | Loss: {total_loss_val:.4f} | Accuracy: {accuracy:.1f}%")
 ```
 
-We use online SGD here -- update weights after each sample instead of accumulating the full batch. This breaks symmetry faster and avoids sigmoid saturation on the full loss landscape. Shuffling the data each epoch prevents the network from memorizing the order.
+Używamy tutaj online SGD -- aktualizujemy wagi po każdej próbce zamiast akumulować pełną partię. To szybciej łamie symetrię i unika nasycenia sigmoidy na pełnym krajobrazie straty. Tasowanie danych każdej epoki zapobiega sieci w zapamiętywaniu kolejności.
 
-No hand-tuning. The network discovers the circular decision boundary on its own. That's the power of backpropagation: you define the architecture, the loss function, and the data. The algorithm figures out the weights.
+Bez ręcznego dostrajania. Sieć samodzielnie odkrywa okrągłą granicę decyzyjną. To jest siła backpropagation: definiujesz architekturę, funkcję straty i dane. Algorytm sam odkrywa wagi.
 
-## Use It
+## Użyj tego
 
-PyTorch does everything above in a few lines. The core idea is identical -- autograd builds a computational graph during the forward pass and traces it backward to compute gradients.
+PyTorch robi wszystko powyżej w kilku linijkach. Główna idea jest identyczna -- autograd buduje graf obliczeniowy podczas przebiegu forward i śledzi go wstecz, żeby obliczyć gradienty.
 
 ```python
 import torch
@@ -424,43 +424,43 @@ with torch.no_grad():
         print(f"  {X[i].tolist()} -> {pred.item():.4f} (expected {y[i].item()})")
 ```
 
-`loss.backward()` is your `total_loss.backward()`. `optimizer.step()` is your manual `p.data -= lr * p.grad`. `optimizer.zero_grad()` is your `net.zero_grad()`. Same algorithm, industrial-strength implementation. PyTorch handles GPU acceleration, mixed precision, gradient checkpointing, and hundreds of layer types. But the backward pass is the same chain rule applied to the same computational graph.
+`loss.backward()` to twój `total_loss.backward()`. `optimizer.step()` to twoja ręczna `p.data -= lr * p.grad`. `optimizer.zero_grad()` to twój `net.zero_grad()`. Ten sam algorytm, implementacja przemysłowej jakości. PyTorch obsługuje akcelerację GPU, mieszaną precyzję, checkpointing gradientów i setki typów warstw. Ale przebieg backward to ta sama reguła łańcuchowa zastosowana do tego samego grafu obliczeniowego.
 
-Training runs the forward pass, then the backward pass, then updates weights. Inference runs only the forward pass. No gradients, no updates. This distinction matters because inference is what happens in production. When you call an API like Claude or GPT, you're running inference -- your prompt flows forward through the network, and tokens come out the other end. No weights change. Understanding backprop matters because it shaped every weight in that network.
+Trening uruchamia przebieg forward, potem przebieg backward, potem aktualizuje wagi. Inferencja uruchamia tylko przebieg forward. Bez gradientów, bez aktualizacji. Ta dystynkcja ma znaczenie, bo inferencja to coś, co dzieje się w produkcji. Gdy wywołujesz API jak Claude czy GPT, uruchamiasz inferencję -- twój prompt płynie forward przez sieć, a tokeny wychodzą z drugiej strony. Żadne wagi się nie zmieniają. Zrozumienie backprop ma znaczenie, bo to ukształtowało każdą wagę w tej sieci.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/prompt-gradient-debugger.md` -- a reusable prompt for diagnosing gradient problems (vanishing, exploding, NaN) in any neural network
+Ta lekcja produkuje:
+- `outputs/prompt-gradient-debugger.md` -- wielokrotnie użyteczny prompt do diagnozowania problemów z gradientami (zanikające, eksplodujące, NaN) w dowolnej sieci neuronowej
 
-## Exercises
+## Ćwiczenia
 
-1. Add a `__sub__` method to the Value class (a - b = a + (-1 * b)). Then implement a `__neg__` method. Verify that the gradients are correct by comparing with manual calculation for a simple expression like (a - b)^2.
+1. Dodaj metodę `__sub__` do klasy Value (a - b = a + (-1 * b)). Następnie zaimplementuj metodę `__neg__`. Zweryfikuj, że gradienty są poprawne porównując z ręcznym obliczeniem dla prostego wyrażenia jak (a - b)^2.
 
-2. Add a `relu` method to Value (output max(0, x), derivative is 1 if x > 0, else 0). Replace sigmoid with relu in the hidden layers and train on XOR again. Compare convergence speed. You should see faster training -- this previews Lesson 04.
+2. Dodaj metodę `relu` do Value (wyjście max(0, x), pochodna to 1 jeśli x > 0, w przeciwnym razie 0). Zastąp sigmoidę relu w warstwach ukrytych i trenuj na XOR ponownie. Porównaj szybkość zbieżności. Powinieneś zobaczyć szybsze trening -- to podgląd Lekcji 04.
 
-3. Implement a `__pow__` method on Value for integer powers. Use it to replace `mse_loss` with a proper `(predicted - target) ** 2` expression. Verify gradients match the original implementation.
+3. Zaimplementuj metodę `__pow__` na Value dla całkowitych potęg. Użyj jej do zastąpienia `mse_loss` prawidłowym wyrażeniem `(predicted - target) ** 2`. Zweryfikuj gradienty z oryginalną implementacją.
 
-4. Add gradient clipping to the training loop: after calling `backward()`, clip all gradients to [-1, 1]. Train a deeper network (4+ layers with sigmoid) and compare loss curves with and without clipping. This is your first defense against exploding gradients.
+4. Dodaj obcinanie gradientów do pętli treningowej: po wywołaniu `backward()`, przytnij wszystkie gradienty do [-1, 1]. Trenuj głębszą sieć (4+ warstw z sigmoidą) i porównaj krzywe straty z obcinaniem i bez. To jest twoja pierwsza obrona przed eksplodującymi gradientami.
 
-5. Build a visualization: after training on XOR, print the gradient of every parameter in the network. Identify which layer has the smallest gradients. This demonstrates the vanishing gradient problem you read about in the Concept section.
+5. Zbuduj wizualizację: po treningu na XOR, wypisz gradient każdego parametru w sieci. Zidentyfikuj która warstwa ma najmniejsze gradienty. To demonstruje problem znikającego gradientu, który czytałeś w sekcji Koncepcji.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Backpropagation | "The network learns" | An algorithm that computes dL/dw for every weight by applying the chain rule backward through the computational graph |
-| Computational graph | "The network structure" | A directed acyclic graph where nodes are operations and edges carry values (forward) and gradients (backward) |
-| Chain rule | "Multiply the derivatives" | If y = f(g(x)), then dy/dx = f'(g(x)) * g'(x) -- the mathematical foundation of backpropagation |
-| Gradient | "The direction of steepest ascent" | The partial derivative of the loss with respect to a parameter -- tells you how to change that parameter to reduce the loss |
-| Vanishing gradient | "Deep networks don't learn" | Gradients shrink exponentially as they propagate through layers with saturating activations like sigmoid |
-| Forward pass | "Running the network" | Computing the output from inputs by sequentially applying each layer's operations and storing intermediate values |
-| Backward pass | "Computing gradients" | Traversing the computational graph in reverse, accumulating gradients at each node using the chain rule |
-| Learning rate | "How fast it learns" | A scalar that controls the step size when updating weights: w_new = w_old - lr * gradient |
-| Topological sort | "The right order" | An ordering of graph nodes where each node appears after all nodes it depends on -- ensures gradients are fully accumulated before propagation |
-| Autograd | "Automatic differentiation" | A system that builds computational graphs during forward computation and automatically computes gradients -- what PyTorch's engine does |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|----------------------|
+| Backpropagation | "Sieć się uczy" | Algorytm który oblicza dL/dw dla każdej wagi przez aplikację reguły łańcuchowej wstecz przez graf obliczeniowy |
+| Computational graph | "Struktura sieci" | Graf skierowany acykliczny gdzie węzły to operacje, a krawędzie niosą wartości (forward) i gradienty (backward) |
+| Chain rule | "Pomnóż pochodne" | Jeśli y = f(g(x)), to dy/dx = f'(g(x)) * g'(x) -- matematyczny fundament backpropagation |
+| Gradient | "Kierunek najszybszego wzrostu" | Pochodna cząstkowa straty względem parametru -- mówi jak zmienić ten parametr żeby zmniejszyć stratę |
+| Vanishing gradient | "Głębokie sieci się nie uczą" | Gradienty kurczą się wykładniczo gdy propagują przez warstwy z nasycającymi aktywacjami jak sigmoida |
+| Forward pass | "Uruchamianie sieci" | Obliczanie wyjścia z wejść przez sekwencyjne aplikowanie operacji każdej warstwy i przechowywanie wartości pośrednich |
+| Backward pass | "Obliczanie gradientów" | Przechodzenie grafu obliczeniowego w odwrotnej kolejności, akumulacja gradientów w każdym węźle używając reguły łańcuchowej |
+| Learning rate | "Jak szybko się uczy" | Skalar który kontroluje rozmiar kroku przy aktualizacji wag: w_new = w_old - lr * gradient |
+| Topological sort | "Właściwa kolejność" | Uporządkowanie węzłów grafu gdzie każdy węzeł pojawia się po wszystkich węzłach od których zależy -- zapewnia, że gradienty są w pełni akumulowane przed propagacją |
+| Autograd | "Automatyczne różniczkowanie" | System który buduje grafy obliczeniowe podczas forward computation i automatycznie oblicza gradienty -- co robi silnik PyTorcha |
 
-## Further Reading
+## Dalsze czytanie
 
-- Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" (1986) -- the paper that made backpropagation mainstream and unlocked multi-layer network training
-- 3Blue1Brown, "Neural Networks" series (https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi) -- the best visual explanation of backpropagation and gradient flow through networks
+- Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" (1986) -- artykuł który upowszechnił backpropagation i odblokował trening sieci wielowarstwowych
+- 3Blue1Brown, seria "Neural Networks" -- najlepsze wizualne wyjaśnienie backpropagation i przepływu gradientu przez sieci

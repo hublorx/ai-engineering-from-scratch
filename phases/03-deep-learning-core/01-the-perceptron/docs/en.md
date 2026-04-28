@@ -1,32 +1,32 @@
-# The Perceptron
+# Perceptron
 
-> The perceptron is the atom of neural networks. Split it open and you find weights, a bias, and a decision.
+> Perceptron jest atomem sieci neuronowych. Rozłup go, a znajdziesz wagi, bias i decyzję.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 1 (Linear Algebra Intuition)
-**Time:** ~60 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 1 (Intuicja algebry liniowej)
+**Szacowany czas:** ~60 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement a perceptron from scratch in Python, including the weight update rule and step activation function
-- Explain why a single perceptron can only solve linearly separable problems and demonstrate the XOR failure case
-- Construct a multi-layer perceptron by composing OR, NAND, and AND gates to solve XOR
-- Train a two-layer network with sigmoid activation and backpropagation to learn XOR automatically
+- Zaimplementuj perceptron od zera w Pythonie, w tym regułę aktualizacji wag i funkcję aktywacji step
+- Wyjaśnij, dlaczego pojedynczy perceptron może rozwiązywać tylko problemy liniowo separowalne i zademonstruj przypadek niepowodzenia XOR
+- Skonstruuj wielowarstwowy perceptron poprzez kompozycję bramek OR, NAND i AND, aby rozwiązać XOR
+- Wytrenuj dwuwarstwową sieć z aktywacją sigmoid i backpropagation, aby automatycznie nauczyć się XOR
 
-## The Problem
+## Problem
 
-You know vectors and dot products. You know that a matrix transforms inputs into outputs. But how does a machine *learn* which transformation to use?
+Wiesz, czym są wektory i iloczyny skalarne. Wiesz, że macierz przekształca wejścia w wyjścia. Ale jak maszyna *uczy się*, które przekształcenie zastosować?
 
-The perceptron answers this. It's the simplest possible learning machine: take some inputs, multiply by weights, add a bias, and make a binary decision. Then adjust. That's it. Every neural network ever built is layers of this idea stacked together.
+Perceptron na to odpowiada. To najprostsza możliwa maszyna ucząca się: weź pewne wejścia, pomnóż przez wagi, dodaj bias, podejmij binarną decyzję. Potem dostosuj. I tyle. Każda sieć neuronowa kiedykolwiek zbudowana to warstwy tego pomysłu ułożone razem.
 
-Understanding the perceptron means understanding what "learning" actually means in code: adjusting numbers until the output matches reality.
+Zrozumienie perceptronu oznacza zrozumienie, co "uczenie się" faktycznie oznacza w kodzie: dostosowywanie liczb, aż wyjście będzie zgodne z rzeczywistością.
 
-## The Concept
+## Koncepcja
 
-### One Neuron, One Decision
+### Jeden neuron, jedna decyzja
 
-A perceptron takes n inputs, multiplies each by a weight, sums them up, adds a bias, and passes the result through an activation function.
+Perceptron przyjmuje n wejść, mnoży każde przez wagę, sumuje je, dodaje bias i przepuszcza wynik przez funkcję aktywacji.
 
 ```mermaid
 graph LR
@@ -38,83 +38,83 @@ graph LR
     step --> out["output (0 or 1)"]
 ```
 
-The step function is brutal: if the weighted sum plus bias is >= 0, output 1. Otherwise, output 0.
+Funkcja step jest brutalna: jeśli suma ważona plus bias jest >= 0, wyjście to 1. W przeciwnym razie 0.
 
 ```
 step(z) = 1  if z >= 0
            0  if z < 0
 ```
 
-This is a linear classifier. The weights and bias define a line (or hyperplane in higher dimensions) that splits the input space into two regions.
+To jest klasyfikator liniowy. Wagi i bias definiują linię (lub hiperpłaszczyznę w wyższych wymiarach), która dzieli przestrzeń wejściową na dwa regiony.
 
-### The Decision Boundary
+### Granica decyzji
 
-For two inputs, the perceptron draws a line through 2D space:
+Dla dwóch wejść, perceptron rysuje linię przez przestrzeń 2D:
 
 ```
   x2
   ┤
-  │  Class 1        /
+  │  Klasa 1        /
   │    (0)          /
   │                /
   │               / w1·x1 + w2·x2 + b = 0
   │              /
-  │             /     Class 2
+  │             /     Klasa 2
   │            /        (1)
   ┼───────────/──────────── x1
 ```
 
-Everything on one side of the line outputs 0. Everything on the other side outputs 1. Training moves this line until it correctly separates the classes.
+Wszystko po jednej stronie linii daje wyjście 0. Wszystko po drugiej stronie daje wyjście 1. Trenowanie przesuwa tę linię, aż poprawnie separuje klasy.
 
-### The Learning Rule
+### Reguła uczenia
 
-The perceptron learning rule is simple:
+Reguła uczenia perceptronu jest prosta:
 
 ```
-For each training example (x, y_true):
+Dla każdego przykładu treningowego (x, y_true):
     y_pred = predict(x)
     error = y_true - y_pred
 
-    For each weight:
+    Dla każdej wagi:
         w_i = w_i + learning_rate * error * x_i
     bias = bias + learning_rate * error
 ```
 
-If the prediction is correct, error = 0, nothing changes. If it predicts 0 but should be 1, weights increase. If it predicts 1 but should be 0, weights decrease. The learning rate controls how big each adjustment is.
+Jeśli predykcja jest poprawna, error = 0, nic się nie zmienia. Jeśli przewiduje 0, a powinno być 1, wagi rosną. Jeśli przewiduje 1, a powinno być 0, wagi maleją. Learning rate kontroluje, jak duża jest każda korekta.
 
-### The XOR Problem
+### Problem XOR
 
-Here's where it breaks. Look at these logic gates:
+Oto gdzie to się psuje. Spójrz na te bramki logiczne:
 
 ```
-AND gate:           OR gate:            XOR gate:
-x1  x2  out         x1  x2  out         x1  x2  out
+Bramka AND:         Bramka OR:          Bramka XOR:
+x1  x2  wyj         x1  x2  wyj         x1  x2  wyj
 0   0   0           0   0   0           0   0   0
 0   1   0           0   1   1           0   1   1
 1   0   0           1   0   1           1   0   1
 1   1   1           1   1   1           1   1   0
 ```
 
-AND and OR are linearly separable: you can draw a single line to separate the 0s from the 1s. XOR is not. No single line can separate [0,1] and [1,0] from [0,0] and [1,1].
+AND i OR są liniowo separowalne: możesz narysować pojedynczą linię, aby oddzielić 0 od 1. XOR nie jest. Żadna pojedyncza linia nie może oddzielić [0,1] i [1,0] od [0,0] i [1,1].
 
 ```
-AND (separable):        XOR (not separable):
+AND (separowalne):      XOR (nie separowalne):
 
   x2                      x2
   1 ┤  0     1            1 ┤  1     0
     │     /                 │
   0 ┤  0 / 0              0 ┤  0     1
     ┼──/──────── x1         ┼──────────── x1
-       line works!          no single line works!
+       linia działa!        żadna pojedyncza linia nie działa!
 ```
 
-This is a fundamental limit. A single perceptron can only solve linearly separable problems. Minsky and Papert proved this in 1969 and it nearly killed neural network research for a decade.
+To jest fundamentalne ograniczenie. Pojedynczy perceptron może rozwiązywać tylko liniowo separowalne problemy. Minsky i Papert udowodnili to w 1969 i to prawie zabiło badania nad sieciami neuronowymi na dekadę.
 
-The fix: stack perceptrons into layers. A multi-layer perceptron can solve XOR by combining two linear decisions into a nonlinear one.
+Rozwiązanie: układaj perceptrony w warstwy. Wielowarstwowy perceptron może rozwiązać XOR poprzez połączenie dwóch liniowych decyzji w jedną nieliniową.
 
-## Build It
+## Zbuduj to
 
-### Step 1: The Perceptron class
+### Krok 1: Klasa Perceptron
 
 ```python
 class Perceptron:
@@ -140,12 +140,12 @@ class Perceptron:
                         self.weights[i] += self.lr * error * inputs[i]
                     self.bias += self.lr * error
             if errors == 0:
-                print(f"Converged at epoch {epoch + 1}")
+                print(f"Zbieżność w epoce {epoch + 1}")
                 return
-        print(f"Did not converge after {epochs} epochs")
+        print(f"Nie zbieżono po {epochs} epokach")
 ```
 
-### Step 2: Train on logic gates
+### Krok 2: Trenuj na bramkach logicznych
 
 ```python
 and_data = [
@@ -167,26 +167,26 @@ not_data = [
     ([1], 0),
 ]
 
-print("=== AND Gate ===")
+print("=== Bramka AND ===")
 p_and = Perceptron(2)
 p_and.train(and_data)
 for inputs, _ in and_data:
     print(f"  {inputs} -> {p_and.predict(inputs)}")
 
-print("\n=== OR Gate ===")
+print("\n=== Bramka OR ===")
 p_or = Perceptron(2)
 p_or.train(or_data)
 for inputs, _ in or_data:
     print(f"  {inputs} -> {p_or.predict(inputs)}")
 
-print("\n=== NOT Gate ===")
+print("\n=== Bramka NOT ===")
 p_not = Perceptron(1)
 p_not.train(not_data)
 for inputs, _ in not_data:
     print(f"  {inputs} -> {p_not.predict(inputs)}")
 ```
 
-### Step 3: Watch XOR fail
+### Krok 3: Obserwuj jak XOR zawodzi
 
 ```python
 xor_data = [
@@ -196,30 +196,30 @@ xor_data = [
     ([1, 1], 0),
 ]
 
-print("\n=== XOR Gate (single perceptron) ===")
+print("\n=== Bramka XOR (pojedynczy perceptron) ===")
 p_xor = Perceptron(2)
 p_xor.train(xor_data, epochs=1000)
 for inputs, expected in xor_data:
     result = p_xor.predict(inputs)
-    status = "OK" if result == expected else "WRONG"
-    print(f"  {inputs} -> {result} (expected {expected}) {status}")
+    status = "OK" if result == expected else "ŹLE"
+    print(f"  {inputs} -> {result} (oczekiwano {expected}) {status}")
 ```
 
-It will never converge. This is the hard proof that a single perceptron cannot learn XOR.
+Nigdy nie zbiegnie. To jest twardy dowód, że pojedynczy perceptron nie może nauczyć się XOR.
 
-### Step 4: Solve XOR with two layers
+### Krok 4: Rozwiąż XOR z dwoma warstwami
 
-The trick: XOR = (x1 OR x2) AND NOT (x1 AND x2). Combine three perceptrons:
+Sztuczka: XOR = (x1 LUB x2) ORAZ NIE (x1 AND x2). Połącz trzy perceptrony:
 
 ```mermaid
 graph LR
-    x1["x1"] --> OR["OR neuron"]
-    x1 --> NAND["NAND neuron"]
+    x1["x1"] --> OR["neuron OR"]
+    x1 --> NAND["neuron NAND"]
     x2["x2"] --> OR
     x2 --> NAND
-    OR --> AND["AND neuron"]
+    OR --> AND["neuron AND"]
     NAND --> AND
-    AND --> out["output"]
+    AND --> out["wyjście"]
 ```
 
 ```python
@@ -242,17 +242,17 @@ def xor_network(x1, x2):
     return output
 
 
-print("\n=== XOR Gate (multi-layer network) ===")
+print("\n=== Bramka XOR (sieć wielowarstwowa) ===")
 for inputs, expected in xor_data:
     result = xor_network(inputs[0], inputs[1])
-    print(f"  {inputs} -> {result} (expected {expected})")
+    print(f"  {inputs} -> {result} (oczekiwano {expected})")
 ```
 
-All four cases correct. Stacking perceptrons into layers creates decision boundaries that no single perceptron can produce.
+Wszystkie cztery przypadki poprawne. Układanie perceptronów w warstwy tworzy granice decyzji, których żaden pojedynczy perceptron nie może wygenerować.
 
-### Step 5: Train a Two-Layer Network
+### Krok 5: Wytrenuj dwuwarstwową sieć
 
-Step 4 hand-wired the weights. That works for XOR, but not for real problems where you don't know the right weights in advance. The fix: replace the step function with sigmoid and learn the weights automatically through backpropagation.
+Krok 4 ręcznie podłączył wagi. To działa dla XOR, ale nie dla prawdziwych problemów, gdzie nie znasz wag z góry. Rozwiązanie: zastąp funkcję step sigmoidalną i ucz wagi automatycznie poprzez backpropagation.
 
 ```python
 class TwoLayerNetwork:
@@ -313,16 +313,16 @@ net.train(xor_data, epochs=10000)
 for inputs, expected in xor_data:
     result = net.forward(inputs)
     predicted = 1 if result >= 0.5 else 0
-    print(f"  {inputs} -> {result:.4f} (rounded: {predicted}, expected {expected})")
+    print(f"  {inputs} -> {result:.4f} (zaokrąglone: {predicted}, oczekiwano {expected})")
 ```
 
-Two key differences from Step 4. First, sigmoid replaces the step function -- it's smooth, so gradients exist. Second, the `train` method propagates error backward from output to hidden layer, adjusting every weight proportionally to its contribution to the error. That's backpropagation in 20 lines.
+Dwie kluczowe różnice w stosunku do Kroku 4. Po pierwsze, sigmoid zastępuje funkcję step — jest gładka, więc istnieją gradienty. Po drugie, metoda `train` propaguje błąd wstecz od wyjścia do warstwy ukrytej, dostosowując każdą wagę proporcjonalnie do jej wkładu w błąd. To jest backpropagation w 20 liniach.
 
-This is the bridge to Lesson 03. The math behind `d_output` and `hidden_deltas` is the chain rule applied to the network graph. We'll derive it properly there.
+To jest most do Lekcji 03. Matematyka stojąca za `d_output` i `hidden_deltas` to reguła łańcuchowa zastosowana do grafu sieci. Wyprowadzimy to tam właściwie.
 
-## Use It
+## Użyj tego
 
-Everything you just built from scratch exists in one import:
+Wszystko, co właśnie zbudowałeś od zera, istnieje w jednym imporcie:
 
 ```python
 from sklearn.linear_model import Perceptron as SkPerceptron
@@ -336,43 +336,43 @@ clf.fit(X, y)
 print([clf.predict([x])[0] for x in X])
 ```
 
-Five lines. Your 30-line `Perceptron` class does the same thing. The sklearn version adds convergence checks, multiple loss functions, and sparse input support -- but the core loop is identical: weighted sum, step function, weight update on error.
+Pięć linii. Twoja klasa Perceptron z 30 liniami robi to samo. Wersja sklearn dodaje sprawdzanie zbieżności, wiele funkcji strat i obsługę rzadkich danych wejściowych — ale główna pętla jest identyczna: suma ważona, funkcja step, aktualizacja wag przy błędzie.
 
-The real gap shows up at scale. What changes in production networks:
+Prawdziwa różnica pokazuje się przy skali. Co się zmienia w produkcyjnych sieciach:
 
-- The step function becomes sigmoid, ReLU, or other smooth activations
-- Weights are learned automatically via backpropagation (Lesson 03)
-- Layers get deeper: 3, 10, 100+ layers
-- The same principle holds: each layer creates new features from the previous layer's outputs
+- Funkcja step staje się sigmoid, ReLU lub innymi gładkimi aktywacjami
+- Wagi są uczone automatycznie poprzez backpropagation (Lekcja 03)
+- Warstwy stają się głębsze: 3, 10, 100+ warstw
+- Ta sama zasada obowiązuje: każda warstwa tworzy nowe cechy z wyjść poprzedniej warstwy
 
-A single perceptron can only draw straight lines. Stack them, and you can draw any shape.
+Pojedynczy perceptron może rysować tylko proste linie. Ułóż je w stos, a możesz narysować dowolny kształt.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/skill-perceptron.md` - a skill covering when single-layer vs multi-layer architectures are needed
+Ta lekcja tworzy:
+- `outputs/skill-perceptron.md` — skill obejmujący przypadki, gdy potrzebne są architektury jednowarstwowe vs wielowarstwowe
 
-## Exercises
+## Ćwiczenia
 
-1. Train a perceptron on a NAND gate (the universal gate - any logic circuit can be built from NAND). Verify its weights and bias form a valid decision boundary.
-2. Modify the Perceptron class to track the decision boundary (w1*x1 + w2*x2 + b = 0) at each epoch. Print how the line shifts during training on the AND gate.
-3. Build a 3-input perceptron that outputs 1 only when at least 2 of the 3 inputs are 1 (a majority vote function). Is this linearly separable? Why?
+1. Wytrenuj perceptron na bramce NAND (bramka uniwersalna — każdy obwód logiczny może być zbudowany z NAND). Zweryfikuj, że jego wagi i bias tworzą prawidłową granicę decyzji.
+2. Zmodyfikuj klasę Perceptron, aby śledziła granicę decyzji (w1*x1 + w2*x2 + b = 0) w każdej epoce. Wydrukuj, jak linia przesuwa się podczas treningu na bramce AND.
+3. Zbuduj perceptron z 3 wejściami, który wyprowadza 1 tylko wtedy, gdy co najmniej 2 z 3 wejść to 1 (funkcja głosowania większościowego). Czy to jest liniowo separowalne? Dlaczego?
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Perceptron | "A fake neuron" | A linear classifier: dot product of inputs and weights, plus bias, through a step function |
-| Weight | "How important an input is" | A multiplier that scales each input's contribution to the decision |
-| Bias | "The threshold" | A constant that shifts the decision boundary, letting the perceptron fire even with zero inputs |
-| Activation function | "The thing that squishes values" | A function applied after the weighted sum - step function for perceptrons, sigmoid/ReLU for modern networks |
-| Linearly separable | "You can draw a line between them" | A dataset where a single hyperplane can perfectly separate the classes |
-| XOR problem | "The thing perceptrons can't do" | Proof that single-layer networks cannot learn non-linearly-separable functions |
-| Decision boundary | "Where the classifier switches" | The hyperplane w*x + b = 0 that divides input space into two classes |
-| Multi-layer perceptron | "A real neural network" | Perceptrons stacked in layers, where each layer's output feeds the next layer's input |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|----------------------|
+| Perceptron | "Sztuczny neuron" | Klasyfikator liniowy: iloczyn skalarny wejść i wag, plus bias, przez funkcję step |
+| Weight (waga) | "Jak ważne jest wejście" | Mnożnik, który skaluje wkład każdego wejścia w decyzję |
+| Bias | "Próg" | Stała, która przesuwa granicę decyzji, pozwalając perceptronowi "strzelić" nawet przy zerowych wejściach |
+| Funkcja aktywacji | "To, co ściska wartości" | Funkcja stosowana po sumie ważonej — funkcja step dla perceptronów, sigmoid/ReLU dla nowoczesnych sieci |
+| Liniowo separowalny | "Możesz narysować między nimi linię" | Dataset, gdzie pojedyncza hiperpłaszczyzna może idealnie separować klasy |
+| Problem XOR | "To, czego perceptrony nie potrafią" | Dowód, że sieci jednowarstwowe nie mogą uczyć się funkcji nieliniowo separowalnych |
+| Granica decyzji | "Gdzie klasyfikator się przełącza" | Hiperpłaszczyzna w*x + b = 0, która dzieli przestrzeń wejściową na dwie klasy |
+| Wielowarstwowy perceptron | "Prawdziwa sieć neuronowa" | Perceptrony ułożone w warstwy, gdzie wyjście każdej warstwy zasila wejście następnej warstwy |
 
-## Further Reading
+## Dalsze czytanie
 
-- Frank Rosenblatt, "The Perceptron: A Probabilistic Model for Information Storage and Organization in the Brain" (1958) -- the original paper that started it all
-- Minsky & Papert, "Perceptrons" (1969) -- the book that proved XOR was unsolvable by single-layer networks and killed perceptron research for a decade
-- Michael Nielsen, "Neural Networks and Deep Learning", Chapter 1 (http://neuralnetworksanddeeplearning.com/) -- free online, best visual explanation of how perceptrons compose into networks
+- Frank Rosenblatt, "The Perceptron: A Probabilistic Model for Information Storage and Organization in the Brain" (1958) — oryginalny artykuł, który to wszystko zaczął
+- Minsky & Papert, "Perceptrons" (1969) — książka, która udowodniła, że XOR jest nierozwiązywalne przez sieci jednowarstwowe i zabiła badania nad perceptronami na dekadę
+- Michael Nielsen, "Neural Networks and Deep Learning", Chapter 1 — darmowe online, najlepsze wizualne wytłumaczenie, jak perceptrony składają się w sieci

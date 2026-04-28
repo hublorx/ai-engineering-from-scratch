@@ -1,54 +1,69 @@
-# Loss Functions
+<think>
+The user wants me to translate this entire lesson about Loss Functions from English to Polish. This is a technical course lesson, so I need to:
 
-> Your network makes a prediction. The ground truth says otherwise. How wrong is it? That number is the loss. Pick the wrong loss function and your model optimizes for the wrong thing entirely.
+1. Translate the narrative text faithfully
+2. Keep all technical terms that are listed as "DOZWOLONE ANGLICYZMY"
+3. Keep all code blocks exactly as they are
+4. Apply Polish diacritics correctly
+5. Add commas appropriately
+6. Keep markdown formatting
+7. Remove references to external sources
+8. Not improve or change the tone
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Lesson 03.04 (Activation Functions)
-**Time:** ~75 minutes
+Let me translate this carefully, section by section.
+</think>
 
-## Learning Objectives
+# Funkcje straty
 
-- Implement MSE, binary cross-entropy, categorical cross-entropy, and contrastive loss (InfoNCE) from scratch with their gradients
-- Explain why MSE fails for classification by demonstrating the "predict 0.5 for everything" failure mode
-- Apply label smoothing to cross-entropy and describe how it prevents overconfident predictions
-- Choose the correct loss function for regression, binary classification, multi-class classification, and embedding learning tasks
+> Model wykonuje predykcję. Prawda mówi co innego. Jak bardzo się myli? Tą liczbą jest loss. Wybierz złą funkcję straty, a Twój model będzie optymalizowany pod zupełnie złą rzecz.
 
-## The Problem
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Lekcja 03.04 (Funkcje aktywacji)
+**Szacowany czas:** ~75 minut
 
-A model minimizing MSE on a classification problem will confidently predict 0.5 for everything. It's minimizing loss. It's also useless.
+## Cele uczenia się
 
-The loss function is the only thing your model actually optimizes. Not accuracy. Not F1 score. Not whatever metric you report to your manager. The optimizer takes the gradient of the loss function and adjusts weights to make that number smaller. If the loss function doesn't capture what you care about, the model will find the mathematically cheapest way to satisfy it, and that way is almost never what you wanted.
+- Zaimplementować od zera MSE, binary cross-entropy, categorical cross-entropy oraz contrastive loss (InfoNCE) wraz z ich gradientami
+- Wyjaśnić, dlaczego MSE zawodzi w klasyfikacji, demonstrując tryb awarii „predykcja 0.5 dla wszystkiego"
+- Zastosować label smoothing do cross-entropy i opisać, jak zapobiega ona nadmiernie pewnym predykcjom
+- Wybrać poprawną funkcję straty dla zadań regresji, klasyfikacji binarnej, klasyfikacji wieloklasowej i uczenia się reprezentacji
 
-Here is a concrete example. You have a binary classification task. Two classes, 50/50 split. You use MSE as your loss. The model predicts 0.5 for every single input. The average MSE is 0.25, which is the minimum possible without actually learning anything. The model has zero discriminative ability but it has technically minimized your loss function. Switch to cross-entropy and the same model is forced to push predictions toward 0 or 1, because -log(0.5) = 0.693 is a terrible loss, while -log(0.99) = 0.01 rewards confident correct predictions. The choice of loss function is the difference between a model that learns and a model that games the metric.
+## Problem
 
-It gets worse. In self-supervised learning, you don't even have labels. Contrastive loss defines the learning signal entirely: what counts as similar, what counts as different, and how hard the model should push them apart. Get contrastive loss wrong and your embeddings collapse to a single point -- every input maps to the same vector. Technically zero loss. Completely worthless.
+Model minimalizujący MSE na problemie klasyfikacji będzie pewnie przewidywać 0.5 dla wszystkiego. Minimalizuje stratę. Jest też bezużyteczny.
 
-## The Concept
+Funkcja straty to jedyna rzecz, którą Twój model faktycznie optymalizuje. Nie accuracy. Nie F1 score. Nie żadna metryka, którą raportujesz swojemu menedżerowi. Optimizer bierze gradient funkcji straty i dostosowuje wagi, żeby ta liczba była mniejsza. Jeśli funkcja straty nie obejmuje tego, na czym Ci zależy, model znajdzie matematycznie najtańszy sposób, żeby ją zadowolić, i ten sposób prawie nigdy nie jest tym, czego chciałeś.
+
+Oto konkretny przykład. Masz zadanie klasyfikacji binarnej. Dwie klasy, podział 50/50. Używasz MSE jako funkcji straty. Model przewiduje 0.5 dla każdego wejścia. Średnie MSE wynosi 0.25, co jest minimalną możliwą wartością bez faktycznego uczenia się. Model ma zerową zdolność dyskryminacyjną, ale technicznie zminimalizował Twoją funkcję straty. Przełącz na cross-entropy, a ten sam model jest zmuszony przesuwać predykcje w stronę 0 lub 1, bo -log(0.5) = 0.693 to okropna strata, podczas gdy -log(0.99) = 0.01 nagradza pewne poprawne predykcje. Wybór funkcji straty to różnica między modelem, który się uczy, a modelem, który oszukuje metrykę.
+
+Jest jeszcze gorzej. W self-supervised learning nie masz nawet etykiet. Contrastive loss definiuje sygnał uczenia się całkowicie: co liczy się jako podobne, co jako różne, i jak mocno model powinien je odpychać. Zepsuj contrastive loss, a Twoje embeddings zapaść się do jednego punktu -- każde wejście mapuje na ten sam wektor. Technicznie zero straty. Kompletnie bezwartościowe.
+
+## Koncepcja
 
 ### Mean Squared Error (MSE)
 
-The default for regression. Compute the squared difference between prediction and target, average over all samples.
+Domyślna opcja dla regresji. Oblicz kwadrat różnicy między predykcją a wartością docelową, uśrednij po wszystkich próbkach.
 
 ```
 MSE = (1/n) * sum((y_pred - y_true)^2)
 ```
 
-Why squaring matters: it penalizes large errors quadratically. An error of 2 costs 4x as much as an error of 1. An error of 10 costs 100x. This makes MSE sensitive to outliers -- a single wildly wrong prediction dominates the loss.
+Dlaczego kwadratowanie ma znaczenie: karze duże błędy kwadratowo. Błąd 2 kosztuje 4x tyle co błąd 1. Błąd 10 kosztuje 100x. To sprawia, że MSE jest wrażliwe na outliers -- pojedyncza bardzo zła predykcja dominuje nad stratą.
 
-Real numbers: if your model predicts housing prices and is off by $10,000 on most houses but off by $200,000 on one mansion, MSE will aggressively try to fix that one mansion, potentially hurting performance on the other 99 houses.
+Rzeczywiste liczby: jeśli Twój model przewiduje ceny domów i myli się o $10,000 w większości domów, ale o $200,000 w jednej rezydencji, MSE będzie agresywnie próbować naprawić tę jedną rezydencję, potencjalnie pogarszając wyniki na pozostałych 99 domach.
 
-The gradient of MSE with respect to a prediction is:
+Gradient MSE względem predykcji to:
 
 ```
 dMSE/dy_pred = (2/n) * (y_pred - y_true)
 ```
 
-Linear in the error. Bigger errors get bigger gradients. This is a feature for regression (large errors need large corrections) and a bug for classification (you want to penalize confident wrong answers exponentially, not linearly).
+Liniowy względem błędu. Większe błędy dają większe gradienty. To cecha dla regresji (duże błędy potrzebują dużych korekt) i bug dla klasyfikacji (chcesz karać pewne złe odpowiedzi wykładniczo, nie liniowo).
 
 ### Cross-Entropy Loss
 
-The loss function for classification. Rooted in information theory -- it measures the divergence between the predicted probability distribution and the true distribution.
+Funkcja straty dla klasyfikacji. Zakorzeniona w teorii informacji -- mierzy dywergencję między przewidywanym rozkładem prawdopodobieństwa a prawdziwym rozkładem.
 
 **Binary Cross-Entropy (BCE):**
 
@@ -56,29 +71,29 @@ The loss function for classification. Rooted in information theory -- it measure
 BCE = -(y * log(p) + (1 - y) * log(1 - p))
 ```
 
-Where y is the true label (0 or 1) and p is the predicted probability.
+Gdzie y to prawdziwa etykieta (0 lub 1), a p to przewidywane prawdopodobieństwo.
 
-Why -log(p) works: when the true label is 1 and you predict p = 0.99, the loss is -log(0.99) = 0.01. When you predict p = 0.01, the loss is -log(0.01) = 4.6. That 460x difference is why cross-entropy works. It brutally punishes confident wrong predictions while barely penalizing confident correct ones.
+Dlaczego -log(p) działa: gdy prawdziwa etykieta to 1 i przewidujesz p = 0.99, strata to -log(0.99) = 0.01. Gdy przewidujesz p = 0.01, strata to -log(0.01) = 4.6. Ta różnica 460x to dlaczego cross-entropy działa. Brutalnie karze pewne złe predykcje, podczas gdy ledwo karze pewne poprawne.
 
-The gradient tells the same story:
+Gradient opowiada tę samą historię:
 
 ```
 dBCE/dp = -(y/p) + (1-y)/(1-p)
 ```
 
-When y = 1 and p is near zero, the gradient is -1/p which approaches negative infinity. The model gets an enormous signal to fix its mistake. When p is near 1, the gradient is tiny. Already correct, nothing to fix.
+Gdy y = 1 i p jest bliskie zera, gradient to -1/p, co dąży do minus nieskończoności. Model dostaje ogromny sygnał do naprawienia błędu. Gdy p jest bliskie 1, gradient jest minimalny. Już poprawne, nie ma co naprawiać.
 
 **Categorical Cross-Entropy:**
 
-For multi-class classification with one-hot encoded targets.
+Dla klasyfikacji wieloklasowej z one-hot encoded targets.
 
 ```
 CCE = -sum(y_i * log(p_i))
 ```
 
-Only the true class contributes to the loss (because all other y_i are zero). If there are 10 classes and the correct class gets probability 0.1 (random guessing), the loss is -log(0.1) = 2.3. If the correct class gets probability 0.9, the loss is -log(0.9) = 0.105. The model learns to concentrate probability mass on the right answer.
+Tylko prawdziwa klasa przyczynia się do straty (bo wszystkie pozostałe y_i to zero). Jeśli jest 10 klas i poprawna klasa dostaje prawdopodobieństwo 0.1 (losowe zgadywanie), strata to -log(0.1) = 2.3. Jeśli poprawna klasa dostaje prawdopodobieństwo 0.9, strata to -log(0.9) = 0.105. Model uczy się koncentrować masę prawdopodobieństwa na prawidłowej odpowiedzi.
 
-### Why MSE Fails for Classification
+### Dlaczego MSE zawodzi w klasyfikacji
 
 ```mermaid
 graph TD
@@ -96,62 +111,62 @@ graph TD
     C3 -->|"CE gradient<br/>explodes near<br/>wrong answer"| Fast["Fast correction"]
 ```
 
-MSE gradients flatten when predictions are near 0 or 1 (due to sigmoid saturation). Cross-entropy gradients compensate for this -- the -log cancels the sigmoid's flat regions, giving strong gradients exactly where they are needed most.
+Gradienty MSE spłaszczają się, gdy predykcje są bliskie 0 lub 1 (z powodu nasycenia sigmoidalnego). Gradienty cross-entropy to kompensują -- -log niweluje płaskie regiony sigmoidalnej, dając silne gradienty dokładnie tam, gdzie są najbardziej potrzebne.
 
 ### Label Smoothing
 
-Standard one-hot labels say "this is 100% class 3 and 0% everything else." That's a strong claim. Label smoothing softens it:
+Standardowe one-hot labels mówią „to jest w 100% klasa 3 i w 0% wszystko inne". To silne twierdzenie. Label smoothing je wygładza:
 
 ```
 smooth_label = (1 - alpha) * one_hot + alpha / num_classes
 ```
 
-With alpha = 0.1 and 10 classes: instead of [0, 0, 1, 0, ...], the target becomes [0.01, 0.01, 0.91, 0.01, ...]. The model targets 0.91 instead of 1.0.
+Z alpha = 0.1 i 10 klasami: zamiast [0, 0, 1, 0, ...], target staje się [0.01, 0.01, 0.91, 0.01, ...]. Model celuje w 0.91 zamiast 1.0.
 
-Why this works: a model trying to output exactly 1.0 through a softmax needs to push logits to infinity. This causes overconfidence, hurts generalization, and makes the model brittle to distribution shift. Label smoothing caps the target at 0.9 (with alpha=0.1), keeping logits in a reasonable range. GPT and most modern models use label smoothing or its equivalent.
+Dlaczego to działa: model próbujący wyjściować dokładnie 1.0 przez softmax musi pchać logity do nieskończoności. To powoduje nadmierną pewność, szkodzi generalizacji i sprawia, że model jest kruchyy wobec shift w rozkładzie. Label smoothing ogranicza target do 0.9 (z alpha=0.1), utrzymując logity w rozsądnym zakresie. GPT i większość nowoczesnych modeli używa label smoothing lub jego odpowiednika.
 
 ### Contrastive Loss
 
-No labels. No classes. Just pairs of inputs and the question: are these similar or different?
+Bez etykiet. Bez klas. Tylko pary wejść i pytanie: czy są podobne, czy różne?
 
 **SimCLR-style contrastive loss (NT-Xent / InfoNCE):**
 
-Take one image. Create two augmented views of it (crop, rotate, color jitter). These are the "positive pair" -- they should have similar embeddings. Every other image in the batch forms a "negative pair" -- they should have different embeddings.
+Weź jeden obraz. Stwórz dwa augmentowane widoki (crop, rotate, color jitter). To „pozytywna para" -- powinny mieć podobne embeddings. Każdy inny obrazek w batchu tworzy „negatywną parę" -- powinny mieć różne embeddings.
 
 ```
 L = -log(exp(sim(z_i, z_j) / tau) / sum(exp(sim(z_i, z_k) / tau)))
 ```
 
-Where sim() is cosine similarity, z_i and z_j are the positive pair, the sum is over all negatives, and tau (temperature) controls how sharp the distribution is. Lower temperature = harder negatives = more aggressive separation.
+Gdzie sim() to cosine similarity, z_i i z_j to pozytywna para, suma jest po wszystkich negatywach, a tau (temperature) kontroluje, jak ostra jest dystrybucja. Niższa temperatura = trudniejsze negatywy = bardziej agresywne separacja.
 
-Real numbers: batch size 256 means 255 negatives per positive pair. Temperature tau = 0.07 (SimCLR default). The loss looks like a softmax over similarities -- it wants the positive pair's similarity to be highest among all 256 options.
+Rzeczywiste liczby: batch size 256 oznacza 255 negatywów na pozytywną parę. Temperatura tau = 0.07 (domyślna w SimCLR). Strata wygląda jak softmax nad podobieństwami -- chce, żeby podobieństwo pozytywnej pary było najwyższe spośród wszystkich 256 opcji.
 
 **Triplet Loss:**
 
-Takes three inputs: anchor, positive (same class), negative (different class).
+Bierze trzy wejścia: anchor, positive (ta sama klasa), negative (inna klasa).
 
 ```
 L = max(0, d(anchor, positive) - d(anchor, negative) + margin)
 ```
 
-The margin (typically 0.2-1.0) enforces a minimum gap between positive and negative distances. If the negative is already far enough away, the loss is zero -- no gradient, no update. This makes training efficient but requires careful triplet mining (choosing hard negatives that are close to the anchor).
+Margin (typowo 0.2-1.0) wymusza minimalną lukę między odległościami pozytywną a negatywną. Jeśli negatyw jest już wystarczająco daleko, strata wynosi zero -- brak gradientu, brak aktualizacji. To sprawia, że trening jest efektywny, ale wymaga starannego triplet mining (wybierania trudnych negatywów, które są blisko anchora).
 
 ### Focal Loss
 
-For imbalanced datasets. Standard cross-entropy treats all correctly classified examples equally. Focal loss down-weights easy examples:
+Dla niezbalansowanych zbiorów danych. Standardowa cross-entropy traktuje wszystkie poprawnie sklasyfikowane przykłady równo. Focal loss down-waguje łatwe przykłady:
 
 ```
 FL = -alpha * (1 - p_t)^gamma * log(p_t)
 ```
 
-Where p_t is the predicted probability of the true class and gamma controls the focusing. With gamma = 0, this is standard cross-entropy. With gamma = 2 (the default):
+Gdzie p_t to przewidywane prawdopodobieństwo prawdziwej klasy, a gamma kontroluje focusing. Z gamma = 0, to standardowa cross-entropy. Z gamma = 2 (domyślna):
 
-- Easy example (p_t = 0.9): weight = (0.1)^2 = 0.01. Effectively ignored.
-- Hard example (p_t = 0.1): weight = (0.9)^2 = 0.81. Full gradient signal.
+- Łatwy przykład (p_t = 0.9): waga = (0.1)^2 = 0.01. Efektywnie ignorowany.
+- Trudny przykład (p_t = 0.1): waga = (0.9)^2 = 0.81. Pełny sygnał gradientu.
 
-Focal loss was introduced by Lin et al. for object detection, where 99% of candidate regions are background (easy negatives). Without focal loss, the model drowns in easy background examples and never learns to detect objects. With it, the model focuses its capacity on the hard, ambiguous cases that matter.
+Focal loss został wprowadzony przez Lin et al. do object detection, gdzie 99% candidate regions to background (łatwe negatywy). Bez focal loss model tonie w łatwych przykładach backgroundu i nigdy nie uczy się wykrywać obiektów. Z nią model koncentruje swoją pojemność na trudnych, niejednoznacznych przypadkach, które mają znaczenie.
 
-### Loss Function Decision Tree
+### Drzewo decyzyjne funkcji straty
 
 ```mermaid
 flowchart TD
@@ -187,9 +202,9 @@ graph LR
     CL_S -->|"Best for"| Emb2["Representation learning"]
 ```
 
-## Build It
+## Zbuduj to
 
-### Step 1: MSE and Its Gradient
+### Krok 1: MSE i jego gradient
 
 ```python
 def mse(predictions, targets):
@@ -207,9 +222,9 @@ def mse_gradient(predictions, targets):
     return grads
 ```
 
-### Step 2: Binary Cross-Entropy
+### Krok 2: Binary Cross-Entropy
 
-The log(0) problem is real. If the model predicts exactly 0 for a positive example, log(0) = negative infinity. Clipping prevents this.
+Problem log(0) jest realny. Jeśli model przewiduje dokładnie 0 dla pozytywnego przykładu, log(0) = ujemna nieskończoność. Clipping temu zapobiega.
 
 ```python
 import math
@@ -230,9 +245,9 @@ def bce_gradient(predictions, targets, eps=1e-15):
     return grads
 ```
 
-### Step 3: Categorical Cross-Entropy with Softmax
+### Krok 3: Categorical Cross-Entropy z Softmax
 
-Softmax converts raw logits to probabilities. Then we compute the cross-entropy against one-hot targets.
+Softmax konwertuje surowe logity na prawdopodobieństwa. Następnie obliczamy cross-entropy względem one-hot targets.
 
 ```python
 def softmax(logits):
@@ -253,9 +268,9 @@ def cce_gradient(logits, target_index):
     return grads
 ```
 
-The gradient of softmax + cross-entropy simplifies beautifully: it's just (predicted probability - 1) for the true class, and (predicted probability) for all other classes. This elegant simplification is not a coincidence -- it's why softmax and cross-entropy are paired.
+Gradient softmax + cross-entropy pięknie się upraszcza: to po prostu (przewidywane prawdopodobieństwo - 1) dla prawdziwej klasy i (przewidywane prawdopodobieństwo) dla wszystkich innych klas. Ta elegancka uproszczenie to nie przypadek -- to dlatego softmax i cross-entropy są sparowane.
 
-### Step 4: Label Smoothing
+### Krok 4: Label Smoothing
 
 ```python
 def label_smoothed_cce(logits, target_index, num_classes, alpha=0.1, eps=1e-15):
@@ -271,7 +286,7 @@ def label_smoothed_cce(logits, target_index, num_classes, alpha=0.1, eps=1e-15):
     return loss
 ```
 
-### Step 5: Contrastive Loss (Simplified InfoNCE)
+### Krok 5: Contrastive Loss (Uproszczony InfoNCE)
 
 ```python
 def cosine_similarity(a, b):
@@ -294,9 +309,9 @@ def contrastive_loss(anchor, positive, negatives, temperature=0.07):
     return -math.log(max(1e-15, exp_pos / total_exp))
 ```
 
-### Step 6: MSE vs Cross-Entropy on Classification
+### Krok 6: MSE vs Cross-Entropy na klasyfikacji
 
-Train the same network from lesson 04 (circle dataset) with both loss functions. Watch cross-entropy converge faster.
+Trenuj tę samą sieć z lekcji 04 (circle dataset) z obiema funkcjami straty. Obserwuj, jak cross-entropy szybciej zbiega.
 
 ```python
 import random
@@ -388,9 +403,9 @@ class LossComparisonNetwork:
         return losses
 ```
 
-## Use It
+## Użyj tego
 
-PyTorch provides all standard loss functions with numerical stability built in:
+PyTorch dostarcza wszystkie standardowe funkcje straty z wbudowaną stabilnością numeryczną:
 
 ```python
 import torch
@@ -409,46 +424,46 @@ ce_loss = F.cross_entropy(logits, labels)
 ce_smooth = F.cross_entropy(logits, labels, label_smoothing=0.1)
 ```
 
-Use `F.cross_entropy` (not `F.nll_loss` plus manual softmax). It combines log-softmax and negative log-likelihood in one numerically stable operation. Applying softmax separately then taking the log is less stable -- you lose precision in the subtraction of large exponentials.
+Używaj `F.cross_entropy` (nie `F.nll_loss` plus manual softmax). Łączy log-softmax i negative log-likelihood w jednej numerycznie stabilnej operacji. Stosowanie softmax osobno, a potem branie log jest mniej stabilne -- tracisz precyzję w odejmowaniu dużych wykładników.
 
-For contrastive learning, most teams use custom implementations or libraries like `lightly` or `pytorch-metric-learning`. The core loop is always the same: compute pairwise similarities, create the softmax over positives and negatives, backpropagate.
+Dla contrastive learning większość zespołów używa niestandardowych implementacji lub bibliotek jak `lightly` lub `pytorch-metric-learning`. Główna pętla jest zawsze taka sama: obliczaj pairwise similarities, twórz softmax nad pozytywami i negatywami, backpropaguj.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/prompt-loss-function-selector.md` -- a reusable prompt for choosing the right loss function
-- `outputs/prompt-loss-debugger.md` -- a diagnostic prompt for when your loss curve looks wrong
+Ta lekcja wytwarza:
+- `outputs/prompt-loss-function-selector.md` -- wielokrotnego użytku prompt do wyboru właściwej funkcji straty
+- `outputs/prompt-loss-debugger.md` -- diagnostyczny prompt na wypadek, gdy wykres straty wygląda dziwnie
 
-## Exercises
+## Ćwiczenia
 
-1. Implement Huber loss (smooth L1 loss), which is MSE for small errors and MAE for large errors. Train a regression network predicting y = sin(x) with MSE vs Huber when 5% of training targets have random noise added (outliers). Compare final test error.
+1. Zaimplementuj Huber loss (smooth L1 loss), który jest MSE dla małych błędów i MAE dla dużych. Trenuj sieć regresyjną przewidującą y = sin(x) z MSE vs Huber, gdy 5% training targets ma dodany losowy szum (outliers). Porównaj końcowy błąd testowy.
 
-2. Add focal loss to the binary classification training loop. Create an imbalanced dataset (90% class 0, 10% class 1). Compare standard BCE vs focal loss (gamma=2) on the minority class recall after 200 epochs.
+2. Dodaj focal loss do pętli treningowej klasyfikacji binarnej. Stwórz niezbalansowany zbiór danych (90% klasa 0, 10% klasa 1). Porównaj standardową BCE vs focal loss (gamma=2) na recall klasy mniejszościowej po 200 epokach.
 
-3. Implement triplet loss with semi-hard negative mining. Generate 2D embedding data for 5 classes. For each anchor, find the hardest negative that is still farther than the positive (semi-hard). Compare convergence to random triplet selection.
+3. Zaimplementuj triplet loss z semi-hard negative mining. Generuj dane 2D embeddings dla 5 klas. Dla każdego anchora znajdź najtrudniejszy negatyw, który jest wciąż dalej niż pozytyw (semi-hard). Porównaj zbieżność z losowym wyborem tripletów.
 
-4. Run the MSE vs cross-entropy comparison but track gradient magnitudes at each layer during training. Plot the average gradient norm per epoch. Verify that cross-entropy produces larger gradients in early epochs when the model is most uncertain.
+4. Uruchom porównanie MSE vs cross-entropy, ale śledź wielkości gradientów w każdej warstwie podczas treningu. Wykreśl średnią normę gradientu na epokę. Zweryfikuj, że cross-entropy produkuje większe gradienty we wczesnych epokach, gdy model jest najbardziej niepewny.
 
-5. Implement KL divergence loss and verify that minimizing KL(true || predicted) gives the same gradients as cross-entropy when the true distribution is one-hot. Then try soft targets (like knowledge distillation) where the "true" distribution comes from a teacher model's softmax output.
+5. Zaimplementuj KL divergence loss i zweryfikuj, że minimalizowanie KL(true || predicted) daje te same gradienty co cross-entropy, gdy prawdziwy rozkład jest one-hot. Następnie wypróbuj soft targets (jak knowledge distillation), gdzie „prawdziwy" rozkład pochodzi z wyjścia softmax nauczycielskiego modelu.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Loss function | "How wrong the model is" | A differentiable function mapping predictions and targets to a scalar that the optimizer minimizes |
-| MSE | "Average squared error" | Mean of squared differences between predictions and targets; penalizes large errors quadratically |
-| Cross-entropy | "The classification loss" | Measures divergence between predicted probability distribution and true distribution using -log(p) |
-| Binary cross-entropy | "BCE" | Cross-entropy for two classes: -(y*log(p) + (1-y)*log(1-p)) |
-| Label smoothing | "Softening the targets" | Replacing hard 0/1 targets with soft values (e.g., 0.1/0.9) to prevent overconfidence and improve generalization |
-| Contrastive loss | "Pull together, push apart" | A loss that learns representations by making similar pairs close and dissimilar pairs far in embedding space |
-| InfoNCE | "The CLIP/SimCLR loss" | Normalized temperature-scaled cross-entropy over similarity scores; treats contrastive learning as classification |
-| Focal loss | "The imbalanced data fix" | Cross-entropy weighted by (1-p_t)^gamma to down-weight easy examples and focus on hard ones |
-| Triplet loss | "Anchor-positive-negative" | Pushes anchor closer to positive than negative by at least a margin in embedding space |
-| Temperature | "Sharpness knob" | A scalar divisor on logits/similarities that controls how peaked the resulting distribution is; lower = sharper |
+| Loss function | „Jak bardzo model się myli" | Różniczkowalna funkcja mapująca predykcje i targety na skalar, który optimizer minimalizuje |
+| MSE | „Średni błąd kwadratowy" | Średnia kwadratów różnic między predykcjami a targetami; karze duże błędy kwadratowo |
+| Cross-entropy | „Funkcja straty klasyfikacji" | Mierzy dywergencję między przewidywanym rozkładem prawdopodobieństwa a prawdziwym rozkładem używając -log(p) |
+| Binary cross-entropy | „BCE" | Cross-entropy dla dwóch klas: -(y*log(p) + (1-y)*log(1-p)) |
+| Label smoothing | „Wygładzanie targetów" | zastąpienie twardych 0/1 targetów miękkimi wartościami (np. 0.1/0.9) w celu zapobiegnięcia nadmiernej pewności i poprawy generalizacji |
+| Contrastive loss | „Przyciągaj razem, odpychaj" | Funkcja straty ucząca reprezentacje poprzez zbliżanie podobnych par i oddalanie niepodobnych par w przestrzeni embeddings |
+| InfoNCE | „Funkcja straty CLIP/SimCLR" | Znormalizowana temperature-scaled cross-entropy nad wynikami podobieństwa; traktuje contrastive learning jako klasyfikację |
+| Focal loss | „Poprawka na niezbalansowane dane" | Cross-entropy ważona przez (1-p_t)^gamma w celu down-weightowania łatwych przykładów i koncentrowania na trudnych |
+| Triplet loss | „Anchor-positive-negative" | Pcha anchora bliżej pozytywu niż negatywu o co najmniej margin w przestrzeni embeddings |
+| Temperature | „Pokrętło ostrości" | Skalarny dzielnik na logity/podobieństwa kontrolujący, jak skoncentrowany jest wynikowy rozkład; niższy = ostrzejszy |
 
-## Further Reading
+## Dalsza lektura
 
-- Lin et al., "Focal Loss for Dense Object Detection" (2017) -- introduced focal loss for handling extreme class imbalance in object detection (RetinaNet)
-- Chen et al., "A Simple Framework for Contrastive Learning of Visual Representations" (SimCLR, 2020) -- defined the modern contrastive learning pipeline with NT-Xent loss
-- Szegedy et al., "Rethinking the Inception Architecture" (2016) -- introduced label smoothing as a regularization technique, now standard in most large models
-- Hinton et al., "Distilling the Knowledge in a Neural Network" (2015) -- knowledge distillation using soft targets and KL divergence, foundational for model compression
+- Lin et al., "Focal Loss for Dense Object Detection" (2017) -- wprowadzili focal loss do radzenia sobie z ekstremalnym niezbalansowaniem klas w object detection (RetinaNet)
+- Chen et al., "A Simple Framework for Contrastive Learning of Visual Representations" (SimCLR, 2020) -- zdefiniowali nowoczesny pipeline contrastive learning z funkcją straty NT-Xent
+- Szegedy et al., "Rethinking the Inception Architecture" (2016) -- wprowadzili label smoothing jako technikę regularizacji, obecnie standard w większości dużych modeli
+- Hinton et al., "Distilling the Knowledge in a Neural Network" (2015) -- knowledge distillation używając soft targets i KL divergence, fundamentalne dla kompresji modeli
