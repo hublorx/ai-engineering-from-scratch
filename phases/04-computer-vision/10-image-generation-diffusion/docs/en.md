@@ -1,42 +1,42 @@
-# Image Generation — Diffusion Models
+# Generowanie obrazów — Modele dyfuzyjne
 
-> A diffusion model learns to denoise. Train it to remove a tiny bit of noise from a noisy image, repeat that backwards a thousand times, and you have an image generator.
+> Model dyfuzyjny uczy się usuwać szum. Naucz go usuwać niewielką ilość szumu z obrazu z szumem, powtórz to wstecz tysiąc razy, a otrzymasz generator obrazów.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 07 (U-Net), Phase 1 Lesson 06 (Probability), Phase 3 Lesson 06 (Optimizers)
-**Time:** ~75 minutes
+**Typ:** Zbuduj
+**Języki:** Python
+**Wymagania wstępne:** Faza 4 Lekcja 07 (U-Net), Faza 1 Lekcja 06 (Prawdopodobieństwo), Faza 3 Lekcja 06 (Optymizatory)
+**Szacowany czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Derive the forward noising process `x_0 -> x_1 -> ... -> x_T` and explain why the closed-form `q(x_t | x_0)` holds for any t
-- Implement a DDPM-style training objective that regresses the noise added at each step, and a sampler that walks back from pure noise to an image
-- Build a time-conditioned U-Net (small enough to train on CPU) that predicts the noise for any timestep
-- Explain the difference between DDPM and DDIM sampling, and when each is appropriate (Lesson 23 covers flow matching and rectified flow in depth)
+- Wyprowadź proces szumu forward `x_0 -> x_1 -> ... -> x_T` i wyjaśnij, dlaczego zamknięta forma `q(x_t | x_0)` obowiązuje dla dowolnego t
+- Zaimplementuj cel treningowy w stylu DDPM, który regresuje szum dodany na każdym kroku, oraz sampler, który wraca od czystego szumu do obrazu
+- Zbuduj U-Net z warunkowaniem czasowym (na tyle mały, by trenować na CPU), który przewiduje szum dla dowolnego kroku czasowego
+- Wyjaśnij różnicę między próbkowaniem DDPM i DDIM oraz kiedy każde z nich jest odpowiednie (Lekcja 23 dogłębnie omawia flow matching i rectified flow)
 
-## The Problem
+## Problem
 
-GANs generate one-shot: noise in, image out, one forward pass. They are fast and hard to train. Diffusion models generate iteratively: start from pure noise, denoise in small steps, image emerges. They are slow and easy to train. For the last five years the latter property has dominated: any small team can train a diffusion model and get reasonable samples; GAN training is a craft you learn over years of failed runs.
+GANy generują jednorazowo: szum w, obraz out, jeden przebieg forward. Są szybkie i trudne do trenowania. Modele dyfuzyjne generują iteracyjnie: start od czystego szumu, usuwanie szumu małymi krokami, obraz się wyłania. Są wolne i łatwe do trenowania. Przez ostatnie pięć lat dominowała ta druga właściwość: każdy mały zespół może trenować model dyfuzyjny i otrzymać rozsądne próbki; trening GAN to rzemiosło, którego uczysz się przez lata nieudanych uruchomień.
 
-Beyond training stability, diffusion's iterative structure is what unlocks everything modern image generation does: text conditioning, inpainting, image editing, super-resolution, controllable style. Each step of the sampling loop is a place to inject a new constraint. That hook is why Stable Diffusion, Imagen, DALL-E 3, Midjourney, and every controllable image model you will use are all diffusion-based.
+Poza stabilnością treningu, iteracyjna struktura dyfuzji jest tym, co odblokowuje wszystko, co robi nowoczesna generacja obrazów: warunkowanie tekstowe, inpainting, edycja obrazu, super-rozdzielczość, kontrolowany styl. Każdy krok pętli próbkowania to miejsce do wstrzyknięcia nowego ograniczenia. To jest powód, dla którego Stable Diffusion, Imagen, DALL-E 3, Midjourney i każdy model obrazu z kontrolą, którego będziesz używać, są wszystkie oparte na dyfuzji.
 
-This lesson builds the minimal DDPM: forward noising, backward denoising, training loop. The next lesson (Stable Diffusion) wires it into a production system with a VAE, a text encoder, and classifier-free guidance.
+Ta lekcja buduje minimalny DDPM: szum forward, usuwanie szumu backward, pętla treningowa. Następna lekcja (Stable Diffusion) podłączy go do systemu produkcyjnego z VAE, koderem tekstowym i classifier-free guidance.
 
-## The Concept
+## Koncepcja
 
-### The forward process
+### Proces forward
 
-Take an image `x_0`. Add a tiny amount of Gaussian noise to get `x_1`. Add a tiny amount more to get `x_2`. Keep going for T steps until `x_T` is nearly indistinguishable from pure Gaussian noise.
+Weź obraz `x_0`. Dodaj odrobinę szumu Gaussowskiego, aby otrzymać `x_1`. Dodaj jeszcze trochę, aby otrzymać `x_2`. Kontynuuj przez T kroków, aż `x_T` będzie prawie nieodróżnialne od czystego szumu Gaussowskiego.
 
 ```
 q(x_t | x_{t-1}) = N(x_t; sqrt(1 - beta_t) * x_{t-1},  beta_t * I)
 ```
 
-`beta_t` is a small variance schedule, typically linear from 0.0001 to 0.02 over T=1000 steps. Each step slightly shrinks the signal and injects fresh noise.
+`beta_t` to mały harmonogram wariancji, typowo liniowy od 0.0001 do 0.02 przez T=1000 kroków. Każdy krok nieznacznie zmniejsza sygnał i wstrzykuje świeży szum.
 
-### The closed-form jump
+### Zamknięta forma skoku
 
-Adding noise one step at a time is a Markov chain, but the math folds: you can sample `x_t` directly from `x_0` in one step.
+Dodawanie szumu krok po kroku jest łańcuchem Markowa, ale matematyka się składa: możesz spróbkować `x_t` bezpośrednio z `x_0` w jednym kroku.
 
 ```
 Define alpha_t = 1 - beta_t
@@ -50,23 +50,23 @@ Equivalently:
   where epsilon ~ N(0, I)
 ```
 
-This single equation is the whole reason diffusion is practical. During training you pick a random `t`, sample `x_t` directly from `x_0`, and train in one step — no simulation of the full Markov chain needed.
+To pojedyncze równanie jest całym powodem, dla którego dyfuzja jest praktyczna. Podczas treningu wybierasz losowe `t`, spróbkuj `x_t` bezpośrednio z `x_0` i trenuj w jednym kroku — bez symulacji pełnego łańcucha Markowa.
 
-### The reverse process
+### Proces odwrotny
 
-The forward process is fixed. The reverse process `p(x_{t-1} | x_t)` is what the neural network learns. Diffusion models do not predict `x_{t-1}` directly; they predict the noise `epsilon` added at step t, and the math derives `x_{t-1}` from it.
+Proces forward jest ustalony. Proces odwrotny `p(x_{t-1} | x_t)` jest tym, czego uczy się sieć neuronowa. Modele dyfuzyjne nie przewidują `x_{t-1}` bezpośrednio; przewidują szum `epsilon` dodany w kroku t, a matematyka wyprowadza `x_{t-1}` z niego.
 
 ```mermaid
 flowchart LR
-    X0["x_0<br/>(clean image)"] --> Q1["q(x_t|x_0)<br/>add noise"]
-    Q1 --> XT["x_t<br/>(noisy)"]
+    X0["x_0<br/>(czysty obraz)"] --> Q1["q(x_t|x_0)<br/>dodaj szum"]
+    Q1 --> XT["x_t<br/>(z szumem)"]
     XT --> MODEL["model(x_t, t)"]
-    MODEL --> EPS["predicted epsilon"]
-    EPS --> LOSS["MSE against<br/>true epsilon"]
+    MODEL --> EPS["przewidziany epsilon"]
+    EPS --> LOSS["MSE względem<br/>prawdziwego epsilon"]
 
-    XT -.->|sampling| STEP["p(x_{t-1}|x_t)"]
+    XT -.->|próbkowanie| STEP["p(x_{t-1}|x_t)"]
     STEP -.-> XT1["x_{t-1}"]
-    XT1 -.->|repeat 1000x| X0S["x_0 (sampled)"]
+    XT1 -.->|powtórz 1000x| X0S["x_0 (spróbkowany)"]
 
     style X0 fill:#dcfce7,stroke:#16a34a
     style MODEL fill:#fef3c7,stroke:#d97706
@@ -74,22 +74,22 @@ flowchart LR
     style X0S fill:#dbeafe,stroke:#2563eb
 ```
 
-### The training loss
+### Funkcja straty treningowej
 
-For every training step:
+Dla każdego kroku treningowego:
 
-1. Sample a real image `x_0`.
-2. Sample a timestep `t` uniformly from [1, T].
-3. Sample noise `epsilon ~ N(0, I)`.
-4. Compute `x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1 - alpha_bar_t) * epsilon`.
-5. Predict `epsilon_theta(x_t, t)` with the network.
-6. Minimise `|| epsilon - epsilon_theta(x_t, t) ||^2`.
+1. Spróbkuj prawdziwy obraz `x_0`.
+2. Spróbkuj krok czasowy `t` równomiernie z [1, T].
+3. Spróbkuj szum `epsilon ~ N(0, I)`.
+4. Oblicz `x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1 - alpha_bar_t) * epsilon`.
+5. Przewiduj `epsilon_theta(x_t, t)` za pomocą sieci.
+6. Zminimalizuj `|| epsilon - epsilon_theta(x_t, t) ||^2`.
 
-That is it. The neural network learns to predict the noise at any timestep. The loss is MSE. There is no adversarial game, no collapse, no oscillation.
+To wszystko. Sieć neuronowa uczy się przewidywać szum na dowolnym kroku czasowym. Funkcja straty to MSE. Nie ma gry adversarial, nie ma kolapsu, nie ma oscylacji.
 
-### The sampler (DDPM)
+### Sampler (DDPM)
 
-To generate: start from `x_T ~ N(0, I)` and walk backwards one step at a time.
+Aby generować: startuj od `x_T ~ N(0, I)` i wracaj wstecz krok po kroku.
 
 ```
 for t = T, T-1, ..., 1:
@@ -99,30 +99,30 @@ for t = T, T-1, ..., 1:
 return x_0
 ```
 
-The key is that even though the reverse conditional is not known in closed form in general, for this specific Gaussian forward process it is. The ugly-looking coefficients are what Bayes' rule gives you.
+Kluczowe jest to, że chociaż wsteczny warunek nie jest znany w zamkniętej formie ogólnie, dla tego konkretnego procesu forward Gaussowskiego jest. Brzydko wyglądające współczynniki to to, co daje ci reguła Bayesa.
 
-### Why 1000 steps
+### Dlaczego 1000 kroków
 
-The forward noise schedule is chosen so each step adds just enough noise that the reverse step is nearly Gaussian. Too few steps and the reverse step is far from Gaussian, the network cannot model it well. Too many steps and sampling becomes expensive with diminishing gain. T=1000 with a linear schedule is the DDPM default.
+Harmonogram szumu forward jest wybrany tak, że każdy krok dodaje wystarczająco dużo szumu, że krok wsteczny jest prawie Gaussowski. Zbyt mało kroków i krok wsteczny jest daleki od Gaussowskiego, sieć nie może go dobrze modelować. Zbyt wiele kroków i próbkowanie staje się drogie z malejącym zyskiem. T=1000 z harmonogramem liniowym to domyślne DDPM.
 
-### DDIM: 20x faster sampling
+### DDIM: 20x szybsze próbkowanie
 
-Training is the same. Sampling changes. DDIM (Song et al., 2020) defines a deterministic reverse process that skips timesteps without retraining. Sampling in 50 steps with DDIM gives near-1000-step DDPM quality. Every production system uses DDIM or an even faster variant (DPM-Solver, Euler ancestral).
+Trening jest taki sam. Próbkowanie się zmienia. DDIM (Song et al., 2020) definiuje deterministyczny proces wsteczny, który pomija kroki czasowe bez przeuczania. Próbkowanie w 50 krokach z DDIM daje jakość bliską DDPM z 1000 kroków. Każdy system produkcyjny używa DDIM lub jeszcze szybszego wariantu (DPM-Solver, Euler ancestral).
 
-### Time conditioning
+### Warunkowanie czasowe
 
-The network `epsilon_theta(x_t, t)` needs to know which timestep it is denoising. Modern diffusion models inject `t` via sinusoidal time embeddings (same idea as positional encoding in transformers) that get added to feature maps at every U-Net level.
+Sieć `epsilon_theta(x_t, t)` musi wiedzieć, który krok czasowy usuwa szum. Nowoczesne modele dyfuzyjne wstrzykują `t` przez sinusoidalne time embeddings (ten sam pomysł co positional encoding w transformerach), które są dodawane do feature maps na każdym poziomie U-Net.
 
 ```
 t_embedding = sinusoidal(t)
 feature_map += MLP(t_embedding)
 ```
 
-Without time conditioning the network has to guess the noise level from the image itself, which works but is much less sample-efficient.
+Bez warunkowania czasowego sieć musi zgadywać poziom szumu z samego obrazu, co działa, ale jest o wiele mniej efektywne pod względem próbek.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Noise schedule
+### Krok 1: Harmonogram szumu
 
 ```python
 import torch
@@ -146,9 +146,9 @@ def precompute_schedule(betas):
 schedule = precompute_schedule(linear_beta_schedule(T=1000))
 ```
 
-Precompute once, gather by index during training and sampling.
+Wylicz raz, pobierz przez indeks podczas treningu i próbkowania.
 
-### Step 2: Forward diffusion (q_sample)
+### Krok 2: Dyfuzja forward (q_sample)
 
 ```python
 def q_sample(x0, t, noise, schedule):
@@ -157,9 +157,9 @@ def q_sample(x0, t, noise, schedule):
     return sqrt_a * x0 + sqrt_one_minus_a * noise
 ```
 
-One-line closed form. `t` is a batch of timesteps, one per image in the batch.
+Jednoliniowa zamknięta forma. `t` to batch kroków czasowych, po jednym na obraz w batchu.
 
-### Step 3: A tiny time-conditioned U-Net
+### Krok 3: Mały U-Net z warunkowaniem czasowym
 
 ```python
 import torch.nn as nn
@@ -203,9 +203,9 @@ class TinyUNet(nn.Module):
         return self.dec2(d2)
 ```
 
-Two-level U-Net with time conditioning injected at the bottleneck. Scale up the depth and width for real images.
+Dwupoziomowy U-Net z warunkowaniem czasowym wstrzykniętym w bottleneck. Skaluj w górę głębokość i szerokość dla prawdziwych obrazów.
 
-### Step 4: Training loop
+### Krok 4: Pętla treningowa
 
 ```python
 def train_step(model, x0, schedule, optimizer, device, T=1000):
@@ -223,9 +223,9 @@ def train_step(model, x0, schedule, optimizer, device, T=1000):
     return loss.item()
 ```
 
-That is the entire training loop. No GAN game, no specialised loss, one MSE call.
+To jest cała pętla treningowa. Nie ma gry GAN, nie ma specjalistycznej funkcji straty, jedno wywołanie MSE.
 
-### Step 5: Sampler (DDPM)
+### Krok 5: Sampler (DDPM)
 
 ```python
 @torch.no_grad()
@@ -248,9 +248,9 @@ def sample(model, schedule, shape, T=1000, device="cpu"):
     return x
 ```
 
-1000 forward passes to produce one batch of samples. In real code you would swap this for a DDIM 50-step sampler.
+1000 przebiegów forward, aby wyprodukować jedną partię próbek. W prawdziwym kodzie zamienisz to na sampler DDIM 50 kroków.
 
-### Step 6: DDIM sampler (deterministic, ~20x faster)
+### Krok 6: Sampler DDIM (deterministyczny, ~20x szybszy)
 
 ```python
 @torch.no_grad()
@@ -275,11 +275,11 @@ def sample_ddim(model, schedule, shape, steps=50, T=1000, device="cpu", eta=0.0)
     return x
 ```
 
-`eta=0` is fully deterministic (same noise input always produces the same output). `eta=1` recovers DDPM.
+`eta=0` jest w pełni deterministyczny (ten sam szum wejściowy zawsze produkuje ten sam wynik). `eta=1` odzyskuje DDPM.
 
-## Use It
+## Użyj tego
 
-For production work, use `diffusers`:
+Do pracy produkcyjnej użyj `diffusers`:
 
 ```python
 from diffusers import DDPMScheduler, UNet2DModel
@@ -288,39 +288,39 @@ unet = UNet2DModel(sample_size=32, in_channels=3, out_channels=3, layers_per_blo
 scheduler = DDPMScheduler(num_train_timesteps=1000)
 ```
 
-The library ships ready-made schedulers (DDPM, DDIM, DPM-Solver, Euler, Heun), configurable U-Nets, pipelines for text-to-image and image-to-image, and LoRA fine-tuning helpers.
+Biblioteka dostarcza gotowe schedulery (DDPM, DDIM, DPM-Solver, Euler, Heun), konfigurowalne U-Nety, pipeline'y do text-to-image i image-to-image, oraz helpery do fine-tuningu LoRA.
 
-For research, `k-diffusion` (Katherine Crowson) has the most faithful reference implementations and the best sampling variants.
+Do badań, `k-diffusion` (Katherine Crowson) ma najwierniejsze implementacje referencyjne i najlepsze warianty próbkowania.
 
-## Ship It
+## Dostarcz to
 
-This lesson produces:
+Ta lekcja produkuje:
 
-- `outputs/prompt-diffusion-sampler-picker.md` — a prompt that picks DDPM / DDIM / DPM-Solver / Euler based on quality target, latency budget, and conditioning type.
-- `outputs/skill-noise-schedule-designer.md` — a skill that produces a linear, cosine, or sigmoid beta schedule given T and target corruption level, plus diagnostic plots of signal-to-noise ratio over time.
+- `outputs/prompt-diffusion-sampler-picker.md` — prompt, który wybiera DDPM / DDIM / DPM-Solver / Euler na podstawie docelowej jakości, budżetu latency i typu warunkowania.
+- `outputs/skill-noise-schedule-designer.md` — skill, który produkuje liniowy, cosinusowy lub sigmoidalny harmonogram beta dla T i docelowego poziomu korupcji, plus wykresy diagnostyczne stosunku sygnału do szumu w czasie.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Visualise the forward process: take one image and plot `x_t` at `t in [0, 100, 250, 500, 750, 1000]`. Verify that `x_1000` looks like pure Gaussian noise.
-2. **(Medium)** Train the TinyUNet on the synthetic-circles dataset for 20 epochs and sample 16 circles. Compare DDPM (1000 steps) and DDIM (50 steps) sampling — do they produce similar images from the same noise seed?
-3. **(Hard)** Implement a cosine noise schedule (Nichol & Dhariwal, 2021): `alpha_bar_t = cos^2((t/T + s) / (1 + s) * pi / 2)`. Train the same model with linear and cosine schedules and show that cosine gives better samples at low step counts.
+1. **(Łatwe)** Wizualizuj proces forward: weź jeden obraz i wykreśl `x_t` dla `t in [0, 100, 250, 500, 750, 1000]`. Zweryfikuj, że `x_1000` wygląda jak czysty szum Gaussowski.
+2. **(Średnie)** Trenuj TinyUNet na zbiorze danych synthetic-circles przez 20 epok i spróbkuj 16 kółek. Porównaj próbkowanie DDPM (1000 kroków) i DDIM (50 kroków) — czy produkują podobne obrazy z tego samego ziarna szumu?
+3. **(Trudne)** Zaimplementuj cosinusowy harmonogram szumu (Nichol & Dhariwal, 2021): `alpha_bar_t = cos^2((t/T + s) / (1 + s) * pi / 2)`. Trenuj ten sam model z harmonogramami liniowym i cosinusowym i pokaż, że cosinus daje lepsze próbki przy niskich liczbach kroków.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Forward process | "Add noise over time" | Fixed Markov chain that corrupts an image into Gaussian noise over T steps |
-| Reverse process | "Denoise step by step" | Learned distribution that walks back from noise to image |
-| Epsilon prediction | "Predict the noise" | The training target: `epsilon_theta(x_t, t)` predicts the noise added at step t |
-| Beta schedule | "Noise amounts" | Sequence of T small variances that define how much noise enters per step |
-| alpha_bar_t | "Cumulative retain factor" | Product of (1 - beta_s) up to time t; bigger t means less signal left |
-| DDPM sampler | "Ancestral, stochastic" | Samples each x_{t-1} from its conditional Gaussian; 1000 steps |
-| DDIM sampler | "Deterministic, fast" | Rewrites sampling as a deterministic ODE; 20-100 steps with similar quality |
-| Time conditioning | "Tell the model which t" | Sinusoidal embedding of t injected into the U-Net so it knows the noise level |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|--------------------------|
+| Forward process | "Dodawaj szum w czasie" | Ustalanie łańcucha Markowa, który korumpuje obraz w szum Gaussowski przez T kroków |
+| Reverse process | "Usuwaj szum krok po kroku" | Uczona dystrybucja, która wraca od szumu do obrazu |
+| Epsilon prediction | "Przewiduj szum" | Cel treningowy: `epsilon_theta(x_t, t)` przewiduje szum dodany w kroku t |
+| Beta schedule | "Ilości szumu" | Sekwencja T małych wariancji, które definiują ile szumu wchodzi na krok |
+| alpha_bar_t | "Skumulowany współczynnik zachowania" | Iloczyn (1 - beta_s) do czasu t; większe t oznacza mniej sygnału |
+| DDPM sampler | "Ancestralny, stochastyczny" | Próbkuje każde x_{t-1} z jego warunkowego rozkładu Gaussowskiego; 1000 kroków |
+| DDIM sampler | "Deterministyczny, szybki" | Przepisuje próbkowanie jako deterministyczne ODE; 20-100 kroków z podobną jakością |
+| Time conditioning | "Powiedz modelowi, które t" | Sinusoidalne embedding t wstrzykiwane w U-Net, żeby wiedział poziom szumu |
 
-## Further Reading
+## Dalsza lektura
 
-- [Denoising Diffusion Probabilistic Models (Ho et al., 2020)](https://arxiv.org/abs/2006.11239) — the paper that made diffusion practical and beat GANs on FID
-- [Improved DDPM (Nichol & Dhariwal, 2021)](https://arxiv.org/abs/2102.09672) — cosine schedule and v-parameterisation
-- [DDIM (Song, Meng, Ermon, 2020)](https://arxiv.org/abs/2010.02502) — the deterministic sampler that made real-time inference possible
-- [Elucidating the Design Space of Diffusion (Karras et al., 2022)](https://arxiv.org/abs/2206.00364) — a unified view of every diffusion design choice; current best reference
+- [Denoising Diffusion Probabilistic Models (Ho et al., 2020)](https://arxiv.org/abs/2006.11239) — artykuł, który uczynił dyfuzję praktyczną i pokonał GANy na FID
+- [Improved DDPM (Nichol & Dhariwal, 2021)](https://arxiv.org/abs/2102.09672) — harmonogram cosinusowy i parametryzacja v
+- [DDIM (Song, Meng, Ermon, 2020)](https://arxiv.org/abs/2010.02502) — deterministyczny sampler, który umożliwił inference w czasie rzeczywistym
+- [Elucidating the Design Space of Diffusion (Karras et al., 2022)](https://arxiv.org/abs/2206.00364) — zunifikowany widok każdego wyboru projektowego dyfuzji; aktualna najlepsza referencja

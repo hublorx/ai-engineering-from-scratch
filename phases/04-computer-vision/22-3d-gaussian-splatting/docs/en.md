@@ -1,130 +1,130 @@
 # 3D Gaussian Splatting from Scratch
 
-> A scene is a cloud of millions of 3D Gaussians. Each one has a position, orientation, scale, opacity, and a colour that depends on viewing direction. Rasterise them, backprop through the rasterisation, done.
+> Scena to chmura milionów trójwymiarowych Gaussian. Każda ma pozycję, orientację, skalę, krycie i kolor zależny od kierunku widzenia. Rasteryzuj je, backprop przez rasteryzację, gotowe.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 13 (3D Vision & NeRF), Phase 1 Lesson 12 (Tensor Operations), Phase 4 Lesson 10 (Diffusion basics optional)
-**Time:** ~90 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 4 Lesson 13 (3D Vision & NeRF), Phase 1 Lesson 12 (Tensor Operations), Phase 4 Lesson 10 (Diffusion basics opcjonalnie)
+**Szacowany czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Explain why 3D Gaussian Splatting replaced NeRF as the production default for photorealistic 3D reconstruction in 2026
-- State the six per-Gaussian parameters (position, rotation quaternion, scale, opacity, spherical harmonics colour, optional feature) and how many floats each contributes
-- Implement a 2D Gaussian splatting rasterizer from scratch using `alpha` compositing, then show how the 3D case projects to the same loop
-- Use `nerfstudio`, `gsplat`, or `SuperSplat` to reconstruct a scene from 20-50 photos and export to the `KHR_gaussian_splatting` glTF extension or the OpenUSD 26.03 `UsdVolParticleField3DGaussianSplat` schema
+- Wyjaśnić, dlaczego 3D Gaussian Splatting zastąpił NeRF jako produkcyjny standard dla fotorealistycznej rekonstrukcji 3D w 2026 roku
+- Określić sześć parametrów per-Gaussian (pozycja, rotacja kwaternionowa, skala, krycie, kolor sferycznych harmonicznych, opcjonalny feature) i ile zmiennoprzecinkowych każdy wnosi
+- Zaimplementować rasteryzer 2D Gaussian splatting od podstaw używając alpha compositing, a następnie pokazać jak przypadek 3D sprowadza się do tej samej pętli
+- Użyć `nerfstudio`, `gsplat` lub `SuperSplat` do rekonstrukcji sceny z 20-50 zdjęć i eksportu do rozszerzenia glTF `KHR_gaussian_splatting` lub schematu OpenUSD 26.03 `UsdVolParticleField3DGaussianSplat`
 
-## The Problem
+## Problem
 
-A NeRF stores a scene as the weights of an MLP. Every rendered pixel is hundreds of MLP queries along a ray. Training takes hours, rendering takes seconds, and the weights cannot be edited — if you want to move a chair inside a scene, you have to retrain.
+NeRF przechowuje scenę jako wagi MLP. Każdy renderowany piksel to setki zapytań MLP wzdłuż promienia. Trening trwa godziny, renderowanie trwa sekundy, a wagi nie mogą być edytowane — jeśli chcesz przesunąć krzesło w scenie, musisz wytrenować od nowa.
 
-3D Gaussian Splatting (Kerbl, Kopanas, Leimkühler, Drettakis, SIGGRAPH 2023) replaced all of that. A scene is an explicit set of 3D Gaussians. Rendering is GPU rasterisation at 100+ fps. Training takes minutes. Editing is direct: translate a subset of Gaussians and you have moved the chair. By 2026 the Khronos Group has ratified a glTF extension for Gaussian splats, OpenUSD 26.03 ships a Gaussian splat schema, Zillow and Apartments.com render real estate with them, and most new research papers on 3D reconstruction are variants on the core 3DGS idea.
+3D Gaussian Splatting (Kerbl, Kopanas, Leimkühler, Drettakis, SIGGRAPH 2023) zastąpił to wszystko. Scena to jawny zbiór 3D Gaussians. Renderowanie to GPU rastetryzacja przy 100+ fps. Trening trwa minuty. Edycja jest bezpośrednia: przesuń podzbiór Gaussians i przesunąłeś krzesło. Do 2026 roku Khronos Group zatwierdził rozszerzenie glTF dla Gaussian splats, OpenUSD 26.03 zawiera schemat Gaussian splat, Zillow i Apartments.com renderują nieruchomości przy ich użyciu, a większość nowych prac badawczych nad rekonstrukcją 3D to warianty podstawowej idei 3DGS.
 
-The mental model is simple, the math has enough moving parts that most introductions start at rasterisation and skip past the projections and spherical harmonics. This lesson builds the whole thing — a 2D version first, then the 3D extension.
+Model umysłowy jest prosty, matematyka ma wystarczająco dużo poruszających się części, że większość wprowadzeń zaczyna od rastetryzacji i pomija projekcje oraz sferyczne harmoniczne. Ta lekcja buduje całość — najpierw wersję 2D, potem rozszerzenie 3D.
 
-## The Concept
+## Koncepcja
 
-### What a Gaussian carries
+### Co niesie Gaussian
 
-One 3D Gaussian is a parametric blob in space with these attributes:
+Jedna 3D Gaussian to parametryczny blob w przestrzeni z tymi atrybutami:
 
 ```
-position         mu         (3,)    centre in world coordinates
-rotation         q          (4,)    unit quaternion encoding orientation
-scale            s          (3,)    log-scales per axis (exponentiated at render time)
+position         mu         (3,)    centrum we współrzędnych świata
+rotation         q          (4,)    unit quaternion kodujący orientację
+scale            s          (3,)    log-skale per axis (wykładnicze przy renderowaniu)
 opacity          alpha      (1,)    post-sigmoid opacity [0, 1]
-SH coefficients  c_lm       (3 * (L+1)^2,)   view-dependent colour
+SH coefficients  c_lm       (3 * (L+1)^2,)   kolor zależny od widoku
 ```
 
-Rotation + scale build a 3x3 covariance: `Sigma = R S S^T R^T`. That is the shape of the Gaussian in 3D. Spherical harmonics let the colour change with viewing direction — specular highlights, subtle sheen, view-dependent glow — without storing per-view textures. With SH degree 3 you get 16 coefficients per colour channel, 48 floats per Gaussian for colour alone.
+Rotacja + skala budują macierz kowariancji 3x3: `Sigma = R S S^T R^T`. To jest kształt Gaussiana w 3D. Sferyczne harmoniczne pozwalają kolorowi zmieniać się wraz z kierunkiem widzenia — spekularne refleksy, subtelne polyski, świecenie zależne od widoku — bez przechowywania per-view tekstur. Przy SH stopniu 3 dostajesz 16 współczynników na kanał koloru, 48 zmiennoprzecinkowych per Gaussian dla samego koloru.
 
-A scene typically has 1-5 million Gaussians. Each stores roughly 60 floats (3 + 4 + 3 + 1 + 48 + misc). That is 240 MB for a five-million-Gaussian scene — far smaller than the equivalent point cloud with per-point texture, and an order of magnitude smaller than a NeRF's MLP weights re-rendered at high resolution.
+Scena typowo ma 1-5 milionów Gaussians. Każdy przechowuje około 60 zmiennoprzecinkowych (3 + 4 + 3 + 1 + 48 + misc). To 240 MB dla sceny z pięcioma milionami Gaussians — znacznie mniej niż równoważny point cloud z per-point teksturą i rząd wielkości mniej niż wagi MLP NeRF-a re-renderowanego w wysokiej rozdzielczości.
 
-### Rasterisation, not ray marching
+### Rastetryzacja, nie ray marching
 
 ```mermaid
 flowchart LR
-    SCENE["Millions of 3D Gaussians<br/>(position, rotation, scale,<br/>opacity, SH colour)"] --> PROJ["Project to 2D<br/>(camera extrinsics + intrinsics)"]
-    PROJ --> TILES["Assign to tiles<br/>(16x16 screen-space)"]
-    TILES --> SORT["Depth-sort<br/>per tile"]
-    SORT --> ALPHA["Alpha-composite<br/>front-to-back"]
-    ALPHA --> PIX["Pixel colour"]
+    SCENE["Miliony 3D Gaussians<br/>(pozycja, rotacja, skala,<br/>krycie, SH kolor)"] --> PROJ["Projekcja do 2D<br/>(camera extrinsics + intrinsics)"]
+    PROJ --> TILES["Przypisz do tiles<br/>(16x16 screen-space)"]
+    TILES --> SORT["Sortowanie głębokościowe<br/>per tile"]
+    SORT --> ALPHA["Alpha-composite<br/>przód-do-tyłu"]
+    ALPHA --> PIX["Kolor piksela"]
 
     style SCENE fill:#dbeafe,stroke:#2563eb
     style ALPHA fill:#fef3c7,stroke:#d97706
     style PIX fill:#dcfce7,stroke:#16a34a
 ```
 
-Five steps, all GPU-friendly. No MLP query per pixel. A single RTX 3080 Ti renders 6 million splats at 147 fps.
+Pięć kroków, wszystkie przyjazne dla GPU. Żadne zapytanie MLP per piksel. Pojedynczy RTX 3080 Ti renderuje 6 milionów splats przy 147 fps.
 
-### The projection step
+### Krok projekcji
 
-The 3D Gaussian at world position `mu` with 3D covariance `Sigma` projects to a 2D Gaussian at screen position `mu'` with 2D covariance `Sigma'`:
+3D Gaussian na pozycji świata `mu` z 3D kowariancją `Sigma` projektuje do 2D Gaussiana na pozycji ekranu `mu'` z 2D kowariancją `Sigma'`:
 
 ```
 mu' = project(mu)
 Sigma' = J W Sigma W^T J^T          (2 x 2)
 
-W = viewing transform (rotation + translation of camera)
-J = Jacobian of the perspective projection at mu'
+W = viewing transform (rotacja + translacja kamery)
+J = Jakobian perspektywicznej projekcji przy mu'
 ```
 
-The 2D Gaussian's footprint is an ellipse whose axes are the eigenvectors of `Sigma'`. Every pixel inside that ellipse receives the Gaussian's contribution, weighted by `exp(-0.5 * (p - mu')^T Sigma'^-1 (p - mu'))`.
+Footprint 2D Gaussiana to elipsa, której osie to wektory własne `Sigma'`. Każdy piksel wewnątrz tej elipsy otrzymuje wkład Gaussiana, ważony przez `exp(-0.5 * (p - mu')^T Sigma'^-1 (p - mu'))`.
 
-### The alpha-compositing rule
+### Reguła alpha-compositing
 
-For one pixel, the Gaussians that cover it are sorted back-to-front (or equivalently front-to-back with inverted formula). Colour is composited with the same equation as every semi-transparent rasteriser since the 1980s:
+Dla jednego piksela, Gaussians, które go pokrywają, są sortowane tył-do-przodu (lub równoważnie przód-do-tyłu z odwróconym wzorem). Kolor jest komponowany tym samym równaniem co każdy półprzezroczysty rastetryzer od lat 80.:
 
 ```
 C_pixel = sum_i alpha_i * T_i * c_i
 
-T_i = prod_{j < i} (1 - alpha_j)       transmittance up to i
-alpha_i = opacity_i * exp(-0.5 * d^T Sigma'^-1 d)   local contribution
-c_i = eval_SH(SH_i, view_direction)    view-dependent colour
+T_i = prod_{j < i} (1 - alpha_j)       transmitancja do i
+alpha_i = opacity_i * exp(-0.5 * d^T Sigma'^-1 d)   lokalny wkład
+c_i = eval_SH(SH_i, view_direction)    kolor zależny od widoku
 ```
 
-This is **the same equation as NeRF's volumetric render**, just over an explicit sparse set of Gaussians instead of dense samples along a ray. That identity is why rendered quality matches NeRF — both are integrating the same radiance-field equation.
+To jest **to samo równanie co objętościowy render NeRF-a**, tylko nad jawnym rzadkim zbiorem Gaussians zamiast gęstymi próbkami wzdłuż promienia. Ta tożsamość wyjaśnia, dlaczego jakość renderingu dorównuje NeRF-owi — oba całkują to samo równanie pola radiacyjnego.
 
-### Why this is differentiable
+### Dlaczego to jest różniczkowalne
 
-Every step — projection, tile assignment, alpha compositing, SH evaluation — is differentiable with respect to the Gaussian parameters. Given a ground-truth image, compute rendered pixel loss, backprop through the rasteriser, update all `(mu, q, s, alpha, c_lm)` by gradient descent. Over ~30,000 iterations the Gaussians find their right positions, scales, and colours.
+Każdy krok — projekcja, przypisanie tile, alpha compositing, ewaluacja SH — jest różniczkowalny względem parametrów Gaussian. Mając ground-truth image, oblicz stratę renderowanego piksela, backprop przez rasteryzer, aktualizuj wszystkie `(mu, q, s, alpha, c_lm)` przez gradient descent. Przez ~30 000 iteracji Gaussians znajdują swoje właściwe pozycje, skale i kolory.
 
-### Densification and pruning
+### Densyfikacja i przycinanie
 
-A fixed set of Gaussians cannot cover a complex scene. Training includes two adaptive mechanisms:
+Ustalony zbiór Gaussians nie może pokryć złożonej sceny. Trening obejmuje dwa mechanizmy adaptacyjne:
 
-- **Clone** a Gaussian at its current position when its gradient magnitude is high but its scale is small — the reconstruction needs more detail here.
-- **Split** a large-scale Gaussian into two smaller ones when its gradient is high — one big Gaussian is too smooth to fit the region.
-- **Prune** Gaussians whose opacity drops below a threshold — they are not contributing.
+- **Clone** — sklonuj Gaussiana w jego obecnej pozycji, gdy wielkość gradientu jest wysoka, ale jego skala jest mała — rekonstrukcja potrzebuje tutaj więcej detali.
+- **Split** — podziel dużego Gaussiana na dwa mniejsze, gdy jego gradient jest wysoki — jeden duży Gaussian jest zbyt gładki, żeby dopasować region.
+- **Prune** — usuń Gaussians, których krycie spadło poniżej progu — nie wnoszą wkładu.
 
-Densification runs every N iterations. A scene typically grows from ~100k initial Gaussians (seeded from SfM points) to 1-5M at the end of training.
+Densyfikacja uruchamia się co N iteracji. Scena typowo rośnie z ~100k początkowych Gaussians (zasianych ze SfM points) do 1-5M na końcu treningu.
 
-### Spherical harmonics in one paragraph
+### Sferyczne harmoniczne w jednym akapicie
 
-View-dependent colour is a function `c(direction)` on the unit sphere. Spherical harmonics are the sphere's Fourier basis. Truncate at degree `L` and you get `(L+1)^2` basis functions per channel. Evaluating the colour for a new view is a dot product between the learned SH coefficients and the basis evaluated at the viewing direction. Degree 0 = one coefficient = constant colour. Degree 3 = 16 coefficients = enough to capture Lambertian shading, specular, and mild reflection. SD Gaussian Splatting papers use degree 3 by default.
+Kolor zależny od widoku to funkcja `c(direction)` na sferze jednostkowej. Sferyczne harmoniczne to Fourier basis sfery. Obetnij przy stopniu `L` i dostajesz `(L+1)^2` funkcji bazowych per kanał. Ewaluacja koloru dla nowego widoku to iloczyn skalarny między nauczonymi współczynnikami SH a basisą ewaluowaną przy kierunku widzenia. Stopień 0 = jeden współczynnik = stały kolor. Stopień 3 = 16 współczynników = wystarczająco do uchwycenia Lambertian shading, spekularności i łagodnego odbicia. SD Gaussian Splatting papers używają stopnia 3 domyślnie.
 
-### The 2026 production stack
+### Stos produkcyjny 2026
 
 ```
 1. Capture         smartphone / DJI drone / handheld scanner
-2. SfM / MVS       COLMAP or GLOMAP derives camera poses + sparse points
-3. Train 3DGS      nerfstudio / gsplat / inria official / PostShot (~10-30 min on RTX 4090)
+2. SfM / MVS       COLMAP lub GLOMAP wyprowadza camera poses + sparse points
+3. Train 3DGS      nerfstudio / gsplat / inria official / PostShot (~10-30 min na RTX 4090)
 4. Edit            SuperSplat / SplatForge (clean floaters, segment)
-5. Export          .ply -> glTF KHR_gaussian_splatting or .usd (OpenUSD 26.03)
+5. Export          .ply -> glTF KHR_gaussian_splatting lub .usd (OpenUSD 26.03)
 6. View            Cesium / Unreal / Babylon.js / Three.js / Vision Pro
 ```
 
-### 4D and generative variants
+### Warianty 4D i generatywne
 
-- **4D Gaussian Splatting** — Gaussians are functions of time; used for volumetric video (Superman 2026, A$AP Rocky's "Helicopter").
-- **Generative splats** — text-to-splat models (Marble by World Labs) that hallucinate entire scenes.
-- **3D Gaussian Unscented Transform** — NVIDIA NuRec's variant for autonomous driving simulation.
+- **4D Gaussian Splatting** — Gaussians są funkcjami czasu; używane do objętościowego wideo (Superman 2026, A$AP Rocky "Helicopter").
+- **Generatywne splats** — text-to-splat models (Marble by World Labs), które generują całe sceny.
+- **3D Gaussian Unscented Transform** — wariant NVIDIA NuRec dla symulacji autonomicznej jazdy.
 
-## Build It
+## Zbuduj to
 
-### Step 1: A 2D Gaussian
+### Krok 1: 2D Gaussian
 
-We first build a 2D rasteriser. The 3D case reduces to it after projection.
+Najpierw budujemy rastetryzer 2D. Przypadek 3D redukuje się do niego po projekcji.
 
 ```python
 import torch
@@ -149,11 +149,11 @@ def eval_2d_gaussian(means, covs, points):
     return density.view(G, H, W)
 ```
 
-`einsum` does the quadratic form `diff^T Sigma^-1 diff` for every (Gaussian, pixel) pair.
+`einsum` wykonuje formę kwadratową `diff^T Sigma^-1 diff` dla każdej pary (Gaussian, piksel).
 
-### Step 2: 2D splatting rasteriser
+### Krok 2: 2D splatting rasteriser
 
-Alpha-compositing front-to-back. Depth in 2D is meaningless, so we use a learned per-Gaussian scalar for order.
+Alpha-compositing przód-do-tyłu. Głębia w 2D nie ma sensu, więc używamy nauczanego per-Gaussian skalara dla porządku.
 
 ```python
 def rasterise_2d(means, covs, colours, opacities, depths, image_size):
@@ -191,9 +191,9 @@ def rasterise_2d(means, covs, colours, opacities, depths, image_size):
     return out
 ```
 
-Not fast — a real implementation uses tile-based CUDA kernels — but exactly the right math and fully differentiable.
+Nie szybkie — prawdziwa implementacja używa tile-based CUDA kernels — ale dokładnie ta matematyka i w pełni różniczkowalne.
 
-### Step 3: A trainable 2D splat scene
+### Krok 3: Trenowalna 2D splat scene
 
 ```python
 class Splats2D(nn.Module):
@@ -225,9 +225,9 @@ class Splats2D(nn.Module):
         return rasterise_2d(self.means, covs, colours, opacities, self.depth, image_size)
 ```
 
-`log_scale`, `opacity_logit`, and `colour_logits` are all unconstrained parameters mapped through the right activation at render time. This is the standard pattern for every 3DGS implementation.
+`log_scale`, `opacity_logit` i `colour_logits` to wszystkie nieograniczone parametry mapowane przez odpowiednią aktywację przy renderowaniu. To jest standardowy wzorzec dla każdej implementacji 3DGS.
 
-### Step 4: Fit 2D Gaussians to a target image
+### Krok 4: Dopasuj 2D Gaussians do obrazu docelowego
 
 ```python
 import math
@@ -257,23 +257,23 @@ for step in range(200):
         print(f"step {step:3d}  mse {loss.item():.4f}")
 ```
 
-Over 200 steps the 64 Gaussians settle into the two shapes. That is the entire idea — gradient-descent on explicit geometric primitives.
+Przez 200 kroków 64 Gaussians osiada na dwóch kształtach. To jest cała idea — gradient descent na jawnych geometrycznych prymitywach.
 
-### Step 5: From 2D to 3D
+### Krok 5: Z 2D do 3D
 
-The 3D extension keeps the same loop. The additions:
+Rozszerzenie 3D zachowuje tę samą pętlę. Dodatki:
 
-1. Per-Gaussian rotation is a quaternion instead of a single angle.
-2. Covariance is `R S S^T R^T` with `R` built from the quaternion and `S = diag(exp(log_scale))`.
-3. Projection `(mu, Sigma) -> (mu', Sigma')` uses the camera extrinsics and the Jacobian of the perspective projection at `mu`.
-4. Colour becomes a spherical-harmonics expansion; evaluate it at the viewing direction.
-5. Depth-sort is from actual camera-space z instead of a learned scalar.
+1. Per-Gaussian rotacja to kwaternion zamiast pojedynczego kąta.
+2. Kowariancja to `R S S^T R^T` z `R` zbudowanym z kwaternionu i `S = diag(exp(log_scale))`.
+3. Projekcja `(mu, Sigma) -> (mu', Sigma')` używa camera extrinsics i Jakobianu perspektywicznej projekcji przy `mu`.
+4. Kolor staje się rozwinięciem sferycznych harmonicznych; ewaluuj go przy kierunku widzenia.
+5. Sortowanie głębokości jest z rzeczywistej camera-space z zamiast nauczanego skalara.
 
-Every production implementation (`gsplat`, `inria/gaussian-splatting`, `nerfstudio`) does exactly this on the GPU with tile-based CUDA kernels.
+Każda implementacja produkcyjna (`gsplat`, `inria/gaussian-splatting`, `nerfstudio`) robi dokładnie to na GPU z tile-based CUDA kernels.
 
-### Step 6: Spherical harmonics evaluation
+### Krok 6: Ewaluacja sferycznych harmonicznych
 
-The SH basis up to degree 3 has 16 terms per channel. Evaluation:
+SH basis do stopnia 3 ma 16 wyrazów per kanał. Ewaluacja:
 
 ```python
 def eval_sh_degree_3(sh_coeffs, dirs):
@@ -306,11 +306,11 @@ def eval_sh_degree_3(sh_coeffs, dirs):
     return result
 ```
 
-Learned `sh_coeffs` store the "colour in every direction" for that Gaussian. At render time you evaluate against the current view direction and get a 3-vector RGB.
+Nauczone `sh_coeffs` przechowują "kolor w każdym kierunku" dla tego Gaussiana. Przy renderowaniu ewaluujesz przeciwko bieżącemu kierunkowi widzenia i dostajesz wektor RGB 3.
 
-## Use It
+## Użyj tego
 
-For real 3DGS work, use `gsplat` (Meta) or `nerfstudio`:
+Dla prawdziwej pracy z 3DGS, użyj `gsplat` (Meta) lub `nerfstudio`:
 
 ```bash
 pip install nerfstudio gsplat
@@ -318,48 +318,48 @@ ns-download-data example
 ns-train splatfacto --data path/to/data
 ```
 
-`splatfacto` is nerfstudio's 3DGS trainer. The run takes 10-30 minutes on an RTX 4090 for a typical scene.
+`splatfacto` to trenujący 3DGS w nerfstudio. Uruchomienie trwa 10-30 minut na RTX 4090 dla typowej sceny.
 
-Export options that matter in 2026:
+Opcje eksportu, które mają znaczenie w 2026:
 
-- `.ply` — raw Gaussian cloud (portable, largest file).
-- `.splat` — PlayCanvas / SuperSplat quantised format.
-- glTF `KHR_gaussian_splatting` — Khronos standard, portable across viewers (Feb 2026 RC).
-- OpenUSD `UsdVolParticleField3DGaussianSplat` — USD-native, for NVIDIA Omniverse and Vision Pro pipelines.
+- `.ply` — surowa chmura Gaussian (przenośna, największy plik).
+- `.splat` — format quantised PlayCanvas / SuperSplat.
+- glTF `KHR_gaussian_splatting` — standard Khronos, przenośny między viewerami (Feb 2026 RC).
+- OpenUSD `UsdVolParticleField3DGaussianSplat` — natywny dla USD, dla NVIDIA Omniverse i pipeline'ów Vision Pro.
 
-For 4D / dynamic scenes, `4DGS` and `Deformable-3DGS` extend the same machinery with time-varying means and opacities.
+Dla scen 4D / dynamicznych, `4DGS` i `Deformable-3DGS` rozszerzają tę samą maszynerię o zmieniające się w czasie means i krycie.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
+Ta lekcja produkuje:
 
-- `outputs/prompt-3dgs-capture-planner.md` — a prompt that plans a capture session (number of photos, camera path, lighting) for a given scene type.
-- `outputs/skill-3dgs-export-router.md` — a skill that picks the right export format (`.ply` / `.splat` / glTF / USD) given the downstream viewer or engine.
+- `outputs/prompt-3dgs-capture-planner.md` — prompt, który planuje sesję capture (liczba zdjęć, ścieżka kamery, oświetlenie) dla danego typu sceny.
+- `outputs/skill-3dgs-export-router.md` — skill, który wybiera właściwy format eksportu (`.ply` / `.splat` / glTF / USD) mając dany downstream viewer lub engine.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Run the 2D splat trainer above on a different synthetic image. Vary `num_splats` in `[16, 64, 256]` and plot MSE vs step for each. Identify the point of diminishing returns.
-2. **(Medium)** Extend the 2D rasteriser to support per-Gaussian RGB colours that depend on a scalar "view angle" through a degree-2 harmonic. Train on a pair of target images and verify the model reconstructs both.
-3. **(Hard)** Clone `nerfstudio` and train `splatfacto` on a 20-photo capture of any scene you have (desk, plant, face, room). Export to glTF `KHR_gaussian_splatting` and open it in a viewer (Three.js `GaussianSplats3D`, SuperSplat, Babylon.js V9). Report training time, number of Gaussians, and rendered fps.
+1. **(Łatwe)** Uruchom trenujący 2D splat powyżej na innym syntetycznym obrazie. Zmień `num_splats` w `[16, 64, 256]` i wykreśl MSE vs step dla każdego. Zidentyfikuj punkt malejących zwrotów.
+2. **(Średnie)** Rozszerz 2D rasteryzer o obsługę per-Gaussian kolorów RGB zależnych od skalarnego "kąta widzenia" przez harmoniczny stopnia 2. Trenuj na parze obrazów docelowych i zweryfikuj, że model rekonstruuje oba.
+3. **(Trudne)** Sklonuj `nerfstudio` i trenuj `splatfacto` na capture 20 zdjęć dowolnej sceny (biurko, roślina, twarz, pokój). Eksportuj do glTF `KHR_gaussian_splatting` i otwórz w viewerze (Three.js `GaussianSplats3D`, SuperSplat, Babylon.js V9). Zgłoś czas treningu, liczbę Gaussians i rendered fps.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| 3DGS | "Gaussian splats" | Explicit scene representation as millions of 3D Gaussians with per-Gaussian position, rotation, scale, opacity, SH colour |
-| Covariance | "Shape of the Gaussian" | `Sigma = R S S^T R^T`; orientation and anisotropic scale of one Gaussian |
-| Alpha compositing | "Back-to-front blend" | Same equation as NeRF's volumetric render, now over an explicit sparse set |
-| Densification | "Clone and split" | Adaptive addition of new Gaussians where reconstruction is under-fit |
-| Pruning | "Delete low-opacity" | Remove Gaussians that have collapsed to near-zero opacity during training |
-| Spherical harmonics | "View-dependent colour" | Fourier basis on the sphere; stores colour as a function of viewing direction |
-| Splatfacto | "nerfstudio's 3DGS" | The easiest path to training 3DGS in 2026 |
-| `KHR_gaussian_splatting` | "glTF standard" | Khronos 2026 extension that makes 3DGS portable across viewers and engines |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|----------------------|
+| 3DGS | "Gaussian splats" | Jawna reprezentacja sceny jako milionów 3D Gaussians z per-Gaussian pozycją, rotacją, skalą, kryciem, SH kolorem |
+| Kowariancja | "Kształt Gaussiana" | `Sigma = R S S^T R^T`; orientacja i anizotropowa skala jednego Gaussiana |
+| Alpha compositing | "Blend tył-do-przodu" | To samo równanie, co objętościowy render NeRF-a, teraz nad jawnym rzadkim zbiorem |
+| Densyfikacja | "Klonuj i dziel" | Adaptacyjne dodawanie nowych Gaussians, gdzie rekonstrukcja jest under-fit |
+| Przycinanie | "Usuwaj niskie krycie" | Usuń Gaussians, których krycie spadło poniżej progu — nie wnoszą wkładu |
+| Sferyczne harmoniczne | "Kolor zależny od widoku" | Fourier basis na sferze; przechowuje kolor jako funkcję kierunku widzenia |
+| Splatfacto | "3DGS nerfstudio" | Najłatwiejsza ścieżka do treningu 3DGS w 2026 |
+| `KHR_gaussian_splatting` | "standard glTF" | Rozszerzenie Khronos 2026, które czyni 3DGS przenośnym między viewerami i engine'ami |
 
-## Further Reading
+## Dalsze czytanie
 
-- [3D Gaussian Splatting for Real-Time Radiance Field Rendering (Kerbl et al., SIGGRAPH 2023)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) — the original paper
-- [gsplat (Meta/nerfstudio)](https://github.com/nerfstudio-project/gsplat) — production-quality CUDA rasteriser
-- [nerfstudio Splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) — reference training recipe
-- [Khronos KHR_gaussian_splatting extension](https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_gaussian_splatting/README.md) — the 2026 portable format
-- [OpenUSD 26.03 release notes](https://openusd.org/release/) — `UsdVolParticleField3DGaussianSplat` schema
-- [THE FUTURE 3D State of Gaussian Splatting 2026](https://www.thefuture3d.com/blog-0/2026/4/4/state-of-gaussian-splatting-2026) — industry overview
+- [3D Gaussian Splatting for Real-Time Radiance Field Rendering (Kerbl et al., SIGGRAPH 2023)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) — oryginalny paper
+- [gsplat (Meta/nerfstudio)](https://github.com/nerfstudio-project/gsplat) — produkcyjnej jakości CUDA rasteriser
+- [nerfstudio Splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) — referencyjna receptura treningowa
+- [Khronos KHR_gaussian_splatting extension](https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_gaussian_splatting/README.md) — przenośny format 2026
+- [OpenUSD 26.03 release notes](https://openusd.org/release/) — schemat `UsdVolParticleField3DGaussianSplat`
+- [THE FUTURE 3D State of Gaussian Splatting 2026](https://www.thefuture3d.com/blog-0/2026/4/4/state-of-gaussian-splatting-2026) — przegląd branżowy

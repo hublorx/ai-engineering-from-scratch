@@ -1,40 +1,40 @@
-# Transfer Learning & Fine-Tuning
+# Transfer Learning i Fine-Tuning
 
-> Somebody else spent a million GPU hours teaching a network what edges, textures, and object parts look like. You should borrow those features before training your own.
+> Ktoś inny poświęcił milion godzin GPU na nauczenie sieci, jak wyglądają krawędzie, tekstury i części obiektów. Powinieneś zapożyczyć te cechy przed treningiem własnego modelu.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 03 (CNNs), Phase 4 Lesson 04 (Image Classification)
-**Time:** ~75 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Lesson 03 z Fazy 4 (CNN-y), Lesson 04 z Fazy 4 (Klasyfikacja obrazów)
+**Szacowany czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Distinguish feature extraction from fine-tuning and pick the right one based on dataset size, domain distance, and compute budget
-- Load a pretrained backbone, replace its classifier head, and train only the head to a working baseline in under 20 lines
-- Progressively unfreeze layers with discriminative learning rates so early generic features get smaller updates than late task-specific ones
-- Diagnose the three common failures: feature drift from too-high LR on unfrozen blocks, BN statistics collapse on tiny datasets, and catastrophic forgetting
+- Rozróżniać feature extraction od fine-tuningu i wybierać odpowiednią metodę na podstawie rozmiaru zbioru danych, odległości domeny i budżetu obliczeniowego
+- Załadować pretrained backbone, zastąpić jego classifier head i wytrenować tylko head do działającego baseline'a w mniej niż 20 liniach kodu
+- Progresywnie odmrażać warstwy z discriminative learning rates, aby wczesne ogólne cechy otrzymywały mniejsze aktualizacje niż późne specyficzne dla zadania
+- Diagnozować trzy typowe błędy: feature drift z powodu zbyt wysokiego LR na odmrożonych blokach, collapse BN statistics na małych zbiorach danych i catastrophic forgetting
 
-## The Problem
+## Problem
 
-Training a ResNet-50 on ImageNet costs around 2,000 GPU-hours. Very few teams have that budget for every task they ship. What almost every team actually ships is a pretrained backbone with a new head trained on a few hundred or few thousand task-specific images.
+Trening ResNet-50 na ImageNet kosztuje około 2000 godzin GPU. Niewiele zespołów ma taki budżet na każde zadanie, które wdrażają. Prawie każdy zespół wdraża pretrained backbone z nowym headem wytrenowanym na kilkuset lub kilku tysiącach obrazów specyficznych dla zadania.
 
-This is not a shortcut. The first conv block of any ImageNet-trained CNN learns edges and Gabor-like filters. The next few blocks learn textures and simple motifs. The middle blocks learn object parts. The final blocks learn combinations that start to look like the 1,000 ImageNet categories. The first 90% of that hierarchy transfers almost unchanged to medical imaging, industrial inspection, satellite data, and every other vision task — because nature has a limited vocabulary of edges and textures. The last 10% is what you actually train.
+To nie jest skrót. Pierwszy blok konwolucyjny każdego CNN wytrenowanego na ImageNet uczy się krawędzi i filtrów Gabor-like. Następne kilka bloków uczy się tekstur i prostych motywów. Środkowe bloki uczą się części obiektów. Ostatnie bloki uczą się kombinacji, które zaczynają wyglądać jak 1000 kategorii ImageNet. Pierwsze 90% tej hierarchii przenosi się prawie bez zmian do obrazowania medycznego, inspekcji przemysłowej, danych satelitarnych i każdego innego zadania wizyjnego — ponieważ natura ma ograniczony zasób słów dla krawędzi i tekstur. Ostatnie 10% to to, co faktycznie trenujesz.
 
-Getting transfer right has three bugs waiting for you: destroying pretrained features with a too-high learning rate, starving the model of information by freezing too much, and letting BatchNorm's running statistics drift toward a tiny dataset that the rest of the network never learnt from. This lesson walks each of them on purpose.
+Uzyskanie prawidłowego transferu ma trzy błędy czyhające na ciebie: niszczenie pretrained features zbyt wysokim learning rate, głodzenie modelu informacji przez zamrożenie zbyt dużej części i pozwolenie na dryf BatchNorm's running statistics w kierunku małego zbioru danych, którego reszta sieci nigdy się nie nauczyła. Ta lekcja pokazuje każdy z nich celowo.
 
-## The Concept
+## Koncepcja
 
 ### Feature extraction vs fine-tuning
 
-Two regimes, picked by how much you trust the pretrained features and how much data you have.
+Dwa tryby, wybierane na podstawie tego, jak bardzo ufasz pretrained features i ile masz danych.
 
 ```mermaid
 flowchart TB
-    subgraph FE["Feature extraction — backbone frozen"]
-        FE1["Pretrained backbone<br/>(no gradient)"] --> FE2["New head<br/>(trained)"]
+    subgraph FE["Feature extraction — backbone zamrożony"]
+        FE1["Pretrained backbone<br/>(bez gradientu)"] --> FE2["Nowy head<br/>(trenowany)"]
     end
     subgraph FT["Fine-tuning — end-to-end"]
-        FT1["Pretrained backbone<br/>(tiny LR)"] --> FT2["New head<br/>(normal LR)"]
+        FT1["Pretrained backbone<br/>(tiny LR)"] --> FT2["Nowy head<br/>(normal LR)"]
     end
 
     style FE1 fill:#e5e7eb,stroke:#6b7280
@@ -43,50 +43,50 @@ flowchart TB
     style FT2 fill:#dcfce7,stroke:#16a34a
 ```
 
-Rules of thumb:
+Zasady kciuka:
 
-| Dataset size | Domain distance | Recipe |
+| Rozmiar zbioru danych | Odległość domeny | Przepis |
 |--------------|-----------------|--------|
-| < 1k images | close to ImageNet | Freeze backbone, train head only |
-| 1k-10k | close | Freeze first 2-3 stages, fine-tune the rest |
-| 10k-100k | any | Fine-tune end-to-end with discriminative LR |
-| 100k+ | far | Fine-tune everything; consider training from scratch if domain is far enough |
+| < 1k obrazów | blisko ImageNet | Zamroź backbone, trenuj tylko head |
+| 1k-10k | blisko | Zamroź pierwsze 2-3 stage'y, fine-tune resztę |
+| 10k-100k | dowolna | Fine-tune end-to-end z discriminative LR |
+| 100k+ | daleka | Fine-tune wszystko; rozważ trening od zera jeśli domena jest wystarczająco daleka |
 
-"Close to ImageNet" roughly means natural RGB photos with object-like content. Medical CT scans, overhead satellite imagery, and microscopy are far domains — the features still help, but you will need to let more layers adapt.
+"Blisko ImageNet" mniej więcej oznacza naturalne zdjęcia RGB z treścią obiektopodobną. Skany CT medyczne, obrazy satelitarne z góry i mikroskopia to dalekie domeny — features nadal pomagają, ale będziesz musiał pozwolić na adaptację większej liczbie warstw.
 
-### Why freezing works at all
+### Dlaczego zamrażanie w ogóle działa
 
-The ImageNet features a CNN learns are not specialised to the 1,000 categories. They are specialised to the statistics of natural images: edges at specific orientations, textures, contrast patterns, shape primitives. Those statistics are stable across almost every visual domain a human can name. That is why a model trained on ImageNet and evaluated zero-shot on CIFAR-10 with just a new linear head (no fine-tuning of the backbone) reaches 80%+ accuracy. The head is learning which of the already-learnt features to weight for this task.
+Features CNN uczone na ImageNet nie są wyspecjalizowane do 1000 kategorii. Są wyspecjalizowane do statystyk naturalnych obrazów: krawędzie przy określonych orientacjach, tekstury, wzorce kontrastu, prymitywne kształty. Te statystyki są stabilne w prawie każdej domenie wizyjnej, jaką człowiek może wymienić. Dlatego model trenowany na ImageNet i ewaluowany zero-shot na CIFAR-10 z tylko nowym linear head (bez fine-tuningu backbone) osiąga 80%+ accuracy. Head uczy się, które z już nauczonych features ważyć dla tego zadania.
 
 ### Discriminative learning rates
 
-When you do unfreeze, early layers should train slower than late layers. Early layers encode generic features that you want to preserve; late layers encode task-specific structure that you need to move a lot.
+Gdy odmrażasz, wczesne warstwy powinny trenować wolniej niż późne. Wczesne warstwy kodują ogólne features, które chcesz zachować; późne warstwy kodują strukturę specyficzną dla zadania, którą musisz znacznie przesunąć.
 
 ```
-Typical recipe:
+Typowy przepis:
 
-  stage 0 (stem + first group): lr = base_lr / 100    (mostly fixed)
+  stage 0 (stem + pierwsza grupa): lr = base_lr / 100    (głównie stałe)
   stage 1:                       lr = base_lr / 10
   stage 2:                       lr = base_lr / 3
-  stage 3 (last backbone group): lr = base_lr
-  head:                          lr = base_lr  (or slightly higher)
+  stage 3 (ostatnia grupa backbone): lr = base_lr
+  head:                          lr = base_lr  (lub nieco wyższe)
 ```
 
-In PyTorch this is just a list of parameter groups passed to the optimizer. One model, five learning rates, zero extra code.
+W PyTorch to po prostu lista grup parametrów przekazanych do optimizera. Jeden model, pięć learning rates, zero dodatkowego kodu.
 
-### The BatchNorm problem
+### Problem BatchNorm
 
-BN layers hold `running_mean` and `running_var` buffers that were computed on ImageNet. If your task has a different pixel distribution — different lighting, different sensor, different colour space — those buffers are wrong. Three options in order of preference:
+Warstwy BN przechowują bufory `running_mean` i `running_var`, które zostały obliczone na ImageNet. Jeśli twoje zadanie ma inną dystrybucję pikseli — inne oświetlenie, inny sensor, inna przestrzeń kolorów — te bufory są błędne. Trzy opcje w kolejności preferencji:
 
-1. **Fine-tune with BN in train mode.** Let BN update its running statistics along with everything else. Default choice when the task dataset is medium-sized (>= 5k examples).
-2. **Freeze BN in eval mode.** Keep the ImageNet statistics and train only the weights. Correct when your dataset is small enough that BN's moving average would be noisy.
-3. **Replace BN with GroupNorm.** Removes the moving-average problem entirely. Used in detection and segmentation backbones where batch size per GPU is tiny.
+1. **Fine-tune z BN w trybie train.** Pozwól BN aktualizować jego running statistics wraz ze wszystkim innym. Domyślny wybór gdy zbiór danych zadania ma średni rozmiar (>= 5k przykładów).
+2. **Zamroź BN w trybie eval.** Zachowaj statystyki ImageNet i trenuj tylko wagi. Poprawne gdy twój zbiór danych jest na tyle mały, że BN's moving average byłby zaszumiony.
+3. **Zastąp BN GroupNorm.** Całkowicie usuwa problem moving average. Używane w detection i segmentation backbone, gdzie batch size na GPU jest minimalny.
 
-Getting this wrong silently tanks accuracy by 5-15%.
+Nieprawidłowe postępowanie cicho obniża accuracy o 5-15%.
 
-### Head design
+### Projektowanie head
 
-The classifier head is 1-3 linear layers plus an optional dropout. Every torchvision backbone ships a default head that you replace:
+Classifier head to 1-3 warstwy linear plus opcjonalny dropout. Każdy torchvision backbone ma domyślny head, który zastępujesz:
 
 ```
 backbone.fc = nn.Linear(backbone.fc.in_features, num_classes)          # ResNet
@@ -94,30 +94,30 @@ backbone.classifier[1] = nn.Linear(..., num_classes)                    # Effici
 backbone.heads.head = nn.Linear(..., num_classes)                       # torchvision ViT
 ```
 
-For small datasets, a single linear layer is usually enough. Adding a hidden layer (Linear -> ReLU -> Dropout -> Linear) helps when the task distribution is farther from the backbone's training distribution.
+Dla małych zbiorów danych zwykle wystarcza pojedyncza warstwa linear. Dodanie warstwy ukrytej (Linear -> ReLU -> Dropout -> Linear) pomaga gdy dystrybucja zadania jest dalej od dystrybucji treningowej backbone.
 
 ### Layer-wise LR decay
 
-A smoother version of discriminative LR used in modern fine-tuning (BEiT, DINOv2, ViT-B fine-tunes). Instead of grouping layers into stages, give every layer a slightly smaller LR than the one above it:
+Gładsza wersja discriminative LR używana w nowoczesnym fine-tuningu (BEiT, DINOv2, ViT-B fine-tunes). Zamiast grupować warstwy w stage'y, nadaj każdej warstwie nieco mniejszy LR niż warstwie nad nią:
 
 ```
 lr_layer_k = base_lr * decay^(L - k)
 ```
 
-With decay = 0.75 and L = 12 transformer blocks, the first block trains at `0.75^11 ≈ 0.04x` the head's LR. Matters more for transformer fine-tunes than for CNNs, where stage-grouped LRs are usually enough.
+Z decay = 0.75 i L = 12 bloków transformer, pierwszy blok trenuje z `0.75^11 ≈ 0.04x` LR head. Ma większe znaczenie dla transformer fine-tunes niż dla CNN, gdzie stage-grouped LRs zwykle wystarczają.
 
-### What to evaluate
+### Co ewaluować
 
-Transfer-learning runs need two numbers you would not track on a scratch run:
+Uruchomienia transfer learning wymagają dwóch liczb, których nie śledziłbyś na treningu od zera:
 
-- **Pretrained-only accuracy** — the head's accuracy with the backbone frozen. This is your floor.
-- **Fine-tuned accuracy** — the same model after end-to-end training. This is your ceiling.
+- **Pretrained-only accuracy** — accuracy head z zamrożonym backbone. To jest twój floor.
+- **Fine-tuned accuracy** — ten sam model po treningu end-to-end. To jest twój ceiling.
 
-If fine-tuned is less than pretrained-only, you have a learning-rate or BN bug. Always print both.
+Jeśli fine-tuned jest niższe niż pretrained-only, masz bug w learning rate lub BN. Zawsze drukuj oba.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Load a pretrained backbone and inspect it
+### Krok 1: Załaduj pretrained backbone i sprawdź go
 
 ```python
 import torch
@@ -131,9 +131,9 @@ print("classifier head:", backbone.fc)
 print("feature dim:", backbone.fc.in_features)
 ```
 
-`ResNet18` has four stages (`layer1..layer4`) plus a stem and a `fc` head. Every torchvision classification backbone has an analogous structure.
+`ResNet18` ma cztery stage'y (`layer1..layer4`) plus stem i `fc` head. Każdy torchvision classification backbone ma analogiczną strukturę.
 
-### Step 2: Feature extraction — freeze everything, replace the head
+### Krok 2: Feature extraction — zamroź wszystko, zastąp head
 
 ```python
 def make_feature_extractor(num_classes=10):
@@ -150,11 +150,11 @@ print(f"trainable: {trainable:>10,}")
 print(f"frozen:    {frozen:>10,}")
 ```
 
-Only `model.fc` is trainable. The backbone is a frozen feature extractor.
+Tylko `model.fc` jest trenowalny. Backbone jest zamrożonym feature extractor.
 
-### Step 3: Discriminative fine-tuning
+### Krok 3: Discriminative fine-tuning
 
-A utility that builds parameter groups with stage-specific learning rates.
+Funkcja pomocnicza budująca grupy parametrów ze stage-specific learning rates.
 
 ```python
 def discriminative_param_groups(model, base_lr=1e-3, decay=0.3):
@@ -185,11 +185,11 @@ for g in groups:
     print(f"{g['name']:>10s}  lr={g['lr']:.2e}  params={sum(p.numel() for p in g['params']):>8,}")
 ```
 
-`decay=0.3` means each stage trains at 30% of the rate of the next one. `fc` gets `base_lr`, `layer4` gets `0.3 * base_lr`, `conv1` gets `0.3^5 * base_lr ≈ 0.00243 * base_lr`. Extreme sounding; empirically it works.
+`decay=0.3` oznacza, że każdy stage trenuje z 30% rate następnego. `fc` dostaje `base_lr`, `layer4` dostaje `0.3 * base_lr`, `conv1` dostaje `0.3^5 * base_lr ≈ 0.00243 * base_lr`. Brzmi ekstremalnie; empirycznie działa.
 
-### Step 4: BatchNorm handling
+### Krok 4: Obsługa BatchNorm
 
-Helper to freeze BN running statistics without freezing its weights.
+Funkcja pomocnicza do zamrożenia BN running statistics bez zamrażania jego wag.
 
 ```python
 def freeze_bn_stats(model):
@@ -201,9 +201,9 @@ def freeze_bn_stats(model):
     return model
 ```
 
-Call it after you set `model.train()` at the start of every epoch. `model.train()` flips everything to training mode; this reverses it only for BN layers.
+Wywołaj ją po ustawieniu `model.train()` na początku każdej epoki. `model.train()` przełącza wszystko w tryb treningowy; to odwraca to tylko dla warstw BN.
 
-### Step 5: A minimal end-to-end fine-tuning loop
+### Krok 5: Minimalna pętla fine-tuning end-to-end
 
 ```python
 from torch.optim import SGD
@@ -247,11 +247,11 @@ def fine_tune(model, train_loader, val_loader, device, epochs=5, base_lr=1e-3, f
     return model
 ```
 
-Five epochs with the above recipe on CIFAR-10 takes `ResNet18-IMAGENET1K_V1` from ~70% zero-shot linear-probe accuracy to ~93% fine-tuned accuracy. The head alone would plateau around 86% without ever touching the backbone.
+Pięć epok z powyższym przepisem na CIFAR-10 przenosi `ResNet18-IMAGENET1K_V1` z ~70% zero-shot linear-probe accuracy do ~93% fine-tuned accuracy. Sam head zatrzymałby się wokół 86% bez dotykania backbone.
 
-### Step 6: Progressive unfreezing
+### Krok 6: Progressive unfreezing
 
-A schedule that unfreezes one stage per epoch from the end toward the beginning. Mitigates feature drift at the cost of some extra epochs.
+Harmonogram odmrażający jeden stage na epokę od końca do początku. Mituje feature drift kosztem kilku dodatkowych epok.
 
 ```python
 def progressive_unfreeze_schedule(model):
@@ -277,11 +277,11 @@ def progressive_unfreeze_schedule(model):
     return start, unfreeze
 ```
 
-Call `start()` once before the first epoch. Call `unfreeze(epoch)` at the start of each epoch. Rebuild the optimizer whenever the set of trainable parameters changes, otherwise the frozen params still hold cached moments that confuse it.
+Wywołaj `start()` raz przed pierwszą epoką. Wywołaj `unfreeze(epoch)` na początku każdej epoki. Przebuduj optimizer za każdym razem, gdy zestaw trenowalnych parametrów się zmienia, w przeciwnym razie zamrożone parametry nadal trzymają cached moments, które go mylą.
 
-## Use It
+## Użyj tego
 
-For most real tasks, `torchvision.models` + three lines is enough. The heavier machinery above matters when you run into the problems that library defaults cannot fix.
+Dla większości rzeczywistych zadań `torchvision.models` + trzy linie wystarczą. Cięższy mechanizm powyżej ma znaczenie gdy napotkasz problemy, których domyślne ustawienia biblioteki nie mogą naprawić.
 
 ```python
 from torchvision.models import resnet50, ResNet50_Weights
@@ -291,40 +291,42 @@ model.fc = nn.Linear(model.fc.in_features, num_classes)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
 ```
 
-Two other production-grade defaults:
+Dwa inne produkcyjne domyślne ustawienia:
 
-- `timm` ships ~800 pretrained vision backbones with a consistent API (`timm.create_model("resnet50", pretrained=True, num_classes=10)`). For any fine-tune beyond the torchvision zoo, it is the standard.
-- For transformers, `transformers.AutoModelForImageClassification.from_pretrained(name, num_labels=N)` gives you ViT / BEiT / DeiT with the same loading semantics as text models.
+- `timm` dostarcza ~800 pretrained vision backbones z spójnym API (`timm.create_model("resnet50", pretrained=True, num_classes=10)`). Dla każdego fine-tune poza torchvision zoo, to jest standard.
+- Dla transformerów, `transformers.AutoModelForImageClassification.from_pretrained(name, num_labels=N)` daje ci ViT / BEiT / DeiT z tą samą semantyką ładowania co text models.
 
-## Ship It
+## Wdróż to
 
-This lesson produces:
+Ta lekcja tworzy:
 
-- `outputs/prompt-fine-tune-planner.md` — a prompt that picks feature-extraction vs progressive vs end-to-end fine-tuning based on dataset size, domain distance, and compute budget.
-- `outputs/skill-freeze-inspector.md` — a skill that, given a PyTorch model, reports which parameters are trainable, which BatchNorm layers are in eval mode, and whether the optimizer is actually being fed the trainable parameters.
+- `outputs/prompt-fine-tune-planner.md` — prompt który wybiera feature-extraction vs progressive vs end-to-end fine-tuning na podstawie rozmiaru zbioru danych, odległości domeny i budżetu obliczeniowego.
+- `outputs/skill-freeze-inspector.md` — skill który, mając dany PyTorch model, raportuje które parametry są trenowalne, które warstwy BatchNorm są w trybie eval i czy optimizer faktycznie otrzymuje trenowalne parametry.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Train a `ResNet18` as a linear probe (backbone frozen) and as a full fine-tune on the same synthetic-CIFAR dataset. Report both accuracies side by side. Explain which gap tells you the features transfer well and which tells you they do not.
-2. **(Medium)** Introduce a bug on purpose: set `base_lr = 1e-1` on the backbone stage instead of the head. Show the training loss explode, then recover by applying the `discriminative_param_groups` helper. Record the LR at which each stage starts diverging.
-3. **(Hard)** Take a medical imaging dataset (e.g. CheXpert-small, PatchCamelyon, or HAM10000) and compare three regimes: (a) ImageNet-pretrained frozen backbone + linear head; (b) ImageNet-pretrained fine-tune end-to-end; (c) scratch training. Report accuracy and compute cost for each. At what dataset size does scratch training become competitive?
+1. **(Łatwe)** Trenuj `ResNet18` jako linear probe (backbone zamrożony) i jako full fine-tune na tym samym syntetycznym zbiorze danych CIFAR. Raportuj oba accuracy obok siebie. Wyjaśnij która luka mówi ci, że features transferują się dobrze i która mówi, że nie.
 
-## Key Terms
+2. **(Średnie)** Wprowadź bug celowo: ustaw `base_lr = 1e-1` na stage backbone zamiast na head. Pokaż eksplozję training loss, a potem odzyskaj stosując helper `discriminative_param_groups`. Zapisz LR, przy którym każdy stage zaczyna się divergence.
 
-| Term | What people say | What it actually means |
+3. **(Trudne)** Weź zbiór danych obrazowania medycznego (np. CheXpert-small, PatchCamelyon lub HAM10000) i porównaj trzy tryby: (a) ImageNet-pretrained zamrożony backbone + linear head; (b) ImageNet-pretrained fine-tune end-to-end; (c) trening od zera. Raportuj accuracy i koszt obliczeniowy dla każdego. Przy jakim rozmiarze zbioru danych trening od zera staje się konkurencyjny?
+
+## Kluczowe terminy
+
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Feature extraction | "Freeze and train head" | Backbone parameters frozen, only the new classifier head receives gradient |
-| Fine-tuning | "Retrain end-to-end" | All parameters trainable, usually with much smaller LR than scratch training |
-| Discriminative LR | "Smaller LR for early layers" | Optimizer parameter groups where early-stage LR is a fraction of late-stage LR |
-| Layer-wise LR decay | "Smooth LR gradient" | Per-layer LR multiplied by decay^(L - k); common in transformer fine-tunes |
-| Catastrophic forgetting | "The model lost ImageNet" | A too-high LR overwrites pretrained features before the new task signal is learnt |
-| BN statistics drift | "Running mean is wrong" | BatchNorm running_mean/var computed on a different distribution than the current task, silently hurting accuracy |
-| Linear probe | "Frozen backbone + linear head" | Evaluation of pretrained features — accuracy of the best linear classifier on top of the frozen representation |
-| Catastrophic collapse | "Everything predicts one class" | Happens when fine-tuning with an LR high enough to destroy features before gradients from the head can stabilise |
+| Feature extraction | "Zamroź i trenuj head" | Parametry backbone zamrożone, tylko nowy classifier head otrzymuje gradient |
+| Fine-tuning | "Retrenuj end-to-end" | Wszystkie parametry trenowalne, zwykle z dużo mniejszym LR niż trening od zera |
+| Discriminative LR | "Mniejszy LR dla wczesnych warstw" | Grupy parametrów optimizera gdzie LR wczesnego stage to ułamek LR późnego stage |
+| Layer-wise LR decay | "Gładki gradient LR" | LR per-warstwa mnożony przez decay^(L - k); wspólne w transformer fine-tunes |
+| Catastrophic forgetting | "Model stracił ImageNet" | Zbyt wysoki LR nadpisuje pretrained features zanim sygnał nowego zadania zostanie nauczony |
+| BN statistics drift | "Running mean jest błędny" | BatchNorm running_mean/var obliczone na innej dystrybucji niż bieżące zadanie, cicho szkodząc accuracy |
+| Linear probe | "Zamrożony backbone + linear head" | Ewaluacja pretrained features — accuracy najlepszego linear classifier na szczycie zamrożonej reprezentacji |
+| Catastrophic collapse | "Wszystko przewiduje jedną klasę" | Dzieje się gdy fine-tuning z LR wystarczająco wysokim by zniszczyć features zanim gradienty z head ustabilizują model |
 
-## Further Reading
+## Dalsze czytanie
 
-- [How transferable are features in deep neural networks? (Yosinski et al., 2014)](https://arxiv.org/abs/1411.1792) — the paper that quantified feature transferability across layers
-- [Universal Language Model Fine-tuning (ULMFiT, Howard & Ruder, 2018)](https://arxiv.org/abs/1801.06146) — the original discriminative LR / progressive unfreezing recipe; the ideas transfer directly to vision
-- [timm documentation](https://huggingface.co/docs/timm) — the reference for modern vision backbones and the exact fine-tune defaults they were trained with
-- [A Simple Framework for Linear-Probe Evaluation (Kornblith et al., 2019)](https://arxiv.org/abs/1805.08974) — why linear-probe accuracy matters and how to report it correctly
+- [How transferable are features in deep neural networks? (Yosinski et al., 2014)](https://arxiv.org/abs/1411.1792) — artykuł który kwantyfikował transferability features przez warstwy
+- [Universal Language Model Fine-tuning (ULMFiT, Howard & Ruder, 2018)](https://arxiv.org/abs/1801.06146) — oryginalny przepis discriminative LR / progressive unfreezing; idee transferują się bezpośrednio do wizji
+- [timm documentation](https://huggingface.co/docs/timm) — referencja dla nowoczesnych vision backbones i dokładnych domyślnych ustawień fine-tune z jakimi były trenowane
+- [A Simple Framework for Linear-Probe Evaluation (Kornblith et al., 2019)](https://arxiv.org/abs/1805.08974) — dlaczego linear-probe accuracy ma znaczenie i jak poprawnie raportować

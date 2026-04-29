@@ -1,34 +1,34 @@
-# OCR & Document Understanding
+# OCR i rozumienie dokumentów
 
-> OCR is a three-stage pipeline — detect text boxes, recognise the characters, then lay them out. Every modern OCR system reorders these stages or merges them.
+> OCR to trzyetapowy pipeline — wykrywanie pól tekstowych, rozpoznawanie znaków, a następnie układanie ich w kolejności. Każdy nowoczesny system OCR zmienia kolejność tych etapów lub łączy je.
 
-**Type:** Learn + Use
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 06 (Detection), Phase 7 Lesson 02 (Self-Attention)
-**Time:** ~45 minutes
+**Typ:** Nauka + Zastosowanie
+**Języki:** Python
+**Wymagania wstępne:** Faza 4 Lekcja 06 (Detection), Faza 7 Lekcja 02 (Self-Attention)
+**Szacowany czas:** ~45 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Trace the classical OCR pipeline (detect -> recognise -> layout) and the modern end-to-end alternatives (Donut, Qwen-VL-OCR)
-- Implement CTC (Connectionist Temporal Classification) loss for sequence-to-sequence OCR training
-- Use PaddleOCR or EasyOCR for production document parsing without training
-- Distinguish OCR, layout parsing, and document understanding — and pick the right tool per task
+- Prześledzić klasyczny pipeline OCR (detect → recognise → layout) oraz nowoczesne alternatywy end-to-end (Donut, Qwen-VL-OCR)
+- Zaimplementować funkcję straty CTC (Connectionist Temporal Classification) do trenowania OCR typu sequence-to-sequence
+- Użyć PaddleOCR lub EasyOCR do produkcyjnego parsowania dokumentów bez trenowania
+- Rozróżnić OCR, parsowanie układu i rozumienie dokumentów — oraz wybrać odpowiednie narzędzie do każdego zadania
 
-## The Problem
+## Problem
 
-Images full of text are everywhere: receipts, invoices, IDs, scanned books, forms, whiteboards, signs, screenshots. Extracting structured data from them — not just the characters, but "this is the total amount" — is one of the highest-value applied-vision problems.
+Obrazy pełne tekstu są wszędzie: paragony, faktury, dowody tożsamości, zdigitalizowane książki, formularze, tablice, znaki, zrzuty ekranu. Ekstrakcja ustrukturyzowanych danych z nich — nie tylko znaków, ale "to jest kwota całkowita" — to jeden z najwyżej wartych problemów applied vision.
 
-The field splits into three skill layers:
+Dziedzina ta dzieli się na trzy warstwy umiejętności:
 
-1. **OCR proper**: turn pixels into text.
-2. **Layout parsing**: group OCR output into regions (title, body, table, header).
-3. **Document understanding**: extract structured fields ("invoice_total = $42.50") from layout.
+1. **OCR właściwe**: zamiana pikseli na tekst.
+2. **Parsowanie układu**: grupowanie wyników OCR w regiony (tytuł, treść, tabela, nagłówek).
+3. **Rozumienie dokumentów**: ekstrakcja ustrukturyzowanych pól ("invoice_total = $42.50") z układu.
 
-Each layer has classical and modern approaches, and the gap between "I want text from an image" and "I need the total amount from this receipt" is bigger than most teams realise.
+Każda warstwa ma klasyczne i nowoczesne podejścia, a luka między "chcę tekst z obrazu" a "potrzebuję kwoty z tego paragonu" jest większa, niż większość zespołów sobie uświadamia.
 
-## The Concept
+## Koncepcja
 
-### The classical pipeline
+### Klasyczny pipeline
 
 ```mermaid
 flowchart LR
@@ -45,46 +45,46 @@ flowchart LR
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-- **Text detection** produces per-line or per-word quadrilaterals.
-- **Recognition** crops each region to a fixed height, runs a CNN + BiLSTM + CTC to produce a character sequence.
-- **Layout** rebuilds reading order (top-to-bottom, left-to-right for Latin; different for Arabic, Japanese).
+- **Wykrywanie tekstu** produkuje czworokąty dla każdej linii lub słowa.
+- **Rozpoznawanie** przycina każdy region do ustalonej wysokości, uruchamia CNN + BiLSTM + CTC, aby wyprodukować sekwencję znaków.
+- **Układ** odbudowuje kolejność czytania (z góry na dół, z lewej na prawo dla alfabetu łacińskiego; inaczej dla arabskiego, japońskiego).
 
-### CTC in one paragraph
+### CTC w jednym akapicie
 
-OCR recognition produces a variable-length sequence from a fixed-length feature map. CTC (Graves et al., 2006) lets you train this without character-level alignment. The model outputs a distribution over (vocab + blank) at every time step; CTC loss marginalises over all alignments that reduce to the target text after merging repeats and removing blanks.
+Rozpoznawanie OCR produkuje sekwencję o zmiennej długości z feature mapy o stałej długości. CTC (Graves et al., 2006) pozwala trenować to bez wyrównania na poziomie znaków. Model wyprowadza rozkład nad (vocab + blank) w każdym kroku czasowym; strata CTC marginalizuje po wszystkich wyrównaniach, które redukują się do tekstu docelowego po scaleniu powtórzeń i usunięciu spacji.
 
 ```
 raw output: "h h h _ _ e e l l _ l l o _ _"
 after merge repeats and remove blanks: "hello"
 ```
 
-CTC is the reason CRNN worked in 2015 and still trains most production OCR models in 2026.
+CTC to powód, dla którego CRNN zadziałał w 2015 roku i nadal trenuje większość produkcyjnych modeli OCR w 2026.
 
-### Modern end-to-end models
+### Nowoczesne modele end-to-end
 
-- **Donut** (Kim et al., 2022) — a ViT encoder + a text decoder; reads an image and emits JSON directly. No text detector, no layout module.
-- **TrOCR** — ViT + transformer decoder for line-level OCR.
-- **Qwen-VL-OCR / InternVL** — full vision-language models fine-tuned for OCR tasks; best accuracy in 2026 on complex documents.
-- **PaddleOCR** — classical DB + CRNN pipeline in a mature production package; still the open-source workhorse.
+- **Donut** (Kim et al., 2022) — koder ViT + dekoder tekstowy; czyta obraz i emituje JSON bezpośrednio. Bez detektora tekstu, bez modułu układu.
+- **TrOCR** — ViT + transformer decoder dla OCR na poziomie linii.
+- **Qwen-VL-OCR / InternVL** — pełne modele vision-language dostrojone do zadań OCR; najwyższa dokładność w 2026 na złożonych dokumentach.
+- **PaddleOCR** — klasyczny pipeline DB + CRNN w dojrzałym pakiecie produkcyjnym; nadal otwarto-źródłowy workhorse.
 
-End-to-end models need more data and compute but skip the error accumulation of multi-stage pipelines.
+Modele end-to-end potrzebują więcej danych i mocy obliczeniowej, ale pomijają akumulację błędów wielostopniowych pipeline'ów.
 
-### Layout parsing
+### Parsowanie układu
 
-For structured documents, run a layout detector (LayoutLMv3, DocLayNet) that labels each region: Title, Paragraph, Figure, Table, Footnote. Reading order then becomes "iterate through regions in layout order, concatenate."
+Dla ustrukturyzowanych dokumentów uruchom detektor układu (LayoutLMv3, DocLayNet), który etykietuje każdy region: Title, Paragraph, Figure, Table, Footnote. Kolejność czytania staje się wtedy "iteruj przez regiony w kolejności układu, konkatenuj."
 
-For forms, use **Key-Value extraction** models (Donut for visually-rich documents, LayoutLMv3 for plain scans). They take image + detected text + positions and predict structured key-value pairs.
+Dla formularzy użyj modeli **Key-Value extraction** (Donut dla dokumentów wizualnie bogatych, LayoutLMv3 dla zwykłych skanów). Przyjmują obraz + wykryty tekst + pozycje i przewidują ustrukturyzowane pary klucz-wartość.
 
-### Evaluation metrics
+### Metryki ewaluacyjne
 
-- **Character Error Rate (CER)** — Levenshtein distance / length of reference. Lower is better. Production target: < 2% on clean scans.
-- **Word Error Rate (WER)** — same at the word level.
-- **F1 on structured fields** — for key-value tasks; measures whether `{invoice_total: 42.50}` appears correctly.
-- **Edit distance on JSON** — for end-to-end document parsing; the Donut paper introduced normalised tree edit distance.
+- **Character Error Rate (CER)** — odległość Levenshteina / długość referencji. Niższy jest lepszy. Cel produkcyjny: < 2% na czystych skanach.
+- **Word Error Rate (WER)** — to samo na poziomie słów.
+- **F1 na ustrukturyzowanych polach** — dla zadań key-value; mierzy czy `{invoice_total: 42.50}` pojawia się poprawnie.
+- **Edit distance na JSON** — dla end-to-end parsowania dokumentów; artykuł o Donut wprowadził znormalizowaną odległość edycyjną drzewa.
 
-## Build It
+## Zbuduj to
 
-### Step 1: CTC loss + greedy decoder
+### Krok 1: Funkcja straty CTC + greedy decoder
 
 ```python
 import torch
@@ -121,11 +121,11 @@ def greedy_ctc_decode(log_probs, blank=0):
     return out
 ```
 
-`F.ctc_loss` uses the efficient CuDNN implementation when available. The greedy decoder is simpler than a beam search and usually within 1% CER of it.
+`F.ctc_loss` używa efektywnej implementacji CuDNN, gdy jest dostępna. Greedy decoder jest prostszy niż beam search i zwykle osiąga wynik w granicach 1% CER.
 
-### Step 2: Tiny CRNN recogniser
+### Krok 2: Mini CRNN recogniser
 
-Minimal CNN + BiLSTM for line OCR.
+Minimal CNN + BiLSTM dla OCR linii.
 
 ```python
 class TinyCRNN(nn.Module):
@@ -152,11 +152,11 @@ class TinyCRNN(nn.Module):
         return F.log_softmax(self.head(h).transpose(0, 1), dim=-1)  # (W', N, vocab)
 ```
 
-Fixed-height input (the CNN max-pools height to 1). Width is the time dimension for CTC.
+Wejście o stałej wysokości (CNN max-puluje wysokość do 1). Szerokość to wymiar czasowy dla CTC.
 
-### Step 3: Synthetic OCR
+### Krok 3: Syntetyczny OCR
 
-Generate black-on-white digit strings for an end-to-end smoke test.
+Generuj czarny-na-białym ciągi cyfr dla end-to-end smoke testu.
 
 ```python
 import numpy as np
@@ -190,9 +190,9 @@ imgs, targets, lengths = build_batch(["hello", "world"], vocab)
 print(f"images: {imgs.shape}   targets: {targets.shape}   lengths: {lengths.tolist()}")
 ```
 
-A real OCR dataset adds fonts, noise, rotation, blur, and colour. The pipeline above is identical.
+Prawdziwy zbiór danych OCR dodaje czcionki, szum, rotację, blur i kolor. Pipeline powyżej jest identyczny.
 
-### Step 4: Training sketch
+### Krok 4: Szkic trenowania
 
 ```python
 model = TinyCRNN(vocab_size=len(vocab))
@@ -207,17 +207,17 @@ for step in range(200):
     opt.zero_grad(); loss.backward(); opt.step()
 ```
 
-Loss should drop from ~3 to ~0.2 over 200 steps on this trivial synthetic data.
+Strata powinna spaść z ~3 do ~0.2 w ciągu 200 kroków na tym trywialnym syntetycznym zbiorze danych.
 
-## Use It
+## Użyj tego
 
-Three production paths:
+Trzy produkcyjne ścieżki:
 
-- **PaddleOCR** — mature, fast, multilingual. One-line usage: `paddleocr.PaddleOCR(lang="en").ocr(image_path)`.
-- **EasyOCR** — Python-native, multilingual, PyTorch backbone.
-- **Tesseract** — classical; still useful for old scanned documents when models struggle.
+- **PaddleOCR** — dojrzały, szybki, wielojęzyczny. Użycie jedną linią: `paddleocr.PaddleOCR(lang="en").ocr(image_path)`.
+- **EasyOCR** — natywny dla Pythona, wielojęzyczny, backbone PyTorch.
+- **Tesseract** — klasyczny; nadal przydatny dla starych zdigitalizowanych dokumentów, gdy modele sobie nie radzą.
 
-For end-to-end document parsing, use Donut or a VLM:
+Dla end-to-end parsowania dokumentów użyj Donut lub VLM:
 
 ```python
 from transformers import DonutProcessor, VisionEncoderDecoderModel
@@ -226,37 +226,30 @@ processor = DonutProcessor.from_pretrained("naver-clova-ix/donut-base-finetuned-
 model = VisionEncoderDecoderModel.from_pretrained("naver-clova-ix/donut-base-finetuned-cord-v2")
 ```
 
-For receipts, invoices, and forms with repeatable structure, fine-tune Donut. For arbitrary documents or OCR with reasoning, a VLM like Qwen-VL-OCR is the current default.
+Dla paragonów, faktur i formularzy z powtarzalną strukturą, dostrój Donut. Dla dowolnych dokumentów lub OCR z rezonowaniem, VLM jak Qwen-VL-OCR to obecny domyślny wybór.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
+Ta lekcja produkuje:
 
-- `outputs/prompt-ocr-stack-picker.md` — a prompt that picks Tesseract / PaddleOCR / Donut / VLM-OCR given document type, language, and structure.
-- `outputs/skill-ctc-decoder.md` — a skill that writes greedy and beam-search CTC decoders from scratch, including length normalisation.
+- `outputs/prompt-ocr-stack-picker.md` — prompt, który wybiera Tesseract / PaddleOCR / Donut / VLM-OCR w zależności od typu dokumentu, języka i struktury.
+- `outputs/skill-ctc-decoder.md` — skill, który pisze greedy i beam-search CTC decodery od zera, włącznie z normalizacją długości.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Train the TinyCRNN on 5-digit random numeric strings for 500 steps. Report CER on a held-out set.
-2. **(Medium)** Replace greedy decoding with beam search (beam_width=5). Report CER delta. On which inputs does beam search win?
-3. **(Hard)** Use PaddleOCR on a set of 20 receipts, extract line items, and compute F1 against hand-labelled ground truth for {item_name, price} pairs.
+1. **(Łatwe)** Trenuj TinyCRNN na 5-cyfrowych losowych ciągach numerycznych przez 500 kroków. Zgłoś CER na held-out zbiorze.
+2. **(Średnie)** Zamień greedy decoding na beam search (beam_width=5). Zgłoś delta CER. Na których danych wejściowych beam search wygrywa?
+3. **(Trudne)** Użyj PaddleOCR na zbiorze 20 paragonów, wyekstrakcjuj pozycje linii i oblicz F1 względem ręcznie oznakowanej prawdy podstawowej dla par {item_name, price}.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| OCR | "Text from pixels" | Turning image regions into character sequences |
-| CTC | "Alignment-free loss" | Loss that trains a sequence model without per-timestep labels; marginalises over alignments |
-| CRNN | "Classic OCR model" | Conv feature extractor + BiLSTM + CTC; the 2015 baseline still used in production |
-| Donut | "End-to-end OCR" | ViT encoder + text decoder; emits JSON directly from image |
-| Layout parsing | "Find regions" | Detect and label Title/Table/Figure/Paragraph regions in a document |
-| Reading order | "Text sequence" | Ordering of recognised regions into a sentence; trivial for Latin, non-trivial for mixed layouts |
-| CER / WER | "Error rates" | Levenshtein distance / reference length at character or word granularity |
-| VLM-OCR | "LLM that reads" | A vision-language model trained or prompted for OCR tasks; current SOTA on complex documents |
-
-## Further Reading
-
-- [CRNN (Shi et al., 2015)](https://arxiv.org/abs/1507.05717) — the original CNN+RNN+CTC architecture
-- [CTC (Graves et al., 2006)](https://www.cs.toronto.edu/~graves/icml_2006.pdf) — the original CTC paper; densely packed with the algorithmic ideas
-- [Donut (Kim et al., 2022)](https://arxiv.org/abs/2111.15664) — OCR-free document understanding transformer
-- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) — the open-source production OCR stack
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|--------------------------|
+| OCR | "Tekst z pikseli" | Zamiana regionów obrazu na sekwencje znaków |
+| CTC | "Loss bez wyrównania" | Funkcja straty, która trenuje model sekwencyjny bez etykiet na każdy krok czasowy; marginalizuje po wyrównaniach |
+| CRNN | "Klasyczny model OCR" | Ekstraktor cech CNN + BiLSTM + CTC; baseline z 2015 roku wciąż używany w produkcji |
+| Donut | "End-to-end OCR" | Koder ViT + dekoder tekstowy; emituje JSON bezpośrednio z obrazu |
+| Layout parsing | "Znajdowanie regionów" | Wykrywanie i etykietowanie regionów Title/Table/Figure/Paragraph w dokumencie |
+| Reading order | "Kolejność tekstu" | Porządkowanie rozpoznanych regionów w zdanie; trywialne dla łacińskiego, nietrywialne dla mieszanych układów |
+| CER / WER | "Wskaźniki błędów" | Odległość Levenshteina / długość referencji na poziomie znaku lub słowa |
+| VLM-OCR | "LLM który czyta" | Model vision-language trenowany lub promptowany do zadań OCR; obecny SOTA na złożonych dokumentach |

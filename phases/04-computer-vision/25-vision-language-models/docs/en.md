@@ -1,115 +1,116 @@
-# Vision-Language Models — The ViT-MLP-LLM Pattern
+```markdown
+# Modele wizyjno-językowe — wzorzec ViT-MLP-LLM
 
-> A vision encoder converts an image into tokens. An MLP projector maps those tokens into the LLM's embedding space. A language model does the rest. That pattern — ViT-MLP-LLM — is every production VLM in 2026.
+> Enkoder wizyjny konwertuje obraz na tokeny. Projektor MLP mapuje te tokeny w przestrzeń osadzeń LLM. Model językowy robi resztę. Ten wzorzec — ViT-MLP-LLM — to każdy produkcyjny VLM w 2026 roku.
 
-**Type:** Learn + Use
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 14 (ViT), Phase 4 Lesson 18 (CLIP), Phase 7 Lesson 02 (Self-Attention)
-**Time:** ~75 minutes
+**Typ:** Nauka + Zastosowanie
+**Języki:** Python
+**Wymagania wstępne:** Faza 4 Lekcja 14 (ViT), Faza 4 Lekcja 18 (CLIP), Faza 7 Lekcja 02 (Self-Attention)
+**Szacowany czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- State the ViT-MLP-LLM architecture and explain what each of the three components contributes
-- Compare Qwen3-VL, InternVL3.5, LLaVA-Next, and GLM-4.6V on parameter count, context length, and benchmark performance
-- Explain DeepStack: why multi-level ViT features tighten vision-language alignment better than a single last-layer feature
-- Measure VLM hallucination in production with Cross-Modal Error Rate (CMER) and act on the signal
+- Opisać architekturę ViT-MLP-LLM i wyjaśnić, co wnosi każdy z trzech komponentów
+- Porównać Qwen3-VL, InternVL3.5, LLaVA-Next i GLM-4.6V pod względem liczby parametrów, długości kontekstu i wyników benchmarkowych
+- Wyjaśnić DeepStack: dlaczego cechy ViT na wielu poziomach poprawiają wyrównanie wizyjno-językowe lepiej niż cechy z pojedynczej ostatniej warstwy
+- Mierzyć halucynacje VLM w produkcji za pomocą Cross-Modal Error Rate (CMER) i działać na podstawie sygnału
 
-## The Problem
+## Problem
 
-CLIP (Phase 4 Lesson 18) gives you a shared embedding space for images and text, which is enough for zero-shot classification and retrieval. It cannot answer "how many red cars are in this image?" because CLIP does not generate text — it only scores similarities.
+CLIP (Faza 4 Lekcja 18) daje współdzieloną przestrzeń osadzeń dla obrazów i tekstu, co wystarcza do klasyfikacji zero-shot i wyszukiwania. Nie może odpowiedzieć na pytanie "ile jest czerwonych samochodów na tym obrazie?" ponieważ CLIP nie generuje tekstu — tylko ocenia podobieństwa.
 
-Vision-Language Models (VLMs) — Qwen3-VL, InternVL3.5, LLaVA-Next, GLM-4.6V — bolt a CLIP-family image encoder to a full language model. The model sees an image plus a question and generates an answer. In 2026 open-source VLMs rival or beat GPT-5 and Gemini-2.5-Pro on multimodal benchmarks (MMMU, MMBench, DocVQA, ChartQA, MathVista, OSWorld).
+Modele wizyjno-językowe (VLM) — Qwen3-VL, InternVL3.5, LLaVA-Next, GLM-4.6V — doczepiają enkoder obrazu z rodziny CLIP do pełnego modelu językowego. Model widzi obraz plus pytanie i generuje odpowiedź. W 2026 roku otwarte VLM dorównują lub przewyższają GPT-5 i Gemini-2.5-Pro na benchmarkach multimodalnych (MMMU, MMBench, DocVQA, ChartQA, MathVista, OSWorld).
 
-The trio of pieces (ViT, projector, LLM) is the standard. The differences between models are in which ViT, which projector, which LLM, the training data, and the alignment recipe. Once you understand the pattern, swapping any component is mechanical.
+Trójka komponentów (ViT, projektor, LLM) to standard. Różnice między modelami tkwią w tym, który ViT, który projektor, który LLM, jakie dane treningowe i przepis na wyrównanie. Gdy raz zrozumiesz wzorzec, zamiana dowolnego komponentu jest mechaniczna.
 
-## The Concept
+## Koncepcja
 
-### The ViT-MLP-LLM architecture
+### Architektura ViT-MLP-LLM
 
 ```mermaid
 flowchart LR
-    IMG["Image<br/>(H x W x 3)"] --> ViT["Vision encoder<br/>(ViT, CLIP-L,<br/>SigLIP, DINOv3)"]
-    ViT --> FEATS["Image tokens<br/>(N, d_vit)"]
-    FEATS --> PROJ["Projector<br/>(2-4 layer MLP<br/>or Q-former)"]
-    PROJ --> VTOK["Image tokens<br/>in LLM space<br/>(N, d_llm)"]
-    TXT["Text prompt"] --> TOK["LLM tokenizer"]
-    TOK --> TTOK["Text tokens<br/>(M, d_llm)"]
-    VTOK --> CONCAT["Interleave<br/>or concat"]
+    IMG["Obraz<br/>(H x W x 3)"] --> ViT["Enkoder wizyjny<br/>(ViT, CLIP-L,<br/>SigLIP, DINOv3)"]
+    ViT --> FEATS["Tokeny obrazu<br/>(N, d_vit)"]
+    FEATS --> PROJ["Projektor<br/>(MLP 2-4 warstwy<br/>lub Q-former)"]
+    PROJ --> VTOK["Tokeny obrazu<br/>w przestrzeni LLM<br/>(N, d_llm)"]
+    TXT["Tekst prompt"] --> TOK["Tokenizer LLM"]
+    TOK --> TTOK["Tokeny tekstowe<br/>(M, d_llm)"]
+    VTOK --> CONCAT["Przeplatanka<br/>lub konkatenacja"]
     TTOK --> CONCAT
-    CONCAT --> LLM["Decoder LLM<br/>(Qwen3, LLaMA, etc.)"]
-    LLM --> OUT["Text answer"]
+    CONCAT --> LLM["LLM dekodujący<br/>(Qwen3, LLaMa, itp.)"]
+    LLM --> OUT["Odpowiedź tekstowa"]
 
     style ViT fill:#dbeafe,stroke:#2563eb
     style PROJ fill:#fef3c7,stroke:#d97706
     style LLM fill:#dcfce7,stroke:#16a34a
 ```
 
-1. **Vision encoder** — a pretrained ViT (CLIP-L/14, SigLIP, DINOv3, or a fine-tuned variant). Produces patch tokens.
-2. **Projector** — a small module (2-4 layer MLP, or a Q-former) that maps vision tokens into the LLM's embedding dimension. This is where most of the fine-tuning happens.
-3. **LLM** — a decoder-only language model (Qwen3, Llama, Mistral, GLM, InternLM). Reads the vision + text tokens in sequence, generates text.
+1. **Enkoder wizyjny** — wstępnie wytrenowany ViT (CLIP-L/14, SigLIP, DINOv3 lub dostrojona wersja). Produkuje tokeny patchów.
+2. **Projektor** — mały moduł (MLP 2-4 warstwy lub Q-former) mapujący tokeny wizyjne w wymiar osadzeń LLM. To tutaj zachodzi większość strojenia.
+3. **LLM** — decoder-only model językowy (Qwen3, Llama, Mistral, GLM, InternLM). Czyta tokeny wizyjne + tekstowe w sekwencji, generuje tekst.
 
-All three pieces are trainable in principle. In practice, the vision encoder and LLM stay mostly frozen while the projector trains — a few billion parameters of signal for cheap.
+Wszystkie trzy komponenty są trenowalne w zasadzie. W praktyce enkoder wizyjny i LLM pozostają głównie zamrożone, a trenowany jest projektor — kilka miliardów parametrów sygnału za tanio.
 
 ### DeepStack
 
-Vanilla projection uses only the last ViT layer. DeepStack (Qwen3-VL) samples features from multiple ViT depths and stacks them. Deeper layers carry high-level semantics; shallower layers carry fine-grained spatial and textural information. Feeding both into the LLM closes the gap between "what does the image contain" (semantics) and "where exactly" (spatial grounding).
+Vanilla projekcja używa tylko ostatniej warstwy ViT. DeepStack (Qwen3-VL) próbkuje cechy z wielu głębokości ViT i składa je. Głębsze warstwy niosą semantykę wysokiego poziomu, a płytsze warstwy niosą szczegółowe informacje przestrzenne i teksturalne. Podawanie obu do LLM zamyka lukę między "co obraz zawiera" (semantyka) a "dokładnie gdzie" (uzasadnienie przestrzenne).
 
-### Three training stages
+### Trzy etapy treningu
 
-Modern VLMs train in stages:
+Nowoczesne VLM trenują etapowo:
 
-1. **Alignment** — freeze ViT and LLM. Train only the projector on image-caption pairs. Teaches the projector to map vision space into language space.
-2. **Pre-training** — unfreeze everything. Train on large-scale interleaved image-text data (500M+ pairs). Builds the model's visual knowledge.
-3. **Instruction tuning** — fine-tune on curated (image, question, answer) triples. Teaches conversational behaviour and task formats. This is what turns a "vision-aware LM" into a usable assistant.
+1. **Wyrównanie (Alignment)** — zamroź ViT i LLM. Trenuj tylko projektor na parach obraz-opis. Uczy projektor mapować przestrzeń wizyjną w przestrzeń językową.
+2. **Pre-trening** — odmroź wszystko. Trenuj na danych na dużą skalę przeplatanych obraz-tekst (500M+ par). Buduje wizualną wiedzę modelu.
+3. **Strojenie instrukcji** — fine-tune na starannie dobranych trójkach (obraz, pytanie, odpowiedź). Uczy zachowania konwersacyjnego i formaty zadań. To właśnie zamienia "świadomy wizualnie LM" w użytecznego asystenta.
 
-Most LoRA fine-tunes target stage 3 with a small labelled dataset.
+Większość LoRA fine-tune'ów celuje w etap 3 z małym oznakowanym zbiorem danych.
 
-### Model family comparison (early 2026)
+### Porównanie rodzin modeli (wczesny 2026)
 
-| Model | Params | Vision encoder | LLM | Context | Strengths |
-|-------|--------|----------------|-----|---------|-----------|
-| Qwen3-VL-235B-A22B (MoE) | 235B (22B active) | custom ViT + DeepStack | Qwen3 | 256K | General SOTA, GUI agent |
-| Qwen3-VL-30B-A3B (MoE) | 30B (3B active) | custom ViT + DeepStack | Qwen3 | 256K | Smaller MoE alternative |
-| Qwen3-VL-8B (dense) | 8B | custom ViT | Qwen3 | 128K | Production dense default |
-| InternVL3.5-38B | 38B | InternViT-6B | Qwen3 + GPT-OSS | 128K | Strong MMBench / MMVet |
-| InternVL3.5-241B-A28B | 241B (28B active) | InternViT-6B | Qwen3 | 128K | Competitive with GPT-4o |
-| LLaVA-Next 72B | 72B | SigLIP | Llama-3 | 32K | Open, easy to fine-tune |
-| GLM-4.6V | ~70B | custom | GLM | 64K | Open-source, strong OCR |
-| MiniCPM-V-2.6 | 8B | SigLIP | MiniCPM | 32K | Edge-friendly |
+| Model | Parametry | Enkoder wizyjny | LLM | Kontekst | Zalety |
+|-------|-----------|-----------------|-----|----------|--------|
+| Qwen3-VL-235B-A22B (MoE) | 235B (22B aktywnych) | custom ViT + DeepStack | Qwen3 | 256K | General SOTA, agent GUI |
+| Qwen3-VL-30B-A3B (MoE) | 30B (3B aktywnych) | custom ViT + DeepStack | Qwen3 | 256K | Mniejszy wariant MoE |
+| Qwen3-VL-8B (dense) | 8B | custom ViT | Qwen3 | 128K | Produkcja dense default |
+| InternVL3.5-38B | 38B | InternViT-6B | Qwen3 + GPT-OSS | 128K | Silny MMBench / MMVet |
+| InternVL3.5-241B-A28B | 241B (28B aktywnych) | InternViT-6B | Qwen3 | 128K | Konkurencyjny z GPT-4o |
+| LLaVA-Next 72B | 72B | SigLIP | Llama-3 | 32K | Otwarty, łatwy do fine-tune |
+| GLM-4.6V | ~70B | custom | GLM | 64K | Open-source, silny OCR |
+| MiniCPM-V-2.6 | 8B | SigLIP | MiniCPM | 32K | Przyjazny dla edge |
 
-### Visual agents
+### Agenci wizualni
 
-Qwen3-VL-235B reaches top global performance on OSWorld — a benchmark for **visual agents** that operate GUIs (desktop, mobile, web). The model sees a screenshot, understands the UI, and emits actions (click, type, scroll). Combined with tools, it closes the loop on common desktop tasks. This is what most 2026 "AI PC" demos run under the hood.
+Qwen3-VL-235B osiąga top globalną wydajność na OSWorld — benchmark dla **agentów wizualnych** operujących GUI (desktop, mobile, web). Model widzi screenshot, rozumie UI i emituje akcje (klik, wpisz, przewiń). W połączeniu z narzędziami zamyka pętlę na typowych zadaniach desktopowych. To właśnie chodzi pod maską większości demosów "AI PC" z 2026 roku.
 
-### Agentic capabilities + RoPE variants
+### Zdolności agentyczne + warianty RoPE
 
-VLMs need to know **when** a frame is in a video. Qwen3-VL evolved from T-RoPE (temporal rotary position embeddings) to **text-based time alignment** — explicit timestamp text tokens interleaved with video frames. The model sees "`<timestamp 00:32>` frame, prompt" and can reason about temporal relationships.
+VLM muszą wiedzieć **kiedy** klatka jest w wideo. Qwen3-VL ewoluował z T-RoPE (temporal rotary position embeddings) do **wyrównania czasowego opartego na tekście** — jawnych tokenów znaczników czasowych przeplatanych z klatkami wideo. Model widzi "`<timestamp 00:32>` klatka, prompt" i może wnioskować o relacjach czasowych.
 
-### The alignment problem
+### Problem wyrównania
 
-12% of image-text pairs in a crawled dataset contain descriptions not fully grounded in the image. A VLM trained on this silently learns to hallucinate — fabricate objects, misread numbers, invent relationships. In production this is the dominant failure mode.
+12% par obraz-tekst w crawled dataset zawiera opisy nie w pełni uzasadnione w obrazie. VLM trenowany na tym cicho uczy się halucynować — fabrykować obiekty, źle odczytywać liczby, wymyślać relacje. W produkcji to dominujący tryb awarii.
 
-Skywork.ai introduced the **Cross-Modal Error Rate (CMER)** to track it:
+Skywork.ai wprowadził **Cross-Modal Error Rate (CMER)** do śledzenia tego:
 
 ```
-CMER = fraction of outputs where the text confidence is high but the image-text similarity (via a CLIP-family checker) is low
+CMER = frakcja outputów gdzie pewność tekstowa jest wysoka, ale podobieństwo obraz-tekst (przez checker z rodziny CLIP) jest niskie
 ```
 
-High CMER means the model is confidently saying things not grounded in the image. Monitoring CMER and treating it as a production KPI cut hallucination rate by ~35% in their deployment. The trick is not "fix the model" but "route high-CMER outputs to human review."
+Wysoki CMER oznacza, że model pewnie mówi rzeczy nieuzasadnione w obrazie. Monitorowanie CMER i traktowanie go jako produkcyjnego KPI zmniejszyło halucynacje o ~35% w ich deploymencie. Trick polega na tym, żeby nie "naprawić model", ale "routować high-CMER outputs do human review."
 
-### Fine-tuning with LoRA / QLoRA
+### Fine-tuning z LoRA / QLoRA
 
-Full fine-tuning of a 70B VLM is out of reach for most teams. LoRA (rank 16-64) on attention + projector layers, or QLoRA with 4-bit base weights, fits on a single A100 / H100. Cost: 5,000-50,000 examples, $100-$5,000 in compute, 2-10 hours of training.
+Full fine-tuning 70B VLM jest poza zasięgiem większości zespołów. LoRA (rank 16-64) na attention + projektor layers, lub QLoRA z 4-bit base weights, mieści się na pojedynczym A100 / H100. Koszt: 5000-50000 przykładów, $100-$5000 w compute, 2-10 godzin treningu.
 
-### Spatial reasoning is still weak
+### Rozumowanie przestrzenne wciąż słabe
 
-Current VLMs score 50-60% on spatial reasoning benchmarks (above-below, left-right, counting, distance). If your use case depends on "which object is on top of which," validate heavily — generic VLM performance is below human. Better-than-VLM alternatives for pure spatial tasks: a specialised keypoint / pose estimator, a depth model, or a detection model with box geometry post-processed.
+Obecne VLM osiągają 50-60% na benchmarkach rozumowania przestrzennego (powyżej-poniżej, lewo-prawo, liczenie, dystans). Jeśli twój use case zależy od "który obiekt jest na górze którego", waliduj mocno — generyczna wydajność VLM jest poniżej ludzkiej. Lepsze alternatywy niż VLM dla czysto przestrzennych zadań: specjalizowany keypoint / pose estimator, model głębi, lub model detekcji z post-processing geometrii boxów.
 
-## Build It
+## Zbuduj to
 
-### Step 1: The projector
+### Krok 1: Projektor
 
-The part you will train most often. 2-4 layer MLP with GELU.
+Część, którą będziesz trenować najczęściej. MLP 2-4 warstwy z GELU.
 
 ```python
 import torch
@@ -129,11 +130,11 @@ class Projector(nn.Module):
         return self.net(x)
 ```
 
-Input is a `(N_patches, d_vit)` token tensor. Output is `(N_patches, d_llm)`. The LLM treats every output row as just another token.
+Input to tensor tokenów `(N_patches, d_vit)`. Output to `(N_patches, d_llm)`. LLM traktuje każdy wiersz outputu jako po prostu kolejny token.
 
-### Step 2: Assemble ViT-MLP-LLM end-to-end
+### Krok 2: Assemble ViT-MLP-LLM end-to-end
 
-Skeleton of the forward pass for a minimal VLM. Real code uses `transformers`; this is the conceptual layout.
+Szkielet forward passa dla minimalnego VLM. Realny kod używa `transformers`, to jest konceptualny układ.
 
 ```python
 class MinimalVLM(nn.Module):
@@ -171,11 +172,11 @@ class MinimalVLM(nn.Module):
         return out
 ```
 
-The `<image>` placeholder token in the text gets replaced with real image embeddings — same pattern LLaVA, Qwen-VL, and InternVL use.
+Token placeholder `<image>` w tekście jest zastępowany prawdziwymi osadzeniami obrazu — ten sam wzorzec co LLaVA, Qwen-VL i InternVL używają.
 
-### Step 3: CMER computation
+### Krok 3: Obliczanie CMER
 
-A lightweight runtime check.
+Lekki runtime check.
 
 ```python
 import torch.nn.functional as F
@@ -194,11 +195,11 @@ def cross_modal_error_rate(image_emb, text_emb, text_confidence, sim_threshold=0
     return high_conf_low_sim.float().mean().item()
 ```
 
-Treat CMER as a production KPI. Monitor it per endpoint, per prompt type, per customer. Rising CMER indicates the model is starting to hallucinate on some input distribution.
+Traktuj CMER jako produkcyjny KPI. Monitoruj go per endpoint, per typ promptu, per klient. Rosnący CMER wskazuje, że model zaczyna halucynować na jakimś rozkładzie danych wejściowych.
 
-### Step 4: Toy VLM classifier (runnable)
+### Krok 4: Toy VLM classifier (runnable)
 
-Demonstrate the projector trains. Fake "ViT features" go in; a tiny LLM-style token predicts a class.
+Demonstrate, że projektor się trenuje. Fake "ViT features" wchodzą, a tiny LLM-style token przewiduje klasę.
 
 ```python
 class ToyVLM(nn.Module):
@@ -213,15 +214,15 @@ class ToyVLM(nn.Module):
         return self.head(pooled)
 ```
 
-One can fit this on synthetic (feature, class) pairs in under 200 steps — enough to show the projector pattern works.
+Można to dopasować na syntetycznych (feature, class) pairs w mniej niż 200 krokach — wystarczająco, żeby pokazać, że wzorzec projektor działa.
 
-## Use It
+## Użyj tego
 
-Three ways production teams use VLMs in 2026:
+Trzy sposoby, w jakich zespoły produkcyjne używają VLM w 2026:
 
 - **Hosted API** — OpenAI Vision, Anthropic Claude Vision, Google Gemini Vision. Zero infra, vendor risk.
-- **Open-source self-host** — Qwen3-VL or InternVL3.5 via `transformers` and `vllm`. Full control, higher up-front effort.
-- **Fine-tune on domain** — load Qwen2.5-VL-7B or LLaVA-1.6-7B, LoRA on 5k-50k custom examples, serve with `vllm` or `TGI`.
+- **Open-source self-host** — Qwen3-VL lub InternVL3.5 przez `transformers` i `vllm`. Pełna kontrola, wyższy up-front effort.
+- **Fine-tune na domenie** — załaduj Qwen2.5-VL-7B lub LLaVA-1.6-7B, LoRA na 5k-50k custom examples, serwuj z `vllm` lub `TGI`.
 
 ```python
 from transformers import AutoProcessor, AutoModelForVision2Seq
@@ -244,39 +245,31 @@ generated = model.generate(**inputs, max_new_tokens=256)
 answer = processor.decode(generated[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
 ```
 
-`apply_chat_template` hides the `<image>` placeholder tokenisation; the model handles the merge internally.
+`apply_chat_template` ukrywa tokenizację placeholdera `<image>`, model obsługuje merge wewnętrznie.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
+Ta lekcja produkuje:
 
-- `outputs/prompt-vlm-selector.md` — picks Qwen3-VL / InternVL3.5 / LLaVA-Next / API given accuracy, latency, context length, and budget.
-- `outputs/skill-cmer-monitor.md` — emits the code to instrument a production VLM endpoint with cross-modal error rate, per-endpoint dashboards, and alerting thresholds.
+- `outputs/prompt-vlm-selector.md` — wybiera Qwen3-VL / InternVL3.5 / LLaVA-Next / API biorąc pod uwagę accuracy, latency, długość kontekstu i budżet.
+- `outputs/skill-cmer-monitor.md` — emituje kod do instrumentacji produkcyjnego VLM endpoint z cross-modal error rate, per-endpoint dashboards i progami alertowymi.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Run three prompts ("what is this?", "count the objects", "describe the scene") through any open VLM on five images. Score each answer as correct / partially correct / hallucinated by hand. Compute a first-pass CMER-like rate.
-2. **(Medium)** Fine-tune Qwen2.5-VL-3B or LLaVA-1.6-7B with LoRA (rank 16) on 500 images of a target domain with captions. Compare zero-shot vs fine-tuned MMBench-style accuracy.
-3. **(Hard)** Replace the VLM's image encoder with DINOv3 instead of its default SigLIP/CLIP. Re-train only the projector (frozen LLM + frozen DINOv3). Measure whether dense-prediction tasks (counting, spatial reasoning) improve.
+1. **(Łatwe)** Uruchom trzy prompty ("co to jest?", "policz obiekty", "opisz scenę") przez dowolny open VLM na pięciu obrazach. Oceń każdą odpowiedź jako poprawna / częściowo poprawna / zhalucynowana ręcznie. Oblicz first-pass CMER-like rate.
+2. **(Średnie)** Fine-tune Qwen2.5-VL-3B lub LLaVA-1.6-7B z LoRA (rank 16) na 500 obrazach target domeny z opisami. Porównaj zero-shot vs fine-tuned MMBench-style accuracy.
+3. **(Trudne)** Zamień enkoder obrazu VLM na DINOv3 zamiast jego domyślnego SigLIP/CLIP. Przetrénuj tylko projektor (zamrożony LLM + zamrożony DINOv3). Zmierz, czy dense-prediction tasks (liczenie, rozumowanie przestrzenne) się poprawiają.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| ViT-MLP-LLM | "The VLM pattern" | Vision encoder + projector + language model; every 2026 VLM |
-| Projector | "The bridge" | 2-4 layer MLP (or Q-former) that maps vision tokens into LLM embedding space |
-| DeepStack | "Qwen3-VL feature trick" | Multi-level ViT features stacked rather than last-layer only |
-| Image token | "<image> placeholder" | Special token in the text stream replaced by projected vision embeddings |
-| CMER | "Hallucination KPI" | Cross-Modal Error Rate; high when text confidence is high but image-text similarity is low |
-| Visual agent | "VLM that clicks" | VLM operating GUIs (OSWorld, mobile, web) with tool calls |
-| Q-former | "Fixed-count token bridge" | BLIP-2 style projector producing a fixed number of visual query tokens |
-| Alignment / pre-training / instruction tuning | "Three stages" | Standard VLM training pipeline |
-
-## Further Reading
-
-- [Qwen3-VL Technical Report (arXiv 2511.21631)](https://arxiv.org/abs/2511.21631)
-- [InternVL3.5 Advancing Open-Source Multimodal Models (arXiv 2508.18265)](https://arxiv.org/html/2508.18265v1)
-- [LLaVA-Next series](https://llava-vl.github.io/blog/2024-05-10-llava-next-stronger-llms/)
-- [BentoML: Best Open-Source VLMs 2026](https://www.bentoml.com/blog/multimodal-ai-a-guide-to-open-source-vision-language-models)
-- [MMMU: Multi-discipline Multimodal Understanding benchmark](https://mmmu-benchmark.github.io/)
-- [VLMs in manufacturing (Robotics Tomorrow, March 2026)](https://www.roboticstomorrow.com/story/2026/03/when-machines-learn-to-see-like-experts-the-rise-of-vision-language-models-in-manufacturing/26335/)
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|-------------------------|
+| ViT-MLP-LLM | "Wzorzec VLM" | Enkoder wizyjny + projektor + model językowy; każdy VLM z 2026 |
+| Projektor | "Most" | MLP 2-4 warstwy (lub Q-former) mapujący tokeny wizyjne w przestrzeń osadzeń LLM |
+| DeepStack | "Trik z cechami Qwen3-VL" | Wielopoziomowe cechy ViT składane zamiast tylko ostatniej warstwy |
+| Image token | "<image> placeholder" | Specjalny token w strumieniu tekstowym zastępowany przez projected vision embeddings |
+| CMER | "KPI halucynacji" | Cross-Modal Error Rate; wysoki, gdy pewność tekstowa jest wysoka, ale podobieństwo obraz-tekst jest niskie |
+| Agent wizualny | "VLM który klika" | VLM operujący GUI (OSWorld, mobile, web) z tool calls |
+| Q-former | "Most z fixed-count token bridge" | BLIP-2 style projektor produkujący fixed number of visual query tokens |
+| Alignment / pre-training / instruction tuning | "Trzy etapy" | Standardowy pipeline treningowy VLM |
+```

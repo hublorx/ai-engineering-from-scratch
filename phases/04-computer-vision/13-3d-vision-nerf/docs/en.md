@@ -1,32 +1,32 @@
-# 3D Vision — Point Clouds & NeRFs
+# Wizja 3D — Chmury punktów i NeRF-y
 
-> 3D vision comes in two flavours. Point clouds are the sensor's raw output. NeRFs are the learned volumetric field. Both answer "what is where in space."
+> Wizja 3D występuje w dwóch odmianach. Chmury punktów to surowy output czujnika. NeRF-y to wyuczone pola objętościowe. Oba odpowiadają na pytanie „co jest gdzie w przestrzeni".
 
-**Type:** Learn + Build
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 03 (CNNs), Phase 1 Lesson 12 (Tensor Operations)
-**Time:** ~45 minutes
+**Typ:** Nauka + Budowanie
+**Języki:** Python
+**Wymagania wstępne:** Lekcja 03 z Fazy 4 (CNN-y), Lekcja 12 z Fazy 1 (Operacje na tensorach)
+**Szacowany czas:** około 45 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Distinguish explicit (point cloud, mesh, voxel) and implicit (signed distance field, NeRF) 3D representations and when each is used
-- Understand PointNet's symmetric-function trick that makes a neural network permutation-invariant over an unordered set of points
-- Trace a NeRF forward pass: ray casting, volumetric rendering, positional encoding, MLP density+colour head
-- Use `nerfstudio` or `instant-ngp` for pretrained 3D reconstruction from a small set of posed images
+- Rozróżniać jawne (chmura punktów, siatka, woksel) i niejawne (pole odległości ze znakiem, NeRF) reprezentacje 3D oraz wiedzieć, kiedy każda z nich jest używana
+- Zrozumieć sztuczkę z funkcją symetryczną w PointNet, która sprawia, że sieć neuronowa jest niezmienna względem permutacji nieuporządkowanego zbioru punktów
+- Prześledzić forward pass NeRF-a: rzutowanie promieni, renderowanie objętościowe, kodowanie pozycyjne, MLP z głową gęstości i koloru
+- Użyć `nerfstudio` lub `instant-ngp` do wstępnie wytrenowanej rekonstrukcji 3D z niewielkiego zbioru zdjęć z pozycjami
 
-## The Problem
+## Problem
 
-A camera produces a 2D image. A LIDAR produces a set of 3D points with no ordering. A structure-from-motion pipeline produces a sparse cloud of 3D keypoints. A NeRF reconstructs an entire 3D scene from a handful of posed images. All of these are "vision" but none of them look like the dense tensor a CNN wants.
+Kamera produkuje obraz 2D. LIDAR produkuje zbiór punktów 3D bez ustalonego porządku. Potok structure-from-motion produkuje rzadką chmurę kluczowych punktów 3D. NeRF rekonstruuje całą scenę 3D z kilku zdjęć z pozycjami. Wszystkie te przypadki to „vision", ale żaden z nich nie wygląda jak gęsty tensor, którego oczekuje CNN.
 
-3D vision matters because almost every high-value robot task runs in 3D: grasping, obstacle avoidance, navigation, AR occlusion, 3D content capture. A vision engineer who only understands 2D images is locked out of the fastest-growing slice of the field (AR/VR content, robotics, autonomous driving stacks, NeRF-based 3D reconstruction for real-estate or construction).
+Wizja 3D ma znaczenie, ponieważ prawie każde wysokowartościowe zadanie robota odbywa się w 3D: chwytanie, unikanie przeszkód, nawigacja, okluzja AR, przechwytywanie zawartości 3D. Inżynier wizji, który rozumie tylko obrazy 2D, jest wykluczony z najszybciej rosnącego segmentu dziedziny (treści AR/VR, robotyka, stosy jazdy autonomicznej, rekonstrukcja 3D oparta na NeRF-ach dla nieruchomości lub budownictwa).
 
-The two representations dominate for different reasons. Point clouds are what sensors give you for free. NeRFs and their successors (3D Gaussian splatting, neural SDFs) are what you get when you ask a neural network to learn a scene.
+Te dwie reprezentacje dominują z różnych powodów. Chmury punktów to to, co czujniki dają ci za darmo. NeRF-y i ich następcy (3D Gaussian splatting, neural SDF) to to, co otrzymujesz, gdy prosisz sieć neuronową o nauczenie się sceny.
 
-## The Concept
+## Koncepcja
 
-### Point clouds
+### Chmury punktów
 
-A point cloud is an unordered set of N points in R^3, optionally each with features (colour, intensity, normal).
+Chmura punktów to nieuporządkowany zbiór N punktów w R^3, opcjonalnie każdy z cechami (kolor, intensywność, normalna).
 
 ```
 cloud = [
@@ -37,65 +37,65 @@ cloud = [
 ]
 ```
 
-No grid, no connectivity. Two properties make this hard for neural networks:
+Brak siatki, brak łączności. Dwie właściwości sprawiają, że jest to trudne dla sieci neuronowych:
 
-- **Permutation invariance** — the output must not depend on point order.
-- **Variable N** — a single model must handle clouds of different sizes.
+- **Niezmienniczość względem permutacji** — output nie może zależeć od kolejności punktów.
+- **Zmienna N** — pojedynczy model musi obsługiwać chmury o różnych rozmiarach.
 
-PointNet (Qi et al., 2017) solved both with one idea: apply a shared MLP to every point, then aggregate with a symmetric function (max pool). The result is a fixed-size vector that does not depend on order.
+PointNet (Qi et al., 2017) rozwiązał oba problemy jednym pomysłem: zastosuj wspólny MLP do każdego punktu, a następnie agreguj za pomocą funkcji symetrycznej (max pool). Wynikiem jest wektor o stałym rozmiarze, który nie zależy od porządku.
 
 ```
 f(P) = max_{p in P} MLP(p)
 ```
 
-This is the entire core of PointNet. Deeper variants (PointNet++, Point Transformer) add hierarchical sampling and local aggregation but the symmetric-function trick is unchanged.
+To jest cały rdzeń PointNet. Głębsze warianty (PointNet++, Point Transformer) dodają hierarchiczne próbkowanie i lokalną agregację, ale sztuczka z funkcją symetryczną pozostaje niezmieniona.
 
-### The PointNet architecture
+### Architektura PointNet
 
 ```mermaid
 flowchart LR
-    PTS["N points<br/>(x, y, z)"] --> MLP1["shared MLP<br/>(64, 64)"]
-    MLP1 --> MLP2["shared MLP<br/>(64, 128, 1024)"]
-    MLP2 --> MAX["max pool<br/>(symmetric)"]
-    MAX --> FEAT["global feature<br/>(1024,)"]
-    FEAT --> FC["MLP classifier"]
-    FC --> CLS["class logits"]
+    PTS["N punktów<br/>(x, y, z)"] --> MLP1["wspólny MLP<br/>(64, 64)"]
+    MLP1 --> MLP2["wspólny MLP<br/>(64, 128, 1024)"]
+    MLP2 --> MAX["max pool<br/>(symetryczny)"]
+    MAX --> FEAT["cecha globalna<br/>(1024,)"]
+    FEAT --> FC["klasyfikator MLP"]
+    FC --> CLS["logity klasy"]
 
     style MLP1 fill:#dbeafe,stroke:#2563eb
     style MAX fill:#fef3c7,stroke:#d97706
     style CLS fill:#dcfce7,stroke:#16a34a
 ```
 
-"Shared MLP" means the same MLP runs on every point independently. Implemented as a 1x1 conv over the point dimension for efficiency.
+„Wspólny MLP" oznacza, że ten sam MLP działa na każdym punkcie niezależnie. Implementowany jako konwolucja 1x1 przez wymiar punktów dla efektywności.
 
-### Neural Radiance Fields (NeRFs)
+### Neural Radiance Fields (NeRF-y)
 
-NeRFs (Mildenhall et al., 2020) took the question "can we reconstruct a 3D scene from N photos?" and answered with a neural network that is the scene. The network maps `(x, y, z, viewing_direction)` to `(density, colour)`. Rendering a new view is a ray-casting loop over this network.
+NeRF-y (Mildenhall et al., 2020) postawiły pytanie „czy możemy zrekonstruować scenę 3D z N zdjęć?" i odpowiedziały siecią neuronową, która jest sceną. Sieć odwzorowuje `(x, y, z, viewing_direction)` na `(density, colour)`. Renderowanie nowego widoku to pętla rzutowania promieni przez tę sieć.
 
 ```
 NeRF MLP:  (x, y, z, theta, phi) -> (sigma, r, g, b)
 
-To render a pixel (u, v) of a new view:
-  1. Cast a ray from the camera through pixel (u, v)
-  2. Sample points along the ray at distances t_1, t_2, ..., t_N
-  3. Query the MLP at each point
-  4. Composite the colours weighted by (1 - exp(-sigma * dt))
-  5. The sum is the rendered pixel colour
+Aby wyrenderować piksel (u, v) nowego widoku:
+  1. Rzuć promień od kamery przez piksel (u, v)
+  2. Próbkuj punkty wzdłuż promienia w odległościach t_1, t_2, ..., t_N
+  3. Zadaj zapytanie do MLP w każdym punkcie
+  4. Komponuj kolory ważone przez (1 - exp(-sigma * dt))
+  5. Suma to wyrenderowany kolor piksela
 ```
 
-A loss compares the rendered pixel to the ground-truth pixel in the training photos. Backprop through the rendering step updates the MLP. No 3D ground truth, no explicit geometry — the scene is stored in the MLP weights.
+Loss porównuje wyrenderowany piksel z pikselem ground-truth na zdjęciach treningowych. Backprop przez krok renderowania aktualizuje MLP. Brak ground truth 3D, brak jawnej geometrii — scena jest przechowywana w wagach MLP.
 
-### Positional encoding in NeRF
+### Kodowanie pozycyjne w NeRF
 
-A vanilla MLP on `(x, y, z)` cannot represent high-frequency details because MLPs are spectrally biased toward low frequencies. NeRF fixes this by encoding each coordinate into a Fourier feature vector before the MLP:
+Zwykły MLP na `(x, y, z)` nie może reprezentować szczegółów wysokiej częstotliwości, ponieważ MLP są spektralnie obciążone ku niskim częstotliwościom. NeRF naprawia to, kodując każdą współrzędną w wektor cech Fouriera przed MLP:
 
 ```
 gamma(p) = (sin(2^0 pi p), cos(2^0 pi p), sin(2^1 pi p), cos(2^1 pi p), ...)
 ```
 
-Up to L=10 frequency levels. This is the same trick transformers use for positions, and it appears again in diffusion time conditioning (Lesson 10). Without it, NeRFs look blurry.
+Do L=10 poziomów częstotliwości. To ta sama sztuczka, której transformery używają dla pozycji, i pojawia się ponownie w warunkowaniu czasowym dyfuzji (Lekcja 10). Bez niej NeRF-y wyglądają rozmazane.
 
-### Volumetric rendering
+### Renderowanie objętościowe
 
 ```
 C(r) = sum_i T_i * (1 - exp(-sigma_i * delta_i)) * c_i
@@ -104,29 +104,29 @@ T_i  = exp(- sum_{j<i} sigma_j * delta_j)
 delta_i = t_{i+1} - t_i
 ```
 
-`T_i` is transmittance — how much light survives to point i. `(1 - exp(-sigma_i * delta_i))` is the opacity at point i. `c_i` is the colour. The final pixel is a weighted sum along the ray.
+`T_i` to transmitancja — ile światła dociera do punktu i. `(1 - exp(-sigma_i * delta_i))` to krycie w punkcie i. `c_i` to kolor. Końcowy piksel to ważona suma wzdłuż promienia.
 
-### What replaced NeRFs
+### Co zastąpiło NeRF-y
 
-Pure NeRFs are slow to train (hours) and slow to render (seconds per image). The lineage since:
+Czyste NeRF-y są wolne w treningu (godziny) i wolne w renderowaniu (sekundy na obraz). Linia rozwoju od:
 
-- **Instant-NGP** (2022) — hash-grid encoding replaces the MLP's position input; trains in seconds.
-- **Mip-NeRF 360** — handles unbounded scenes and anti-aliasing.
-- **3D Gaussian Splatting** (2023) — replaces the volumetric field with millions of 3D Gaussians; trains in minutes, renders in real time. The current production default.
+- **Instant-NGP** (2022) — kodowanie hash-grid zastępuje pozycyjne wejście MLP; trening w sekundach.
+- **Mip-NeRF 360** — obsługuje nieskończone sceny i anty-aliasing.
+- **3D Gaussian Splatting** (2023) — zastępuje pole objętościowe milionami Gaussian 3D; trening w minutach, renderowanie w czasie rzeczywistym. Obecny produkcyjny standard.
 
-Almost every real NeRF product in 2026 is actually 3D Gaussian splatting. The mental model is still NeRF.
+Prawie każdy prawdziwy produkt NeRF w 2026 to w istocie 3D Gaussian splatting. Model mentalny to nadal NeRF.
 
-### Datasets and benchmarks
+### Zbiory danych i benchmarki
 
-- **ShapeNet** — classification and segmentation of 3D CAD models as point clouds.
-- **ScanNet** — real indoor scans for segmentation.
-- **KITTI** — outdoor LIDAR point clouds for autonomous driving.
-- **NeRF Synthetic** / **Blended MVS** — posed-image datasets for view synthesis.
-- **Mip-NeRF 360** dataset — unbounded real scenes.
+- **ShapeNet** — klasyfikacja i segmentacja modeli CAD 3D jako chmur punktów.
+- **ScanNet** — rzeczywiste skany wnętrz do segmentacji.
+- **KITTI** — zewnętrzne chmury punktów LIDAR do jazdy autonomicznej.
+- **NeRF Synthetic** / **Blended MVS** — zbiory danych zdjęć z pozycjami do syntezy widoku.
+- **Zbiór danych Mip-NeRF 360** — nieskończone rzeczywiste sceny.
 
-## Build It
+## Zbuduj to
 
-### Step 1: PointNet classifier
+### Krok 1: Klasyfikator PointNet
 
 ```python
 import torch
@@ -152,7 +152,7 @@ class PointNet(nn.Module):
         )
 
     def forward(self, x):
-        # x: (N, 3, num_points) — transposed for Conv1d
+        # x: (N, 3, num_points) — transponowane dla Conv1d
         x = self.mlp1(x)
         x = self.mlp2(x)
         x = torch.max(x, dim=-1)[0]       # (N, 1024)
@@ -164,9 +164,9 @@ print(f"output: {net(pts).shape}")
 print(f"params: {sum(p.numel() for p in net.parameters()):,}")
 ```
 
-About 1.6M parameters. Runs on 1,024 points per cloud.
+Około 1,6M parametrów. Działa na 1024 punktach na chmurę.
 
-### Step 2: Positional encoding
+### Krok 2: Kodowanie pozycyjne
 
 ```python
 def positional_encoding(x, L=10):
@@ -184,9 +184,9 @@ print(f"input:  {x.shape}")
 print(f"encoded: {y.shape}     # (5, 60)")
 ```
 
-Multiplying by `2^l * pi` gives progressively higher frequencies.
+Mnożenie przez `2^l * pi` daje progresywnie wyższe częstotliwości.
 
-### Step 3: Tiny NeRF MLP
+### Krok 3: Mały NeRF MLP
 
 ```python
 class TinyNeRF(nn.Module):
@@ -223,16 +223,16 @@ s, c = nerf(x, d)
 print(f"sigma: {s.shape}   rgb: {c.shape}")
 ```
 
-Tiny compared to the original NeRF (which has 2 MLP trunks of depth 8). Enough to demonstrate the architecture.
+Mały w porównaniu do oryginalnego NeRF (który ma 2 trunks MLP o głębokości 8). Wystarczy, żeby zademonstrować architekturę.
 
-### Step 4: Volumetric rendering along a ray
+### Krok 4: Renderowanie objętościowe wzdłuż promienia
 
 ```python
 def volumetric_render(sigma, rgb, t_vals):
     """
     sigma: (..., N_samples)
     rgb:   (..., N_samples, 3)
-    t_vals: (N_samples,) distances along the ray
+    t_vals: (N_samples,) odległości wzdłuż promienia
     """
     delta = torch.cat([t_vals[1:] - t_vals[:-1], torch.full_like(t_vals[:1], 1e10)])
     alpha = 1.0 - torch.exp(-sigma * delta)
@@ -252,47 +252,47 @@ print(f"rendered colour: {rendered.tolist()}")
 print(f"depth:           {depth.item():.2f}")
 ```
 
-One ray, 64 samples, composite to a single RGB pixel and a depth.
+Jeden promień, 64 próbek, kompozyt do pojedynczego piksela RGB i głębi.
 
-## Use It
+## Użyj tego
 
-For real work:
+Do prawdziwej pracy:
 
-- `nerfstudio` (Tancik et al.) — the current reference library for NeRF / Instant-NGP / Gaussian Splatting. Command-line plus a web viewer.
-- `pytorch3d` (Meta) — differentiable rendering, point-cloud utilities, mesh ops.
-- `open3d` — point cloud processing, registration, visualisation.
+- `nerfstudio` (Tancik et al.) — obecna biblioteka referencyjna dla NeRF / Instant-NGP / Gaussian Splatting. Linia poleceń plus przeglądarka webowa.
+- `pytorch3d` (Meta) — różniczkowalne renderowanie, narzędzia do chmur punktów, operacje na siatkach.
+- `open3d` — przetwarzanie chmur punktów, rejestracja, wizualizacja.
 
-For deployment, 3D Gaussian splatting has largely replaced pure NeRFs because it renders 100x faster. The reconstruction quality is comparable.
+Do wdrożenia, 3D Gaussian splatting w dużej mierze zastąpił czyste NeRF-y, bo renderuje 100x szybciej. Jakość rekonstrukcji jest porównywalna.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
+Ta lekcja tworzy:
 
-- `outputs/prompt-3d-task-router.md` — a prompt that routes to the right 3D representation (point cloud, mesh, voxel, NeRF, Gaussian splat) based on task and input data.
-- `outputs/skill-point-cloud-loader.md` — a skill that writes a PyTorch `Dataset` for .ply / .pcd / .xyz files with correct normalisation, centring, and point sampling.
+- `outputs/prompt-3d-task-router.md` — prompt, który kieruje do właściwej reprezentacji 3D (chmura punktów, siatka, woksel, NeRF, Gaussian splatting) na podstawie zadania i danych wejściowych.
+- `outputs/skill-point-cloud-loader.md` — skill, który pisze PyTorch `Dataset` dla plików .ply / .pcd / .xyz z prawidłową normalizacją, centrowaniem i próbkowaniem punktów.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Show that PointNet is permutation-invariant: run the same cloud through twice, once with points shuffled. Verify outputs are identical up to floating-point noise.
-2. **(Medium)** Implement a minimal ray-generation function that, given camera intrinsics and pose, produces ray origins and directions for every pixel of an H x W image.
-3. **(Hard)** Train a TinyNeRF on a synthetic dataset of rendered views of a coloured cube (generated via differentiable rendering or a simple ray tracer). Report rendering loss at epoch 1, 10, and 100. At what epoch does the model produce recognisable views?
+1. **(Łatwe)** Pokaż, że PointNet jest niezmienniczy względem permutacji: przepuść tę samą chmurę dwa razy, raz z punktami shuffle'owanymi. Zweryfikuj, że outputs są identyczne do tolerancji szumu zmiennoprzecinkowego.
+2. **(Średnie)** Zaimplementuj minimalną funkcję generowania promieni, która przy danych wewnętrznych parametrach kamery i pozie produkuje początki i kierunki promieni dla każdego piksela obrazu H x W.
+3. **(Trudne)** Wytrenuj TinyNeRF na syntetycznym zbiorze danych wyrenderowanych widoków kolorowego sześcianu (wygenerowanych przez różniczkowalne renderowanie lub prosty ray tracer). Podaj rendering loss w epoce 1, 10 i 100. W której epoce model produkuje rozpoznawalne widoki?
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Point cloud | "3D points from LIDAR" | Unordered set of (x, y, z) + optional features per point |
-| PointNet | "First neural net on point clouds" | Shared MLP per point + symmetric (max) pool; permutation-invariant by construction |
-| NeRF | "MLP that is the scene" | Network mapping (x, y, z, dir) to (density, colour); rendered by ray casting |
-| Positional encoding | "Fourier features" | Encode each coordinate into sin/cos at multiple frequencies to overcome MLP low-frequency bias |
-| Volumetric rendering | "Ray integration" | Composite samples along a ray into a single pixel using transmittance and alpha |
-| Instant-NGP | "Hash-grid NeRF" | Replaces NeRF's coordinate MLP with a multi-resolution hash grid; 100-1000x faster |
-| 3D Gaussian splatting | "Millions of Gaussians" | Scene = collection of 3D Gaussians; renders in real time, trains in minutes |
-| SDF | "Signed distance field" | Function returning signed distance to the nearest surface; another implicit representation |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|----------------------|
+| Point cloud | „Punkty 3D z LIDAR" | Nieuporządkowany zbiór (x, y, z) + opcjonalne cechy na punkt |
+| PointNet | „Pierwsza sieć neuronowa na chmurach punktów" | Wspólny MLP na punkt + symetryczny (max) pool; niezmienniczy względem permutacji z definicji |
+| NeRF | „MLP, który jest sceną" | Sieć odwzorowująca (x, y, z, dir) na (gęstość, kolor); renderowana przez rzutowanie promieni |
+| Kodowanie pozycyjne | „Cechy Fouriera" | Koduj każdą współrzędną w sin/cos przy wielu częstotliwościach, żeby przezwyciężyć obciążenie MLP ku niskim częstotliwościom |
+| Renderowanie objętościowe | „Całkowanie promienia" | Komponuj próbki wzdłuż promienia w pojedynczy piksel używając transmitancji i alpha |
+| Instant-NGP | „NeRF z hash-grid" | Zastępuje współrzędną MLP NeRF multi-resolution hash grid; 100-1000x szybszy |
+| 3D Gaussian splatting | „Miliony Gaussian" | Scena = kolekcja Gaussian 3D; renderuje w czasie rzeczywistym, trenuje w minutach |
+| SDF | „Pole odległości ze znakiem" | Funkcja zwracająca podpisaną odległość do najbliższej powierzchni; kolejna niejawna reprezentacja |
 
-## Further Reading
+## Dalsza lektura
 
-- [PointNet (Qi et al., 2017)](https://arxiv.org/abs/1612.00593) — the permutation-invariant classifier
-- [NeRF (Mildenhall et al., 2020)](https://arxiv.org/abs/2003.08934) — the paper that made 3D reconstruction from photos a neural-net problem
-- [Instant-NGP (Müller et al., 2022)](https://arxiv.org/abs/2201.05989) — hash grids, 1000x speedup
-- [3D Gaussian Splatting (Kerbl et al., 2023)](https://arxiv.org/abs/2308.04079) — the architecture that replaced NeRFs in production
+- [PointNet (Qi et al., 2017)](https://arxiv.org/abs/1612.00593) — klasyfikator niezmienniczy względem permutacji
+- [NeRF (Mildenhall et al., 2020)](https://arxiv.org/abs/2003.08934) — artykuł, który uczynił rekonstrukcję 3D ze zdjęć problemem sieci neuronowych
+- [Instant-NGP (Müller et al., 2022)](https://arxiv.org/abs/2201.05989) — hash grids, 1000x przyspieszenie
+- [3D Gaussian Splatting (Kerbl et al., 2023)](https://arxiv.org/abs/2308.04079) — architektura, która zastąpiła NeRF-y w produkcji

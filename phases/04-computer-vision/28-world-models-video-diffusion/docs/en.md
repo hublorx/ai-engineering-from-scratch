@@ -1,30 +1,30 @@
-# World Models & Video Diffusion
+# World Models i dyfuzja wideo
 
-> A video model that predicts the next seconds of a scene is a world simulator. Condition that prediction on actions and you have a learned game engine.
+> Model wideo, który przewiduje kolejne sekundy sceny, to symulator świata. Warunkowanie tego predykcji na akcjach daje nauczony silnik gry.
 
-**Type:** Learn + Build
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 10 (Diffusion), Phase 4 Lesson 12 (Video Understanding), Phase 4 Lesson 23 (DiT + Rectified Flow)
-**Time:** ~75 minutes
+**Typ:** Nauka + Budowanie
+**Języki:** Python
+**Wymagania wstępne:** Lekcja 10 z Fazy 4 (Dyfuzja), Lekcja 12 z Fazy 4 (Rozumienie wideo), Lekcja 23 z Fazy 4 (DiT + rectified flow)
+**Szacowany czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Explain the difference between a pure video generation model (Sora 2) and an action-conditioned world model (Genie 3, DreamerV3)
-- Describe a video DiT: spatio-temporal patches, 3D position encoding, joint attention across (T, H, W) tokens
-- Trace how a world model plugs into robotics: VLM plans → video model simulates → inverse dynamics emits actions
-- Pick between Sora 2, Genie 3, Runway GWM-1 Worlds, Wan-Video, and HunyuanVideo for a given use case (creative video, interactive sim, autonomous-driving synthesis)
+- Wyjaśnić różnicę między czystym modelem generowania wideo (Sora 2) a modelem świata warunkowanym akcjami (Genie 3, DreamerV3)
+- Opisać architekturę video DiT: fragmenty przestrzenno-czasowe, trójwymiarowe kodowanie pozycji, wspólna uwaga na tokenach (T, H, W)
+- Prześledzić, jak model świata włącza się do robotyki: planowanie VLM → symulacja modelem wideo → odwrotna dynamika generuje akcje
+- Wybrać między Sora 2, Genie 3, Runway GWM-1 Worlds, Wan-Video i HunyuanVideo dla danego przypadku użycia (kreacja wideo, interaktywna symulacja, synteza dla autonomicznej jazdy)
 
-## The Problem
+## Problem
 
-Video generation and world modelling converged in 2026. A model that can generate a coherent minute of video has, in some sense, learned how the world moves: object permanence, gravity, causality, style. If you condition that prediction on actions (walk left, open the door), the video model becomes a learnable simulator that can replace a game engine, a driving simulator, or a robotics environment.
+Generowanie wideo i modelowanie świata skupiły się w 2026 roku. Model, który potrafi wygenerować spójną minutę wideo, w pewnym sensie nauczył się, jak świat się porusza: trwałość obiektów, grawitacja, przyczynowość, styl. Jeśli warunkujesz tę predykcję na akcjach (idź w lewo, otwórz drzwi), model wideo staje się uczonym symulatorem, który może zastąpić silnik gry, symulator jazdy lub środowisko robotyki.
 
-The stakes are concrete. Genie 3 generates playable environments from a single image. Runway GWM-1 Worlds synthesises infinite explorable scenes. Sora 2 produces minute-long videos with synchronised audio and modelled physics. NVIDIA Cosmos-Drive, Wayve Gaia-2, and Tesla DrivingWorld generate realistic driving video for autonomous-vehicle training data. The world-model paradigm is quietly taking over sim-to-real for robotics.
+Stawki są konkretne. Genie 3 generuje interaktywne środowiska z jednego obrazu. Runway GWM-1 Worlds syntezuje nieskończone sceny do eksploracji. Sora 2 produkuje minutowe wideo z zsynchronizowanym dźwiękiem i modelowaną fizyką. NVIDIA Cosmos-Drive, Wayve Gaia-2 i Tesla DrivingWorld generują realistyczne wideo jazdy dla danych treningowych pojazdów autonomicznych. Paradygmat modelu świata cicho podbija sim-to-real dla robotyki.
 
-This lesson is the "big picture" lesson for Phase 4. It connects image generation, video understanding, and agentic reasoning into the architecture pattern dominant research is moving toward.
+Ta lekcja to przeglądowa lekcja dająca szeroką perspektywę dla Fazy 4. Łączy generowanie obrazów, rozumienie wideo i rozumowanie agentowe w wzorzec architektoniczny, do którego zmierza dominująca część badań.
 
-## The Concept
+## Koncepcja
 
-### Three families of world-modelling
+### Trzy rodziny modelowania świata
 
 ```mermaid
 flowchart LR
@@ -45,11 +45,11 @@ flowchart LR
     style RL fill:#dcfce7,stroke:#16a34a
 ```
 
-- **Sora 2** is pure video generation conditioned on prompts. No action interface. You cannot "steer" it mid-rollout.
-- **Genie 3**, **GWM-1 Worlds**, **Mirage / Magica** are action-conditioned world models. Infer latent actions from observed video, then condition future frame predictions on actions. Interactive — you press keys or move a camera and the scene responds.
-- **DreamerV3** and the classic RL world-model family predict in a latent space with explicit action conditioning, trained on a reward signal. Less visual; more useful for sample-efficient RL.
+- **Sora 2** to czyste generowanie wideo warunkowane promptami. Bez interfejsu akcji. Nie możesz nim "sterować" w połowie generowania.
+- **Genie 3**, **GWM-1 Worlds**, **Mirage / Magica** to modele świata warunkowane akcjami. Wnioskują latent actions z obserwowanego wideo, a następnie warunkują predykcje przyszłych klatek na akcjach. Interaktywne — naciskasz klawisze lub przesuwasz kamerę i scena reaguje.
+- **DreamerV3** i klasyczna rodzina modeli świata dla RL przewidują w przestrzeni latent z explicit action conditioning, trenowane na sygnale nagrody. Mniej wizualne; bardziej użyteczne dla RL efektywnego próbkowo.
 
-### Video DiT architecture
+### Architektura video DiT
 
 ```
 Video latent:          (C, T, H, W)
@@ -58,70 +58,70 @@ Patchify (temporal):   group P_t frames into a temporal patch
 Resulting tokens:      (T / P_t) * (H / P_h) * (W / P_w) tokens
 ```
 
-Positional encoding is 3D: a rotary or learned embedding per (t, h, w) coordinate. Attention can be:
+Pozycyjne kodowanie jest trójwymiarowe: rotary lub learned embedding dla każdej współrzędnej (t, h, w). Uwaga może być:
 
-- **Full joint** — all tokens attend to all tokens. O(N^2) with N tokens. Prohibitive for long videos.
-- **Divided** — alternate temporal attention (same spatial position, across time: `(H*W) * T^2`) and spatial attention (same timestep, across space: `T * (H*W)^2`). Used by TimeSformer and most video DiTs.
-- **Window** — local windows in (t, h, w). Used by Video Swin.
+- **Full joint** — wszystkie tokeny uczestniczą we wszystkich. O(N^2) z N tokenami. Nieosiągalne dla długich wideo.
+- **Divided** — naprzemienna uwaga czasowa (ta sama pozycja przestrzenna, przez czas: `(H*W) * T^2`) i uwaga przestrzenna (ten sam timestamp, przez przestrzeń: `T * (H*W)^2`). Używane przez TimeSformer i większość video DiT.
+- **Window** — lokalne okna w (t, h, w). Używane przez Video Swin.
 
-Every 2026 video diffusion model uses one of these three patterns plus AdaLN conditioning (Lesson 23) and rectified flow.
+Każdy video diffusion model z 2026 używa jednego z tych trzech wzorców plus AdaLN conditioning (Lekcja 23) i rectified flow.
 
-### Conditioning on actions: latent action models
+### Warunkowanie na akcjach: latent action models
 
-Genie learns a **latent action** per frame by discriminatively predicting the action between a pair of consecutive frames. The model's decoder then conditions on the inferred latent action — not on explicit keyboard keys. At inference, a user can specify a latent action (or sample one from a fresh prior) and the model generates the next frame consistent with that action.
+Genie uczy się **latent action** na klatkę poprzez dyskryminacyjne przewidywanie akcji między parą kolejnych klatek. Dekoder modelu następnie warunkuje na wnioskowanej latent action — nie na explicitnych klawiszach. Podczas inference użytkownik może określić latent action (lub spróbować jedną z fresh prior) i model generuje następną klatkę zgodną z tą akcją.
 
-Sora skips the action interface entirely. Its decoder predicts next spacetime tokens from past spacetime tokens. Prompt conditions the start; nothing steers it mid-generation.
+Sora pomija interfejs akcji całkowicie. Jego dekoder przewiduje następne spacetime tokens z przeszłych spacetime tokens. Prompt warunkuje start; nic nie steruje nim w połowie generacji.
 
-### Physical plausibility
+### Fizyczna plausibilność
 
-Sora 2's 2026 release explicitly advertised **physical plausibility**: weight, balance, object permanence, cause-and-effect. Measured by the team via hand-rated plausibility scores; the model visibly improves on dropped objects, characters colliding, and failures-on-purpose (a missed jump) versus Sora 1.
+Wydanie Sora 2 z 2026 roku explicitnie reklamowało **fizyczną plausibilność**: ciężar, równowagę, trwałość obiektów, przyczynowość. Mierzone przez zespół poprzez ręczne oceny plausibilności; model widocznie poprawia się przy upadających obiektach, zderzeniach postaci i (celowe błędy) (nieudany skok) versus Sora 1.
 
-Plausibility remains the dominant failure mode. 2024-2025 videos of people eating spaghetti or drinking from glasses revealed the model's lack of persistent object representation. 2026 models (Sora 2, Runway Gen-5, HunyuanVideo) reduce but do not eliminate these.
+Plausibilność pozostaje dominującym trybem awarii. Wideo z 2024-2025 ludzi jedzących makaron lub pijących ze szklanek ujawniały brak persistent object representation w modelu. Modele z 2026 (Sora 2, Runway Gen-5, HunyuanVideo) redukują, ale nie eliminują tych problemów.
 
-### Autonomous driving world models
+### Autonomiczne modele świata dla jazdy
 
-Driving world models generate realistic road scenes conditioned on trajectories, bounding boxes, or navigation maps. Usage:
+Driving world models generują realistyczne sceny drogowe warunkowane trajektoriami, bounding boxes lub mapami nawigacji. Zastosowanie:
 
-- **Cosmos-Drive-Dreams** (NVIDIA) — generates minutes of driving video for RL training.
-- **Gaia-2** (Wayve) — trajectory-conditioned scene synthesis for policy evaluation.
-- **DrivingWorld** (Tesla) — simulates varied weather, time-of-day, traffic conditions.
-- **Vista** (ByteDance) — reactive driving scene synthesis.
+- **Cosmos-Drive-Dreams** (NVIDIA) — generuje minuty wideo jazdy dla treningu RL.
+- **Gaia-2** (Wayve) — synteza scen warunkowana trajektorią dla ewaluacji polityki (policy).
+- **DrivingWorld** (Tesla) — symuluje różne warunki pogodowe, porę dnia, ruch drogowy.
+- **Vista** (ByteDance) — reaktywna synteza scen jazdy.
 
-They replace expensive real-world data collection for corner cases — pedestrian jaywalks at night, icy intersections, unusual vehicle types — that would otherwise require millions of miles of driving.
+Zastępują drogie zbieranie danych ze świata rzeczywistego dla corner cases — piesi przechodzący na czerwono w nocy, zaśnieżone skrzyżowania, nietypowe typy pojazdów — które w przeciwnym razie wymagałyby milionów mil jazdy.
 
-### Robotics stack: VLM + video model + inverse dynamics
+### Robotyczny stack: VLM + video model + inverse dynamics
 
-The emerging three-component robotics loop:
+Wyłaniająca się trójskładnikowa pętla robotyki:
 
-1. **VLM** parses the goal ("pick up the red cup"), plans a high-level action sequence.
-2. **Video generation model** simulates what executing each action would look like — predicts observations N frames ahead.
-3. **Inverse dynamics model** extracts the concrete motor commands that would produce those observations.
+1. **VLM** parsuje cel ("podnieś czerwoną filiżankę"), planuje sekwencję wysokopoziomowych akcji.
+2. **Video generation model** symuluje, jak wykonanie każdej akcji by wyglądało — przewiduje obserwacje N klatek do przodu.
+3. **Inverse dynamics model** ekstrahuje konkretne komendy silnikowe, które wyprodukowałyby te obserwacje.
 
-This replaces reward shaping and sample-heavy RL. The world model does the imagination; the inverse dynamics closes the loop on actuation. Genie Envisioner is one instantiation; many research groups are converging on this structure.
+To zastępuje kształtowanie sygnału nagrody i RL wymagający dużej liczby próbek. Model świata robi wyobrażanie; inverse dynamics zamyka pętlę na aktuacji. Genie Envisioner jest jedną instancją; wiele grup badawczych zbiega się do tej struktury.
 
-### Evaluation
+### Ewaluacja
 
-- **Visual quality** — FVD (Fréchet Video Distance), user studies.
-- **Prompt alignment** — CLIPScore per frame, VQA-style evaluation.
-- **Physical plausibility** — hand-rated on a benchmark suite (Sora 2's internal benchmark, VBench).
-- **Controllability** (for interactive world models) — action → observation consistency; can you go back to a prior state?
+- **Jakość wizualna** — FVD (Fréchet Video Distance), badania z użytkownikami.
+- **Zgodność z promptem** — CLIPScore per frame, ewaluacja typu VQA.
+- **Fizyczna plausibilność** — ręcznie oceniana na benchmark suite (wewnętrzny benchmark Sora 2, VBench).
+- **Kontrolowalność** (dla interaktywnych modeli świata) — spójność akcja → obserwacja; czy można wrócić do poprzedniego stanu?
 
-### Model landscape in 2026
+### Krajobraz modeli w 2026
 
-| Model | Use | Parameters | Output | License |
-|-------|-----|------------|--------|---------|
+| Model | Zastosowanie | Parametry | Output | Licencja |
+|-------|-------------|------------|--------|----------|
 | Sora 2 | text-to-video, audio | — | 1-min 1080p + audio | API only |
 | Runway Gen-5 | text/image-to-video | — | 10s clips | API |
-| Runway GWM-1 Worlds | interactive world | — | infinite 3D rollout | API |
-| Genie 3 | interactive world from image | 11B+ | playable frames | research preview |
+| Runway GWM-1 Worlds | interactive world | — | nieskończone generowanie 3D | API |
+| Genie 3 | interactive world from image | 11B+ | interaktywne klatki | research preview |
 | Wan-Video 2.1 | open text-to-video | 14B | high-quality clips | non-commercial |
 | HunyuanVideo | open text-to-video | 13B | 10s clips | permissive |
 | Cosmos / Cosmos-Drive | autonomous driving sim | 7-14B | driving scenes | NVIDIA open |
 | Magica / Mirage 2 | AI-native game engine | — | modifiable worlds | product |
 
-## Build It
+## Zbuduj to
 
-### Step 1: 3D patchify for video
+### Krok 1: 3D patchify dla wideo
 
 ```python
 import torch
@@ -148,11 +148,11 @@ class VideoPatch3D(nn.Module):
         return tokens, (t, h, w)
 ```
 
-A 3D conv with stride equal to kernel acts as the spatio-temporal patchifier. `(T, H, W) -> (T/2, H/2, W/2)` grid of tokens.
+Konwolucja 3D ze stride równym kernel działa jako spatio-temporal patchifier. `(T, H, W) -> (T/2, H/2, W/2)` grid tokenów.
 
-### Step 2: 3D rotary position encoding
+### Krok 2: Trójwymiarowe rotary position encoding
 
-Rotary Position Embeddings (RoPE) separately applied along `t`, `h`, `w` axes:
+Rotary Position Embeddings (RoPE) oddzielnie aplikowane wzdłuż osi `t`, `h`, `w`:
 
 ```python
 def rope_3d(tokens, t_dim, h_dim, w_dim, grid):
@@ -179,9 +179,9 @@ def rope_3d(tokens, t_dim, h_dim, w_dim, grid):
     return tokens + torch.cat([emb_t, emb_h, emb_w], dim=-1)
 ```
 
-Simplified additive form. Real RoPE rotates paired channels at frequencies; the positional information is the same.
+Uproszczona forma addytywna. Real RoPE obraca sparowane kanały na częstotliwościach; informacja pozycyjna jest ta sama.
 
-### Step 3: Divided attention block
+### Krok 3: Divided attention block
 
 ```python
 class DividedAttentionBlock(nn.Module):
@@ -209,9 +209,9 @@ class DividedAttentionBlock(nn.Module):
         return xs
 ```
 
-The time attention attends within each spatial position across time; the space attention attends within each frame across positions. Two O(T^2 + (HW)^2) operations instead of one O((THW)^2). This is the core of TimeSformer and every modern video DiT.
+Time attention uczestniczy w ramach każdej pozycji przestrzennej przez czas; space attention uczestniczy w ramach każdej klatki przez pozycje. Dwie operacje O(T^2 + (HW)^2) zamiast jednej O((THW)^2). To jest sedno TimeSformer i każdego nowoczesnego video DiT.
 
-### Step 4: Compose a tiny video DiT
+### Krok 4: Złóż tiny video DiT
 
 ```python
 class TinyVideoDiT(nn.Module):
@@ -228,9 +228,9 @@ class TinyVideoDiT(nn.Module):
         return self.out(tokens), grid
 ```
 
-Not a working video generator; a structural demo that every piece shapes correctly.
+Nie jest working video generator; strukturalna demo, że każdy kawałek kształtuje się poprawnie.
 
-### Step 5: Check shapes
+### Krok 5: Sprawdź kształty
 
 ```python
 vid = torch.randn(1, 4, 8, 16, 16)  # (N, C, T, H, W)
@@ -241,59 +241,61 @@ print(f"tokens grid {grid}")
 print(f"output {tuple(out.shape)}")
 ```
 
-Expect `grid = (4, 8, 8)` and `out = (1, 256, 32)` after patching; the head then projects to per-token spatio-temporal patches, ready to be un-patchified back into a video.
+Oczekuj `grid = (4, 8, 8)` i `out = (1, 256, 32)` po patching; głowa następnie projektuje na per-token spatio-temporal patches, przekształcane z powrotem do wideo.
 
-## Use It
+## Użyj tego
 
-Production access patterns for 2026:
+Production access patterns dla 2026:
 
-- **Sora 2 API** (OpenAI) — text-to-video, synchronized audio. Premium pricing.
-- **Runway Gen-5 / GWM-1** (Runway) — image-to-video, interactive worlds.
+- **Sora 2 API** (OpenAI) — text-to-video, zsynchronizowany audio. Premium pricing.
+- **Runway Gen-5 / GWM-1** (Runway) — image-to-video, interaktywne światy.
 - **Wan-Video 2.1 / HunyuanVideo** — open-source self-host.
 - **Cosmos / Cosmos-Drive** (NVIDIA) — driving simulation open weights.
 - **Genie 3** — research preview, request access.
 
-For building an interactive world-model demo: start with Wan-Video for quality, layer on a latent-action adapter for interactivity. For autonomous driving simulation: Cosmos-Drive is the 2026 open reference.
+Do zbudowania interactive world-model demo: zacznij od Wan-Video dla jakości, nałóż latent-action adapter dla interaktywności, co pozwala zamknąć pętlę: imagines → actions → executed → observations → next imagination.
 
-For robotics, the stack in the wild:
+Dla autonomicznej symulacji jazdy: Cosmos-Drive jest open reference 2026.
 
-1. Language goal -> VLM (Qwen3-VL) -> high-level plan.
-2. Plan -> latent-action video model -> imagined rollout.
-3. Rollout -> inverse dynamics model -> low-level actions.
-4. Actions executed -> observation fed back into step 1.
+Dla robotyki, stack w wild:
 
-## Ship It
+1. Language goal → VLM (Qwen3-VL) → high-level plan.
+2. Plan → latent-action video model → wygenerowana sekwencja.
+3. Rollout → inverse dynamics model → low-level actions.
+4. Actions executed → observation fed back into step 1.
 
-This lesson produces:
+## Wyślij to
 
-- `outputs/prompt-video-model-picker.md` — picks between Sora 2 / Runway / Wan / HunyuanVideo / Cosmos given task, license, and latency.
-- `outputs/skill-physical-plausibility-checks.md` — a skill that defines automated checks (object permanence, gravity, continuity) to run on any generated video before shipping.
+Ta lekcja produkuje:
 
-## Exercises
+- `outputs/prompt-video-model-picker.md` — wybiera między Sora 2 / Runway / Wan / HunyuanVideo / Cosmos dla danego tasku, licencji i latency.
+- `outputs/skill-physical-plausibility-checks.md` — skill definiujący zautomatyzowane sprawdzenia (trwałość obiektów, grawitacja, ciągłość) do uruchomienia na dowolnym wygenerowanym wideo przed wysyłką.
 
-1. **(Easy)** Compute the token count for a 5-second 360p video at patch-t=2, patch-h=8, patch-w=8. Reason about memory for attention at this size.
-2. **(Medium)** Swap the divided attention block above for a full joint attention block and measure the shape and parameter count. Explain why divided attention is necessary for real video models.
-3. **(Hard)** Build a minimal latent-action video model: take a dataset of (frame_t, action_t, frame_{t+1}) triples (any simple 2D game), train a tiny video DiT conditioned on action embeddings, and show that different actions produce different next frames.
+## Ćwiczenia
 
-## Key Terms
+1. **(Łatwe)** Oblicz liczbę tokenów dla 5-sekundowego wideo 360p przy patch-t=2, patch-h=8, patch-w=8. Rozumuj o pamięci dla attention przy tym rozmiarze.
+2. **(Średnie)** Zamień divided attention block powyżej na full joint attention block i zmierz kształt oraz liczbę parametrów. Wyjaśnij, dlaczego divided attention jest konieczny dla real video models.
+3. **(Trudne)** Zbuduj minimalny latent-action video model: weź dataset (frame_t, action_t, frame_{t+1}) triples (dowolna prosta gra 2D), trenuj tiny video DiT warunkowany na action embeddings i pokaż, że różne akcje produkują różne następne klatki.
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| World model | "Learned simulator" | A model that predicts future observations given state and action |
-| Video DiT | "Spacetime transformer" | Diffusion transformer with 3D patchification and divided attention |
-| Latent action | "Inferred control" | Discrete or continuous action latent inferred from frame pairs; used to condition next-frame generation |
-| Divided attention | "Time then space" | Two attention operations per block — across time then across space — to keep O(N^2) manageable |
-| Object permanence | "Things stay real" | Scene property that video models must learn; classic failure mode on food, glassware |
-| FVD | "Fréchet Video Distance" | Video equivalent of FID; primary visual quality metric |
-| Inverse dynamics model | "Observations to actions" | Given (state, next state), output the action that connects them; closes robotics loop |
-| Cosmos-Drive | "NVIDIA driving sim" | Open-weights autonomous-driving world model for RL and evaluation |
+## Kluczowe terminy
 
-## Further Reading
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|-------|----------------|----------------------|
+| World model | "Learned simulator" | Model, który przewiduje przyszłe obserwacje przy danym stanie i akcji |
+| Video DiT | "Spacetime transformer" | Diffusion transformer z 3D patchification i divided attention |
+| Latent action | "Inferred control" | Dyskretna lub ciągła latent action wnioskowana z par klatek; używana do warunkowania generacji następnej klatki |
+| Divided attention | "Time then space" | Dwie operacje attention per block — przez czas, a potem przez przestrzeń — żeby utrzymać O(N^2) manageable |
+| Object permanence | "Things stay real" | Właściwość sceny, którą video models muszą się nauczyć; klasyczny tryb awarii przy jedzeniu, szkle |
+| FVD | "Fréchet Video Distance" | Video equivalent FID; primary visual quality metric |
+| Inverse dynamics model | "Observations to actions" | Przy (state, next state), output akcja, która je łączy; zamyka robotyczną pętlę |
+| Cosmos-Drive | "NVIDIA driving sim" | Open-weights autonomous-driving world model dla RL i ewaluacji |
 
-- [Sora technical report (OpenAI)](https://openai.com/index/video-generation-models-as-world-simulators/)
-- [Genie: Generative Interactive Environments (Bruce et al., 2024)](https://arxiv.org/abs/2402.15391) — latent action world models
-- [TimeSformer (Bertasius et al., 2021)](https://arxiv.org/abs/2102.05095) — divided attention for video transformers
-- [DreamerV3 (Hafner et al., 2023)](https://arxiv.org/abs/2301.04104) — world models for RL
-- [Cosmos-Drive-Dreams (NVIDIA, 2025)](https://research.nvidia.com/labs/toronto-ai/cosmos-drive-dreams/) — driving world model
-- [Top 10 Video Generation Models 2026 (DataCamp)](https://www.datacamp.com/blog/top-video-generation-models)
-- [From Video Generation to World Model — survey repo](https://github.com/ziqihuangg/Awesome-From-Video-Generation-to-World-Model/)
+## Dalsze czytanie
+
+- Sora technical report (OpenAI) — video generation models as world simulators
+- Genie: Generative Interactive Environments (Bruce et al., 2024) — latent action world models
+- TimeSformer (Bertasius et al., 2021) — divided attention dla video transformers
+- DreamerV3 (Hafner et al., 2023) — world models dla RL
+- Cosmos-Drive-Dreams (NVIDIA, 2025) — driving world model
+- Top 10 Video Generation Models 2026 (DataCamp)
+- From Video Generation to World Model — survey repo

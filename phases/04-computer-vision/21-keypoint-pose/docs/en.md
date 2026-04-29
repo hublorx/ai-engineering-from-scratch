@@ -1,28 +1,28 @@
-# Keypoint Detection & Pose Estimation
+# Wykrywanie punktów kluczowych i estymacja pozy (Pose Estimation)
 
-> A pose is a set of ordered keypoints. A keypoint detector is a heatmap regressor. Everything else is bookkeeping.
+> Pose to zbiór uporządkowanych punktów kluczowych. Detektor punktów kluczowych to regresor map ciepła (heatmap regressor). Wszystko inne to tylko zarządzanie szczegółami.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 06 (Detection), Phase 4 Lesson 07 (U-Net)
-**Time:** ~45 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Faza 4 Lekcja 06 (Detection), Faza 4 Lekcja 07 (U-Net)
+**Szacowany czas:** ~45 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Distinguish top-down and bottom-up pose estimation and state when each is used
-- Regress heatmaps for K keypoints with a Gaussian-per-keypoint target and extract keypoint coordinates at inference
-- Explain Part Affinity Fields (PAFs) and how bottom-up pipelines associate keypoints into instances
-- Use MediaPipe Pose or MMPose for production keypoint estimation and understand their output format
+- Rozróżnić podejścia top-down i bottom-up do estymacji pozy oraz wskazać, kiedy każde z nich jest stosowane
+- Regresować mapy ciepła dla K punktów kluczowych z Gaussian-per-keypoint target i wyodrębniać współrzędne punktów kluczowych podczas inferencji
+- Wyjaśnić Part Affinity Fields (PAFs) i jak bottom-up pipeline kojarzą punkty kluczowe w instancje
+- Używać MediaPipe Pose lub MMPose do produkcyjnej estymacji punktów kluczowych oraz rozumieć ich format wyjściowy
 
-## The Problem
+## Problem
 
-Keypoint tasks hide under many names: human pose (17 body joints), face landmarks (68 or 478 points), hand (21 points), animal pose, robotic object pose, medical anatomy landmarks. Every one of them shares the same structure: detect K discrete points on an object and output their (x, y) coordinates.
+Zadania związane z punktami kluczowymi ukrywają się pod wieloma nazwami: human pose (17 stawów ciała), face landmarks (68 lub 478 punktów), hand (21 punktów), animal pose, robotic object pose, medical anatomy landmarks. Każdy z nich dzieli tę samą strukturę: wykryj K dyskretnych punktów na obiekcie i wyprowadź ich współrzędne (x, y).
 
-Pose estimation is the foundation of motion capture, fitness apps, sports analytics, gesture control, animation, AR try-on, and robotic grasping. The 2D case is mature; 3D pose (estimating joint positions in world coordinates from a single camera) is the current research frontier.
+Pose estimation jest fundamentem motion capture, aplikacji fitness, analityki sportowej, sterowania gestami, animacji, AR try-on i chwytania robotycznego. Przypadek 2D jest dojrzały; 3D pose (estymacja pozycji stawów we współrzędnych świata z jednej kamery) to obecna granica badań.
 
-The engineering question is scale. A single-image, single-person pose is a 20ms problem. Multi-person pose in a crowd at 30 fps is a different problem with different architectures.
+Pytanie inżynieryjne dotyczy skali. Pozy pojedynczej osoby na jednym obrazie to problem na 20ms. Multi-person pose w tłumie przy 30 FPS to inny problem z innymi architekturami.
 
-## The Concept
+## Koncept
 
 ### Top-down vs bottom-up
 
@@ -41,55 +41,55 @@ flowchart LR
     style BU fill:#fef3c7,stroke:#d97706
 ```
 
-- **Top-down** — detect people first, then run a per-person keypoint model on each crop. Highest accuracy; scales linearly with number of people.
-- **Bottom-up** — one forward pass predicts all keypoints plus an association field; group them. Constant time regardless of crowd size.
+- **Top-down** — najpierw wykryj ludzi, a następnie uruchom model keypoint per-crop dla każdej osoby. Najwyższa dokładność; skaluje się liniowo z liczbą osób.
+- **Bottom-up** — jeden przebieg przez obraz przewiduje wszystkie punkty kluczowe plus pole asocjacyjne; grupuje je. Stały czas niezależnie od wielkości tłumu.
 
-Top-down (HRNet, ViTPose) is the accuracy leader; bottom-up (OpenPose, HigherHRNet) is the throughput leader for crowded scenes.
+Top-down (HRNet, ViTPose) jest liderem dokładności; bottom-up (OpenPose, HigherHRNet) jest liderem przepływności (throughput) dla zatłoczonych scen.
 
 ### Heatmap regression
 
-Instead of regressing `(x, y)` directly, predict an `H x W` heatmap per keypoint with a Gaussian blob centred at the true location.
+Zamiast regresować (x, y) bezpośrednio, przewiduj mapę ciepła H x W dla każdego punktu kluczowego z Gaussian blob wycentrowanym w prawdziwej lokalizacji.
 
 ```
 target[k, y, x] = exp(-((x - cx_k)^2 + (y - cy_k)^2) / (2 sigma^2))
 ```
 
-At inference, the argmax of each heatmap is the predicted keypoint location.
+Podczas inferencji, argmax każdej mapy ciepła to przewidywana lokalizacja punktu kluczowego.
 
-Why heatmaps work better than direct regression: the network's spatial structure (conv feature map) aligns naturally with spatial output. Gaussian targets also regularise — a small localisation error produces a small loss, not zero.
+Dlaczego heatmapy działają lepiej niż bezpośrednia regresja: przestrzenna struktura sieci (conv feature map) naturalnie alignuje się ze spatial output. Gaussian targets także regularizują — mały błąd lokalizacji produkuje mały loss, nie zero.
 
-### Sub-pixel localisation
+### Lokalizacja sub-pixelowa
 
-Argmax gives integer coordinates. For sub-pixel precision, refine by fitting a parabola to the argmax and its neighbours, or use the well-known offset `(dx, dy) = 0.25 * (heatmap[y, x+1] - heatmap[y, x-1], ...)` direction.
+Argmax daje współrzędne całkowite. Dla precyzji sub-pixel, refine przez dopasowanie paraboli do argmax i jego sąsiadów, lub użyj dobrze znanego offsetu `(dx, dy) = 0.25 * (heatmap[y, x+1] - heatmap[y, x-1], ...)` direction.
 
 ### Part Affinity Fields (PAFs)
 
-OpenPose's trick for bottom-up association. For each pair of connected keypoints (e.g. left shoulder to left elbow), predict a 2-channel field that encodes the unit vector pointing from one to the other. To associate a shoulder with its elbow, integrate the PAF along the line connecting candidate pairs; the pair with the highest integral is matched.
+Sztuczka OpenPose dla bottom-up association. Dla każdej pary połączonych punktów kluczowych (np. lewe ramię do lewego łokcia), przewiduj 2-channel field, który koduje wektor jednostkowy wskazujący od jednego do drugiego. Aby skojarzyć ramię z łokciem, zintegruj PAF wzdłuż linii łączącej candidate pairs; para z najwyższą całką jest dopasowana.
 
 ```
-For each connection (limb):
-  PAF channels: 2 (unit vector x, y)
-  Line integral: sum over sample points of (PAF . line_direction)
-  Higher integral = stronger match
+Dla każdego połączenia (kończyny):
+  Kanały PAF: 2 (wektor jednostkowy x, y)
+  Całka liniowa: suma próbek (PAF . kierunek_linii)
+  Wyższa całka = silniejsze dopasowanie
 ```
 
-Elegant and scales to arbitrary crowd sizes without per-person crops.
+Eleganckie i skaluje się do dowolnych rozmiarów tłumu bez per-person crops.
 
 ### COCO keypoints
 
-The standard body-pose dataset: 17 keypoints per person, PCK (Percentage of Correct Keypoints) and OKS (Object Keypoint Similarity) as metrics. OKS is the keypoint analogue of IoU and is what COCO mAP@OKS reports.
+Standardowy dataset body-pose: 17 punktów kluczowych per osoba, PCK (Percentage of Correct Keypoints) i OKS (Object Keypoint Similarity) jako metryki. OKS to analog IoU dla keypoints i to jest to, co COCO mAP@OKS raportuje.
 
 ### 2D vs 3D
 
-- **2D pose** — image coordinates; solved at production quality (MediaPipe, HRNet, ViTPose).
-- **3D pose** — world / camera coordinates; still active research. Common approaches:
-  - Lift 2D predictions to 3D with a small MLP (VideoPose3D).
-  - Direct 3D regression from image (PyMAF, MHFormer).
-  - Multi-view setups (CMU Panoptic) for ground truth.
+- **2D pose** — współrzędne obrazu; rozwiązane na poziomie produkcyjnym (MediaPipe, HRNet, ViTPose).
+- **3D pose** — współrzędne świata / kamery; wciąż aktywne badania. Typowe podejścia:
+  - Lift 2D predictions to 3D z małym MLP (VideoPose3D).
+  - Direct 3D regression z obrazu (PyMAF, MHFormer).
+  - Multi-view setups (CMU Panoptic) dla ground truth.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Gaussian heatmap target
+### Krok 1: Gaussian heatmap target
 
 ```python
 import numpy as np
@@ -103,11 +103,11 @@ hm = gaussian_heatmap(64, 32, 32, sigma=2.0)
 print(f"peak: {hm.max():.3f} at ({hm.argmax() % 64}, {hm.argmax() // 64})")
 ```
 
-Per-keypoint heatmaps stacked along a channel axis give the full target tensor.
+Per-keypoint heatmap stacked wzdłuż axis kanału daje full target tensor.
 
-### Step 2: Tiny keypoint head
+### Krok 2: Tiny keypoint head
 
-A U-Net-style model that outputs K heatmap channels.
+Model w stylu U-Net, który outputuje K heatmap channels.
 
 ```python
 import torch.nn as nn
@@ -130,9 +130,9 @@ class TinyKeypointNet(nn.Module):
         return self.up2(u1)
 ```
 
-Input `(N, 3, H, W)`, output `(N, K, H, W)`. Loss is per-pixel MSE against Gaussian targets.
+Input (N, 3, H, W), output (N, K, H, W). Loss to per-pixel MSE przeciwko Gaussian targets.
 
-### Step 3: Inference — extract keypoint coordinates
+### Krok 3: Inferencja — extract keypoint coordinates
 
 ```python
 def heatmap_to_coords(heatmaps):
@@ -151,11 +151,11 @@ coords = heatmap_to_coords(torch.randn(2, 4, 32, 32))
 print(f"coords: {coords.shape}")  # (2, 4, 2)
 ```
 
-One line at inference. For sub-pixel refinement, interpolate around the argmax.
+Jedna linia przy inferencji. Dla sub-pixel refinement, interpoluj wokół argmax.
 
-### Step 4: Synthetic keypoint dataset
+### Krok 4: Synthetic keypoint dataset
 
-Simple: draw four points on a white canvas and learn to predict them.
+Proste: narysuj cztery punkty na białym canvasie i naucz się je przewidywać.
 
 ```python
 def make_synthetic_sample(size=64):
@@ -168,9 +168,9 @@ def make_synthetic_sample(size=64):
     return img, hms, kps
 ```
 
-Easy enough for a tiny model to learn in a minute.
+Wystarczająco łatwe, żeby mały model nauczył się w minutę.
 
-### Step 5: Training
+### Krok 5: Training
 
 ```python
 model = TinyKeypointNet(num_keypoints=4)
@@ -187,42 +187,42 @@ for step in range(200):
     opt.zero_grad(); loss.backward(); opt.step()
 ```
 
-## Use It
+## Użyj tego
 
-- **MediaPipe Pose** — Google's production pose estimator; ships WebGL + mobile runtimes with sub-10ms latency.
-- **MMPose** (OpenMMLab) — comprehensive research codebase; every SOTA architecture with pretrained weights.
-- **YOLOv8-pose** — fastest real-time multi-person pose with a single forward pass.
-- **transformers HumanDPT / PoseAnything** — newer vision-language approaches for open-vocabulary pose (any object, any keypoint set).
+- **MediaPipe Pose** — produkcyjny pose estimator Google; dostarczany z WebGL + mobile runtimes z sub-10ms latency.
+- **MMPose** (OpenMMLab) — kompleksowa baza kodu badawczego; najnowoczesniejsza architektura z wstępnie wytrenowanymi wagami.
+- **YOLOv8-pose** — najszybszy real-time multi-person pose w jednym przebiegu.
+- **transformers HumanDPT / PoseAnything** — nowsze podejścia vision-language dla open-vocabulary pose (dowolny obiekt, dowolny zbiór punktów kluczowych).
 
-## Ship It
+## Wyślij to (Wyślij to)
 
-This lesson produces:
+Ta lekcja produkuje:
 
-- `outputs/prompt-pose-stack-picker.md` — a prompt that picks MediaPipe / YOLOv8-pose / HRNet / ViTPose given latency, crowd size, and 2D vs 3D need.
-- `outputs/skill-heatmap-to-coords.md` — a skill that writes the sub-pixel heatmap-to-coordinate routine used by every production pose model.
+- `outputs/prompt-pose-stack-picker.md` — prompt, który wybiera MediaPipe / YOLOv8-pose / HRNet / ViTPose przy podanej latency, crowd size i potrzebie 2D vs 3D.
+- `outputs/skill-heatmap-to-coords.md` — skill, który pisze sub-pixel heatmap-to-coordinate routine używaną przez każdy produkcyjny pose model.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Train the tiny keypoint model on the synthetic 4-point dataset. Report mean L2 error between predicted and true keypoints after 200 steps.
-2. **(Medium)** Add sub-pixel refinement: given the argmax position, fit a 1D parabola along x and y from the neighbouring pixels. Report the accuracy gain vs integer argmax.
-3. **(Hard)** Build a 2-person synthetic dataset where each image shows two instances of the 4-keypoint pattern. Train a bottom-up pipeline with PAFs that predict which keypoint belongs to which instance, and evaluate OKS.
+1. **(Łatwe)** Trenuj tiny keypoint model na synthetic 4-point dataset. Raportuj mean L2 error między predicted i true keypoints po 200 steps.
+2. **(Średnie)** Dodaj sub-pixel refinement: przy danym argmax position, dopasuj 1D parabolę wzdłuż x i y z sąsiednich pikseli. Raportuj accuracy gain vs integer argmax.
+3. **(Trudne)** Zbuduj 2-person synthetic dataset, gdzie każdy obraz pokazuje dwie instancje 4-keypoint pattern. Trenuj bottom-up pipeline z PAFs, który przewiduje który keypoint należy do której instancji, i oceń OKS.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Keypoint | "A landmark" | A specific ordered point on an object (joint, corner, feature) |
-| Pose | "The skeleton" | An ordered set of keypoints belonging to one instance |
-| Top-down | "Detect then pose" | Two-stage pipeline: person detector + per-crop keypoint model; highest accuracy |
-| Bottom-up | "Pose first, group later" | Single-pass all-keypoint prediction + grouping; constant time in crowd size |
-| Heatmap | "Gaussian target" | H x W tensor per keypoint with peak at the true location; the preferred regression target |
-| PAF | "Part Affinity Field" | 2-channel unit vector field encoding limb directions; used to group keypoints into instances |
-| OKS | "Keypoint IoU" | Object Keypoint Similarity; the COCO metric for pose |
-| HRNet | "High-Resolution Net" | The dominant top-down keypoint architecture; preserves high-res features throughout |
+| Keypoint | "A landmark" | Określony uporządkowany punkt na obiekcie (staw, róg, cecha) |
+| Pose | "The skeleton" | Uporządkowany zbiór punktów kluczowych należących do jednej instancji |
+| Top-down | "Detect then pose" | Dwustopniowy pipeline: detektor osób + per-crop keypoint model; najwyższa dokładność |
+| Bottom-up | "Pose first, group later" | Single-pass all-keypoint prediction + grouping; stały czas w wielkości tłumu |
+| Heatmap | "Gaussian target" | H x W tensor per keypoint z peak w prawdziwej lokalizacji; preferowany target regresyjny |
+| PAF | "Part Affinity Field" | 2-channel unit vector field kodujący kierunki limbs; używany do grupowania keypoints w instancje |
+| OKS | "Keypoint IoU" | Object Keypoint Similarity; metryka COCO dla pose |
+| HRNet | "High-Resolution Net" | Dominująca top-down keypoint architecture; preservuje high-res features throughout |
 
-## Further Reading
+## Dalsze czytanie
 
-- [OpenPose (Cao et al., 2017)](https://arxiv.org/abs/1812.08008) — bottom-up with PAFs; still the best writeup of the approach
-- [HRNet (Sun et al., 2019)](https://arxiv.org/abs/1902.09212) — the top-down reference architecture
-- [ViTPose (Xu et al., 2022)](https://arxiv.org/abs/2204.12484) — plain ViT as a pose backbone; current SOTA on many benchmarks
-- [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose_landmarker) — production real-time pose; the fastest deployed stack in 2026
+- [OpenPose (Cao et al., 2017)](https://arxiv.org/abs/1812.08008) — bottom-up z PAFs; wciąż najlepszy writeup tego podejścia
+- [HRNet (Sun et al., 2019)](https://arxiv.org/abs/1902.09212) — top-down reference architecture
+- [ViTPose (Xu et al., 2022)](https://arxiv.org/abs/2204.12484) — plain ViT jako pose backbone; current SOTA na wielu benchmarkach
+- [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose_landmarker) — production real-time pose; najszybszy deployed stack w 2026

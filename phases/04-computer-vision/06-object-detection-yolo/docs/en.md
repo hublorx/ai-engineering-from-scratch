@@ -1,32 +1,32 @@
-# Object Detection — YOLO from Scratch
+# Detekcja obiektów — YOLO od zera
 
-> Detection is classification plus regression, run at every position in a feature map, then cleaned up with non-maximum suppression.
+> Detekcja to klasyfikacja plus regresja, uruchamiana na każdej pozycji w mapie cech, a następnie oczyszczana za pomocą non-maximum suppression.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 03 (CNNs), Phase 4 Lesson 04 (Image Classification), Phase 4 Lesson 05 (Transfer Learning)
-**Time:** ~75 minutes
+**Typ:** Budowanie
+**Języki:** Python
+**Wymagania wstępne:** Faza 4 Lekcja 03 (CNN), Faza 4 Lekcja 04 (Klasyfikacja obrazów), Faza 4 Lekcja 05 (Transfer Learning)
+**Czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Explain the grid-and-anchor design that turns detection into a dense prediction problem and state what every number in the output tensor means
-- Compute Intersection-over-Union between boxes and implement non-maximum suppression from scratch
-- Build a minimal YOLO-style head on top of a pretrained backbone, including the classification, objectness, and box-regression losses
-- Read a detection metric row (precision@0.5, recall, mAP@0.5, mAP@0.5:0.95) and pick which knob to turn next
+- Wyjaśnić projekt siatki i anchorów, które przekształcają detekcję w gęsty problem predykcyjny, oraz określić, co oznacza każda liczba w tensorze wyjściowym
+- Obliczyć Intersection-over-Union między bboxami i zaimplementować non-maximum suppression od zera
+- Zbudować minimalistyczną głowicę w stylu YOLO na szczycie wstępnie wytrenowanego backbone'u, w tym stratę klasyfikacji, objectness i regresji bboxów
+- Odczytać wiersz metryki detekcji (precision@0.5, recall, mAP@0.5, mAP@0.5:0.95) i wybrać, który pokrętło obrócić jako następne
 
-## The Problem
+## Problem
 
-Classification says "this image is a dog." Detection says "there is a dog at pixels (112, 40, 280, 210), there is a cat at (400, 180, 560, 310), and nothing else in the frame." That one structural change — predicting a variable number of labelled boxes instead of one label per image — is what every autonomous system, every surveillance product, every document layout parser, and every factory vision line depends on.
+Klasyfikacja mówi "ten obraz to pies". Detekcja mówi "tu jest pies w pikselach (112, 40, 280, 210), tu jest kot w (400, 180, 560, 310), i nic więcej w kadrze". Ta jedna zmiana strukturalna — przewidywanie zmiennej liczby oznaczonych bboxów zamiast jednej etykiety na obraz — to właśnie, na czym polega każdy autonomiczny system, każdy produkt dozoru, każdy parser układu dokumentów i każda linia wizyjna w fabryce.
 
-Detection is also where every engineering trade-off in vision shows up at once. You want boxes that are accurate (regression head), you want the right class for each box (classification head), you want the model to know when there is nothing to detect (objectness score), and you want exactly one prediction per real object (non-maximum suppression). Miss any of these and the pipeline either misses objects, reports hallucinated boxes, or predicts the same object fifteen times in slightly different positions.
+Detekcja to również miejsce, gdzie pojawia się każdy kompromis inżynieryjny w wizji naraz. Chcesz bboxów, które są dokładne (głowica regresji), chcesz właściwej klasy dla każdego bboxa (głowica klasyfikacji), chcesz, żeby model wiedział, kiedy nie ma nic do wykrycia (wynik objectness), i chcesz dokładnie jednej predykcji na rzeczywisty obiekt (non-maximum suppression). Pominięcie któregokolwiek z tych elementów sprawia, że pipeline albo przeoczy obiekty, zgłosi złudne bboxy, lub przewidzi ten sam obiekt piętnaście razy w nieznacznie różnych pozycjach.
 
-YOLO (You Only Look Once, Redmon et al. 2016) was the design that made all of this run in real time by doing it with a single forward pass of a conv net, and the same structural decisions are still the backbone of modern detectors (YOLOv8, YOLOv9, YOLO-NAS, RT-DETR). Learn the core and every variant becomes a rearrangement of the same parts.
+YOLO (You Only Look Once, Redmon i in. 2016) to projekt, który sprawił, że wszystko to działa w czasie rzeczywistym, wykonując to jednym przejściem forward conv net, i te same decyzje strukturalne są nadal podstawą nowoczesnych detektorów (YOLOv8, YOLOv9, YOLO-NAS, RT-DETR). Naucz się rdzenia, a każdy wariant stanie się przearanżowaniem tych samych części.
 
-## The Concept
+## Koncepcja
 
-### Detection as dense prediction
+### Detekcja jako gęsta predykcja
 
-A classifier outputs C numbers per image. A YOLO-style detector outputs `(S x S x (5 + C))` numbers per image, where S is the spatial grid size.
+Klasyfikator generuje C liczb na obraz. Detektor w stylu YOLO generuje `(S x S x (5 + C))` liczb na obraz, gdzie S to rozmiar siatki przestrzennej.
 
 ```mermaid
 flowchart LR
@@ -44,35 +44,35 @@ flowchart LR
     style RESULT fill:#dcfce7,stroke:#16a34a
 ```
 
-Each of the `S * S` grid cells predicts `B` boxes. For each box:
+Każda z komórek `S * S` siatki przewiduje `B` bboxów. Dla każdego bboxa:
 
-- 4 numbers describe geometry: `tx, ty, tw, th`.
-- 1 number is the objectness score: "is there an object centred in this cell?"
-- C numbers are class probabilities.
+- 4 liczby opisują geometrię: `tx, ty, tw, th`.
+- 1 liczba to wynik objectness: "czy jest obiekt wycentrowany w tej komórce?"
+- C liczb to prawdopodobieństwa klas.
 
-Total per cell: `B * (5 + C)`. For VOC with `S=13, B=2, C=20`, that is 50 numbers per cell.
+Razem na komórkę: `B * (5 + C)`. Dla VOC z `S=13, B=2, C=20`, to jest 50 liczb na komórkę.
 
-### Why grids and anchors
+### Dlaczego siatki i anchory
 
-Plain regression would predict `(x, y, w, h)` for every object as an absolute coordinate. That is hard for a conv network because translating the image should not translate all predictions by the same amount — each object is spatially anchored. The grid answers this by assigning each ground-truth box to the grid cell its centre falls in; only that cell is responsible for that object.
+Zwykła regresja przewidywałaby `(x, y, w, h)` dla każdego obiektu jako bezwzględną współrzędną. To jest trudne dla conv net, bo translacja obrazu nie powinna translatować wszystkich predykcji o tę samą wartość — każdy obiekt jest przestrzennie zakotwiczony. Siatka odpowiada na to, przypisując każdy ground-truth bbox do komórki siatki, w której pada jego środek; tylko ta komórka jest odpowiedzialna za ten obiekt.
 
-Anchors address a second problem. A 3x3 conv cannot easily regress a 500-pixel-wide box out of a 16-pixel receptive field feature cell. Instead, we pre-define `B` prior box shapes (anchors) per cell and predict small deltas from each anchor. The model learns to pick the right anchor and nudge it rather than regress from nothing.
+Anchory adresują drugi problem. Konwolucja 3x3 nie może łatwo zregresować bboxa o szerokości 500 pikseli z komórki cech o polu odbiorczym 16 pikseli. Zamiast tego wstępnie definiujemy `B` kształtów prior boxów (anchorów) na komórkę i przewidujemy małe delty od każdego anchora. Model uczy się wybierać właściwy anchor i go przesuwać, zamiast regresować od zera.
 
 ```
-Anchor box priors (example for 416x416 input):
+Anchor box priors (przykład dla wejścia 416x416):
 
-  small:   (30,  60)
-  medium:  (75,  170)
-  large:   (200, 380)
+  mały:    (30,  60)
+  średni:  (75,  170)
+  duży:    (200, 380)
 
-At each grid cell, every anchor emits (tx, ty, tw, th, obj, c_1, ..., c_C).
+W każdej komórce siatki, każdy anchor emituje (tx, ty, tw, th, obj, c_1, ..., c_C).
 ```
 
-Modern detectors often use FPN with different anchor sets per resolution — small anchors on shallow high-resolution maps, large anchors on deep low-resolution maps. Same idea, more scales.
+Nowoczesne detektory często używają FPN z różnymi zestawami anchorów na rozdzielczość — małe anchory na płytkich mapach o wysokiej rozdzielczości, duże anchory na głębokich mapach o niskiej rozdzielczości. Ten sam pomysł, więcej skali.
 
-### Decoding predictions
+### Dekodowanie predykcji
 
-The raw `tx, ty, tw, th` are not box coordinates; they are regression targets to be transformed before plotting:
+Surowe `tx, ty, tw, th` nie są współrzędnymi bboxów; są celami regresji, które należy przekształcić przed wykreśleniem:
 
 ```
 centre x  = (sigmoid(tx) + cell_x) * stride
@@ -81,21 +81,21 @@ width     = anchor_w * exp(tw)
 height    = anchor_h * exp(th)
 ```
 
-`sigmoid` keeps centre offsets inside the cell. `exp` lets the width scale freely from the anchor without a sign flip. `stride` scales the grid coordinates back to pixels. This decode step is the same in every YOLO version since v2.
+`sigmoid` utrzymuje offsety centrum wewnątrz komórki. `exp` pozwala szerokości skalować swobodnie od anchora bez flipu znaku. `stride` skaluje współrzędne siatki z powrotem do pikseli. Ten krok dekodowania jest taki sam w każdej wersji YOLO od v2.
 
 ### IoU
 
-Detection's universal similarity metric between two boxes:
+Uniwersalna metryka podobieństwa detekcji między dwoma bboxami:
 
 ```
 IoU(A, B) = area(A intersect B) / area(A union B)
 ```
 
-IoU = 1 means identical; IoU = 0 means no overlap. IoU between the prediction and the ground-truth box is what decides whether a prediction counts as a true positive (typically IoU >= 0.5). IoU between two predictions is what NMS uses to deduplicate.
+IoU = 1 oznacza identyczne; IoU = 0 oznacza brak nakładania. IoU między predykcją a ground-truth bboxem decyduje o tym, czy predykcja liczy się jako true positive (zazwyczaj IoU >= 0.5). IoU między dwiema predykcjami to, czego NMS używa do deduplikacji.
 
 ### Non-maximum suppression
 
-A conv network trained on adjacent anchors will often predict overlapping boxes for the same object. NMS keeps the highest-confidence prediction and deletes any other prediction with IoU above a threshold.
+Conv net wytrenowany na sąsiadujących anchorach często przewiduje nakładające się bboxy dla tego samego obiektu. NMS keeps the highest-confidence prediction and deletes any other prediction with IoU above a threshold.
 
 ```
 NMS(boxes, scores, iou_threshold):
@@ -107,11 +107,11 @@ NMS(boxes, scores, iou_threshold):
     return keep
 ```
 
-Typical threshold: 0.45 for object detection. Recent detectors replace standard NMS with `soft-NMS`, `DIoU-NMS`, or learn the suppression directly (RT-DETR) but the structural purpose is the same.
+Typowy próg: 0.45 dla detekcji obiektów. Najnowsze detektory zastępują standardowe NMS na `soft-NMS`, `DIoU-NMS`, lub uczą suppressji bezpośrednio (RT-DETR), ale strukturalny cel jest ten sam.
 
-### The loss
+### Funkcja straty
 
-YOLO loss is three losses added with weights:
+Strata YOLO to trzy straty dodane z wagami:
 
 ```
 L = lambda_coord * L_box(pred, target, where obj=1)
@@ -120,26 +120,26 @@ L = lambda_coord * L_box(pred, target, where obj=1)
   + lambda_cls   * L_cls(pred, target, where obj=1)
 ```
 
-Only cells that contain an object contribute to the box-regression and classification losses. Cells without objects contribute only to the objectness loss (teaching the model to stay silent). `lambda_noobj` is usually small (~0.5) because the vast majority of cells are empty and would otherwise dominate the total loss.
+Tylko komórki zawierające obiekt przyczyniają się do straty regresji bboxów i klasyfikacji. Komórki bez obiektów przyczyniają się tylko do straty objectness (ucząc model, kiedy milczeć). `lambda_noobj` jest zazwyczaj mała (~0.5), bo ogromna większość komórek jest pusta i w przeciwnym razie zdominowałaby całkowitą stratę.
 
-Modern variants swap MSE box loss for CIoU / DIoU (which optimise IoU directly), use focal loss for class imbalance, and balance objectness with quality focal loss. The three-component structure is unchanged.
+Nowoczesne warianty zamieniają stratę MSE bbox na CIoU / DIoU (które optymalizują IoU bezpośrednio), używają focal loss dla nierównowagi klas, i balansują objectness z quality focal loss. Trójskładnikowa struktura pozostaje niezmieniona.
 
-### Detection metrics
+### Metryki detekcji
 
-Accuracy does not transfer to detection. Four numbers that do:
+Accuracy nie przenosi się do detekcji. Cztery liczby, które to robią:
 
-- **Precision@IoU=0.5** — of the predictions counted as positives, how many are actually correct.
-- **Recall@IoU=0.5** — of the real objects, how many did we find.
-- **AP@0.5** — precision-recall curve area at IoU threshold 0.5; one number per class.
-- **mAP@0.5:0.95** — average of AP over IoU thresholds 0.5, 0.55, ..., 0.95. The COCO metric; strictest and most informative.
+- **Precision@IoU=0.5** — ile z predykcji zaliczonych jako pozytywne jest faktycznie poprawnych.
+- **Recall@IoU=0.5** — ile ze rzeczywistych obiektów znaleźliśmy.
+- **AP@0.5** — pole pod krzywą precision-recall przy progu IoU 0.5; jedna liczba na klasę.
+- **mAP@0.5:0.95** — średnia AP przez progi IoU 0.5, 0.55, ..., 0.95. Metryka COCO; najostrzejsza i najbardziej informacyjna.
 
-Report all four. A detector that is strong on mAP@0.5 but weak on mAP@0.5:0.95 is localising roughly but not tightly; fix with better box-regression loss. A detector with high precision and low recall is too conservative; lower the confidence threshold or increase the objectness weight.
+Raportuj wszystkie cztery. Detektor silny na mAP@0.5 ale słaby na mAP@0.5:0.95 lokalizuje mniej więcej, ale nie precyzyjnie; napraw to lepszą stratą regresji bboxów. Detektor z wysoką precision i niskim recall jest zbyt konserwatywny; obniż próg confidence lub zwiększ wagę objectness.
 
-## Build It
+## Zbuduj to
 
-### Step 1: IoU
+### Krok 1: IoU
 
-The workhorse of the whole lesson. Works on two arrays of boxes in `(x1, y1, x2, y2)` format.
+Koń mechaniczny całej lekcji. Działa na dwóch tablicach bboxów w formacie `(x1, y1, x2, y2)`.
 
 ```python
 import numpy as np
@@ -163,9 +163,9 @@ def box_iou(boxes_a, boxes_b):
     return inter / np.clip(union, 1e-8, None)
 ```
 
-Returns an `(N_a, N_b)` matrix of pairwise IoUs. Use it against a single ground-truth box by making one of the arrays shape `(1, 4)`.
+Zwraca macierz `(N_a, N_b)` parami obliczonych IoU. Użyj jej przeciwko pojedynczemu ground-truth bboxowi, tworząc jedną z tablic o kształcie `(1, 4)`.
 
-### Step 2: Non-max suppression
+### Krok 2: Non-max suppression
 
 ```python
 def nms(boxes, scores, iou_threshold=0.45):
@@ -182,11 +182,11 @@ def nms(boxes, scores, iou_threshold=0.45):
     return np.array(keep, dtype=np.int64)
 ```
 
-Deterministic, `O(N log N)` from the sort, and matches the behaviour of `torchvision.ops.nms` on identical inputs.
+Deterministyczny, `O(N log N)` od sortowania, i odpowiada zachowaniu `torchvision.ops.nms` na identycznych wejściach.
 
-### Step 3: Box encoding and decoding
+### Krok 3: Kodowanie i dekodowanie bboxów
 
-Convert between pixel coordinates and the `(tx, ty, tw, th)` targets that the network actually regresses.
+Konwertuj między współrzędnymi pikselowymi a celami `(tx, ty, tw, th)`, które sieć faktycznie regresuje.
 
 ```python
 def encode(box_xyxy, cell_x, cell_y, stride, anchor_wh):
@@ -215,11 +215,11 @@ def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 ```
 
-Test: encode a box then decode — you should get back something very close to the original (up to the sigmoid inverse not being perfectly invertible when `tx` is not in the post-sigmoid range).
+Test: zakoduj bbox, a następnie zdekoduj — powinieneś otrzymać coś bardzo zbliżonego do oryginału (do odwrotności sigmoidalnej, która nie jest idealnie odwracalna, gdy `tx` nie jest w zakresie post-sigmoid).
 
-### Step 4: A minimal YOLO head
+### Krok 4: Minimalna głowica YOLO
 
-One 1x1 conv on a feature map, reshaping to `(B, S, S, num_anchors, 5 + C)`.
+Jedna konwolucja 1x1 na mapie cech, reshape do `(B, S, S, num_anchors, 5 + C)`.
 
 ```python
 import torch
@@ -240,11 +240,11 @@ class YOLOHead(nn.Module):
         return y
 ```
 
-Output shape: `(N, H, W, num_anchors, 5 + C)`. The last dimension holds `[tx, ty, tw, th, obj, cls_0, ..., cls_{C-1}]`.
+Kształt wyjściowy: `(N, H, W, num_anchors, 5 + C)`. Ostatni wymiar zawiera `[tx, ty, tw, th, obj, cls_0, ..., cls_{C-1}]`.
 
-### Step 5: Ground-truth assignment
+### Krok 5: Przydzielanie ground-truth
 
-For every ground-truth box, decide which `(cell, anchor)` is responsible.
+Dla każdego ground-truth bboxu zdecyduj, który `(cell, anchor)` jest odpowiedzialny.
 
 ```python
 def assign_targets(boxes_xyxy, classes, anchors, stride, grid_size, num_classes):
@@ -275,9 +275,9 @@ def assign_targets(boxes_xyxy, classes, anchors, stride, grid_size, num_classes)
     return target, has_obj
 ```
 
-Anchor selection is "best shape IoU with the ground truth" — a cheap proxy that matches the YOLOv2/v3 assignment. v5 and later use more sophisticated strategies (task-aligned matching, dynamic k) that refine the same idea.
+Wybór anchora to "najlepszy kształt IoU z ground truth" — tani substytut, który odpowiada YOLOv2/v3 assignment. v5 i późniejsze używają bardziej wyrafinowanych strategii (task-aligned matching, dynamic k), które udoskonalają ten sam pomysł.
 
-### Step 6: The three losses
+### Krok 6: Trzy straty
 
 ```python
 def yolo_loss(pred, target, has_obj, lambda_coord=5.0, lambda_obj=1.0, lambda_noobj=0.5, lambda_cls=1.0):
@@ -311,11 +311,11 @@ def yolo_loss(pred, target, has_obj, lambda_coord=5.0, lambda_obj=1.0, lambda_no
                    "obj_neg": loss_obj_neg.item(), "cls": loss_cls.item()}
 ```
 
-Five hyper-parameters that every YOLO tutorial either hardcodes or sweeps. The ratios matter: `lambda_coord=5, lambda_noobj=0.5` mirrors the original YOLOv1 paper and still works as a reasonable default.
+Pięć hiperparametrów, które każdy poradnik YOLO albo hardkoduje, albo przemiata. Stosunki mają znaczenie: `lambda_coord=5, lambda_noobj=0.5` odzwierciedla oryginalny artykuł YOLOv1 i nadal działa jako rozsądne domyślne.
 
-### Step 7: Inference pipeline
+### Krok 7: Pipeline wnioskowania
 
-Decode the raw head output, apply sigmoid/exp, threshold on objectness, and NMS.
+Zdekoduj surowe wyjście głowicy, zastosuj sigmoid/exp, threshold na objectness, i NMS.
 
 ```python
 def postprocess(pred_tensor, anchors, stride, img_size, conf_threshold=0.25, iou_threshold=0.45):
@@ -349,11 +349,11 @@ def postprocess(pred_tensor, anchors, stride, img_size, conf_threshold=0.25, iou
     return boxes[keep], scores[keep], classes[keep]
 ```
 
-That is the complete eval path: head -> decode -> threshold -> NMS.
+To jest kompletna ścieżka eval: head -> decode -> threshold -> NMS.
 
-## Use It
+## Użyj tego
 
-`torchvision.models.detection` ships production detectors with the same conceptual structure. Loading a pretrained model takes three lines.
+`torchvision.models.detection` dostarcza produkcyjne detektory z tą samą konceptualną strukturą. Załadowanie wstępnie wytrenowanego modelu zajmuje trzy linie.
 
 ```python
 import torch
@@ -369,37 +369,37 @@ print(f"scores: {predictions[0]['scores'].shape}")
 print(f"labels: {predictions[0]['labels'].shape}")
 ```
 
-For real-time inference pipelines, `ultralytics` (YOLOv8/v9) is the standard: `from ultralytics import YOLO; model = YOLO('yolov8n.pt'); model(img)`. The model handles decoding and NMS internally and returns the same `boxes / scores / labels` triple you built above.
+Dla pipeline'ów wnioskowania w czasie rzeczywistym, `ultralytics` (YOLOv8/v9) to standard: `from ultralytics import YOLO; model = YOLO('yolov8n.pt'); model(img)`. Model obsługuje dekodowanie i NMS wewnętrznie i zwraca tę samą trójkę `boxes / scores / labels`, którą zbudowałeś powyżej.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
+Ta lekcja tworzy:
 
-- `outputs/prompt-detection-metric-reader.md` — a prompt that turns a `precision, recall, AP, mAP@0.5:0.95` row into a one-line diagnosis and the single most useful next experiment.
-- `outputs/skill-anchor-designer.md` — a skill that, given a dataset of ground-truth boxes, runs k-means on `(w, h)` and returns anchor sets per FPN level plus the coverage statistics you need to pick the right number of anchors.
+- `outputs/prompt-detection-metric-reader.md` — prompt, który zamienia wiersz `precision, recall, AP, mAP@0.5:0.95` w jednolinijkową diagnozę i pojedynczy najbardziej użyteczny następny eksperyment.
+- `outputs/skill-anchor-designer.md` — skill, który dla danego zestawu ground-truth bboxów uruchamia k-means na `(w, h)` i zwraca zestawy anchorów na poziom FPN plus statystyki pokrycia potrzebne do wybrania właściwej liczby anchorów.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Implement `box_iou` and run it against `torchvision.ops.box_iou` on 1,000 random box pairs. Verify max absolute difference is below `1e-6`.
-2. **(Medium)** Port `yolo_loss` to a version that uses `CIoU` box loss instead of MSE. Show on a 100-image synthetic dataset that CIoU converges to a better final mAP@0.5:0.95 than MSE in the same number of epochs.
-3. **(Hard)** Implement multi-scale inference: feed the same image at three resolutions through the model, union the box predictions, and run a single NMS at the end. Measure the mAP lift vs single-scale inference on a held-out set.
+1. **(Łatwe)** Zaimplementuj `box_iou` i uruchom przeciwko `torchvision.ops.box_iou` na 1000 losowych parach bboxów. Zweryfikuj, że max bezwzględna różnica jest poniżej `1e-6`.
+2. **(Średnie)** Przepisz `yolo_loss` na wersję używającą straty CIoU bbox zamiast MSE. Pokaż na syntetycznym zbiorze 100 obrazów, że CIoU zbiega do lepszego końcowego mAP@0.5:0.95 niż MSE w tej samej liczbie epok.
+3. **(Trudne)** Zaimplementuj wnioskowanie wieloskalowe: przekaż ten sam obraz w trzech rozdzielczościach przez model, złącz predykcje bboxów, i uruchom pojedyncze NMS na końcu. Zmierz wzrost mAP vs wnioskowanie jednoskalowe na hold-out set.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Anchor | "Box prior" | A pre-defined box shape at each grid cell from which the network predicts deltas instead of absolute coordinates |
-| IoU | "Overlap" | Intersection-over-union of two boxes; the universal similarity measure in detection |
-| NMS | "Deduplicate" | Greedy algorithm that keeps highest-score predictions and removes overlapping ones above a threshold |
-| Objectness | "Is there something here" | Per-anchor, per-cell scalar predicting whether an object is centred in that cell |
-| Grid stride | "Downsample factor" | Pixels per grid cell; a 416-px input with a 13-grid head has stride 32 |
-| mAP | "Mean average precision" | Average of the area under the precision-recall curve, averaged over classes and (for COCO) IoU thresholds |
-| AP@0.5 | "PASCAL VOC AP" | Average precision with IoU threshold 0.5; the lenient version of the metric |
-| mAP@0.5:0.95 | "COCO AP" | Average over IoU thresholds 0.5..0.95 step 0.05; the strict version and current community standard |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|----------------------|
+| Anchor | "Box prior" | Wstępnie zdefiniowany kształt bboxa w każdej komórce siatki, z którego sieć przewiduje delty zamiast bezwzględnych współrzędnych |
+| IoU | "Overlap" | Intersection-over-union dwóch bboxów; uniwersalna miara podobieństwa w detekcji |
+| NMS | "Deduplikuj" | Zachłanny algorytm, który utrzymuje predykcje o najwyższym wyniku i usuwa nakładające się powyżej progu |
+| Objectness | "Czy jest tu coś" | Na anchor, na komórkę skalarny wynik przewidujący, czy obiekt jest wycentrowany w tej komórce |
+| Grid stride | "Downsample factor" | Piksele na komórkę siatki; wejście 416-px z głowicą 13-siatkową ma stride 32 |
+| mAP | "Mean average precision" | Średnia pola pod krzywą precision-recall, uśredniona po klasach i (dla COCO) progach IoU |
+| AP@0.5 | "PASCAL VOC AP" | Średnia precyzja z progiem IoU 0.5; łagodniejsza wersja metryki |
+| mAP@0.5:0.95 | "COCO AP" | Średnia przez progi IoU 0.5..0.95 krok 0.05; ostra wersja i obecny standard społeczności |
 
-## Further Reading
+## Dalsze czytanie
 
-- [YOLOv1: You Only Look Once (Redmon et al., 2016)](https://arxiv.org/abs/1506.02640) — the founding paper; every YOLO since is a refinement of this structure
-- [YOLOv3 (Redmon & Farhadi, 2018)](https://arxiv.org/abs/1804.02767) — the paper that introduced multi-scale FPN-style heads; still the clearest diagram
-- [Ultralytics YOLOv8 docs](https://docs.ultralytics.com) — the current production reference; covers dataset formats, augmentations, training recipes
-- [The Illustrated Guide to Object Detection (Jonathan Hui)](https://jonathan-hui.medium.com/object-detection-series-24d03a12f904) — best plain-English tour of the full detector zoo; priceless for understanding how DETR, RetinaNet, FCOS, and YOLO relate
+- [YOLOv1: You Only Look Once (Redmon i in., 2016)](https://arxiv.org/abs/1506.02640) — artykuł założycielski; każdy YOLO od tego jest udoskonaleniem tej struktury
+- [YOLOv3 (Redmon & Farhadi, 2018)](https://arxiv.org/abs/1804.02767) — artykuł, który wprowadził wieloskalowe głowice w stylu FPN; nadal najjaśniejszy diagram
+- [Ultralytics YOLOv8 docs](https://docs.ultralytics.com) — obecne produkcyjne odniesienie; obejmuje formaty datasetów, augmentacje, przepisy trenowania
+- [The Illustrated Guide to Object Detection (Jonathan Hui)](https://jonathan-hui.medium.com/object-detection-series-24d03a12f904) — najlepsza wycieczka po angielsku przez pełne zoo detektorów; bezcenna dla zrozumienia, jak DETR, RetinaNet, FCOS i YOLO się odnoszą

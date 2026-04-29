@@ -1,30 +1,30 @@
-# Real-Time Vision — Edge Deployment
+# Wizja w czasie rzeczywistym — wdrożenie na edge
 
-> Edge inference is the discipline of getting a 90-accuracy model to run at 30 fps on a device with 2 GB of RAM. Every percentage point of accuracy is traded against milliseconds of latency.
+> Edge inference to dyscyplina polegająca na zmuszeniu modelu o dokładności 90% do pracy z szybkością 30 fps na urządzeniu z 2 GB RAM. Każdy punkt procentowy dokładności jest wymieniany na milisekundy opóźnienia.
 
-**Type:** Learn + Build
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 04 (Image Classification), Phase 10 Lesson 11 (Quantization)
-**Time:** ~75 minutes
+**Typ:** Nauka + Budowanie
+**Języki:** Python
+**Wymagania wstępne:** Lekcja z fazy 4 nr 04 (Klasyfikacja obrazów), Lekcja z fazy 10 nr 11 (Kwantyzacja)
+**Szacowany czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Measure inference latency, peak memory, and throughput for any PyTorch model, and read the FLOPs / params / latency trade-off
-- Quantise a vision model to INT8 using PyTorch's post-training quantisation and verify accuracy loss < 1%
-- Export to ONNX and compile with ONNX Runtime or TensorRT; name the three most common export failures and their fixes
-- Explain when to pick MobileNetV3, EfficientNet-Lite, ConvNeXt-Tiny, or MobileViT for an edge constraint
+- Zmierzyć latency, szczytową pamięć i throughput dla dowolnego modelu PyTorch oraz odczytać trade-off FLOPs / params / latency
+- Skwantyzować model wizyjny do INT8 przy użyciu post-training quantization PyTorch i zweryfikować utratę dokładności < 1%
+- Wyeksportować do ONNX i skompilować z ONNX Runtime lub TensorRT; wymienić trzy najczęstsze błędy eksportu i ich naprawy
+- Wyjaśnić, kiedy wybrać MobileNetV3, EfficientNet-Lite, ConvNeXt-Tiny lub MobileViT przy ograniczeniach edge
 
-## The Problem
+## Problem
 
-A training-time vision model is a floating-point monster. 100M parameters, 10 GFLOPs per forward pass, 2 GB of VRAM. None of that fits on a phone, a car's infotainment unit, an industrial camera, or a drone. Shipping a vision system means fitting the same predictions into a budget that is 100x smaller.
+Model wizyjny z czasów treningu to floating-point potwór. 100M parametrów, 10 GFLOPs na forward pass, 2 GB VRAM. Nic z tego nie zmieści się na telefonie, samochodowym systemie infotainment, przemysłowej kamerze czy dronie. Wysłanie systemu wizyjnego oznacza dopasowanie tych samych predykcji do budżetu, który jest 100x mniejszy.
 
-Three knobs do most of the work: model choice (a smaller architecture with the same recipe), quantisation (INT8 instead of FP32), and the inference runtime (ONNX Runtime, TensorRT, Core ML, TFLite). Getting them right is the difference between a demo that runs on a workstation and a product that ships on a $30 camera module.
+Trzy pokrętła wykonują większość pracy: wybór modelu (mniejsza architektura z tym samym przepisem), kwantyzacja (INT8 zamiast FP32) i runtime inferencyjny (ONNX Runtime, TensorRT, Core ML, TFLite). Poprawne ich ustawienie to różnica między demo działającym na stacji roboczej a produktem wysyłanym na moduł kamery za 30 dolarów.
 
-This lesson sets up the measurement discipline first (you cannot optimise what you cannot measure), then walks the three knobs. The goal is not to learn every edge runtime but to know what levers exist and how to verify each one does what you think.
+Ta lekcja najpierw ustawia dyscyplinę pomiarową (nie można optymalizować tego, czego nie można zmierzyć), a następnie przechodzi przez trzy pokrętła. Celem nie jest nauczenie się każdego edge runtime, lecz poznanie dostępnych dźwigni i sposobu weryfikacji każdej z nich.
 
-## The Concept
+## Koncepcja
 
-### The three budgets
+### Trzy budżety
 
 ```mermaid
 flowchart LR
@@ -41,70 +41,70 @@ flowchart LR
     style PWR fill:#dbeafe,stroke:#2563eb
 ```
 
-- **Latency**: p50, p95, p99. Averaging only p50 hides tail behaviour that matters for real-time systems.
-- **Peak memory**: the maximum the device ever sees, not the steady-state average. Matters because OOMs are fatal on embedded targets.
-- **Power / energy**: millijoules per inference on a battery-powered device. Often proxied by CPU/GPU utilisation * time.
+- **Latency**: p50, p95, p99. Uśrednianie tylko p50 ukrywa zachowanie w ogonie, które ma znaczenie dla systemów real-time.
+- **Szczytowa pamięć**: maksimum, jakie urządzenie kiedykolwiek widzi, nie średnia w stanie ustalonym. Ma znaczenie, bo OOM-y są fatalne na celach embedded.
+- **Moc / energia**: milidżule na inferencję na urządzeniu zasilanym bateryjnie. Często aproksymowana przez wykorzystanie CPU/GPU * czas.
 
-A table of (model, latency, memory, accuracy) is what an edge decision is made from. Every cell is measured on the target device, not the workstation.
+Tabela (model, latency, pamięć, dokładność) to to, z czego podejmuje się decyzję edge. Każda komórka jest mierzona na docelowym urządzeniu, nie na stacji roboczej.
 
-### Measurement discipline
+### Dyscyplina pomiarowa
 
-Three rules that every edge profile should follow:
+Trzy zasady, których należy przestrzegać przy każdym profilowaniu edge:
 
-1. **Warm up** the model with 5-10 dummy forward passes before measuring. Cold caches and JIT compilation produce unrepresentative first numbers.
-2. **Synchronise** GPU workloads with `torch.cuda.synchronize()` before and after the timed block. Without this you measure kernel dispatch, not kernel execution.
-3. **Fix input sizes** to the production resolution. Latency on 224x224 is not latency on 512x512.
+1. **Rozgrzej** model 5-10 dummy forward passes przed pomiarem. Zimne cache'y i kompilacja JIT produkują niereprezentatywne pierwsze liczby.
+2. **Zsynchronizuj** obciążenia GPU z `torch.cuda.synchronize()` przed i po bloku czasowanym. Bez tego mierzysz dispatch kernela, nie wykonanie kernela.
+3. **Ustal rozmiar wejścia** na rozdzielczość produkcyjną. Latency na 224x224 to nie latency na 512x512.
 
-### FLOPs as a proxy
+### FLOPs jako proxy
 
-FLOPs (floating-point operations per inference) is a cheap, device-independent proxy for latency. Useful for architecture comparison, misleading as absolute wall-clock. A model with 10% more FLOPs can be 2x faster in practice because it uses hardware-friendly ops (depthwise convs compile well, large 7x7 convs do not).
+FLOPs (floating-point operations per inference) to tanie, niezależne od urządzenia proxy dla latency. Przydatne do porównywania architektur, mylące jako bezwzględny zegar ścienny. Model z 10% więcej FLOPs może być 2x szybszy w praktyce, bo używa operacji przyjaznych sprzętowo (depthwise conwy kompilują się dobrze, duże 7x7 conwy nie).
 
-Rule: use FLOPs for architecture search, use on-device latency for deployment decisions.
+Zasada: używaj FLOPs do wyszukiwania architektury, używaj latency na urządzeniu do decyzji wdrożeniowych.
 
-### Quantisation in one paragraph
+### Kwantyzacja w jednym akapicie
 
-Replace FP32 weights and activations with INT8. Model size drops 4x, memory bandwidth drops 4x, compute drops 2-4x on hardware that has INT8 kernels (every modern mobile SoC, every NVIDIA GPU with Tensor Cores). Accuracy loss on vision tasks is typically 0.1-1 percentage points with post-training static quantisation.
+Zamień wagi i aktywacje FP32 na INT8. Rozmiar modelu spada 4x, пропускная способность pamięci spada 4x, obliczenia spadają 2-4x na sprzęcie z kernelami INT8 (każdy nowoczesny mobilny SoC, każdy GPU NVIDIA z Tensor Cores). Utrata dokładności na zadaniach wizyjnych to typowo 0.1-1 punktów procentowych przy post-training static quantization.
 
-Types:
+Typy:
 
-- **Dynamic** — quantise weights to INT8, activations computed in FP. Easy, small speedup.
-- **Static (post-training)** — quantise weights + calibrate activation ranges on a small calibration set. Much faster than dynamic.
-- **Quantisation-aware training (QAT)** — simulate quantisation during training so the model learns around it. Best accuracy, needs labelled data.
+- **Dynamic** — kwantyzuj wagi do INT8, aktywacje obliczane w FP. Łatwe, małe przyspieszenie.
+- **Static (post-training)** — kwantyzuj wagi + kalibruj zakresy aktywacji na małym zbiorze kalibracyjnym. Znacznie szybsze niż dynamic.
+- **Quantisation-aware training (QAT)** — symuluj kwantyzację podczas treningu, żeby model nauczył się wokół niej. Najlepsza dokładność, wymaga oznaczonych danych.
 
-For vision, post-training static quantisation gives 95% of the benefit with 5% of the effort. Use QAT only when accuracy loss from PTQ is unacceptable.
+Dla wizji, post-training static quantization daje 95% korzyści przy 5% wysiłku. Używaj QAT tylko gdy utrata dokładności z PTQ jest nieakceptowalna.
 
-### Pruning and distillation
+### Pruning i distillacja
 
-- **Pruning** — remove unimportant weights (magnitude-based) or channels (structured). Works well on overparameterised models; less useful on already-compact architectures.
-- **Distillation** — train a small student to mimic a large teacher's logits. Often recovers most of the accuracy lost by shrinking the model. Standard for production edge models.
+- **Pruning** — usuń nieważne wagi (na podstawie magnitude) lub kanały (strukturalnie). Działa dobrze na przeinparametryzowanych modelach; mniej użyteczne na już kompaktowych architekturach.
+- **Distillation** — trenuj małego studenta, żeby naśladował logity dużego nauczyciela. Często odzyskuje większość utraconej dokładności przez zmniejszenie modelu. Standard dla produkcyjnych modeli edge.
 
-### The inference runtimes
+### Runtimy inferencyjne
 
-- **PyTorch eager** — slow, not for deployment. Use for development only.
-- **TorchScript** — legacy. Superseded by `torch.compile` and ONNX export.
-- **ONNX Runtime** — the neutral runtime. CPU, CUDA, CoreML, TensorRT, OpenVINO all have ONNX providers. Start here.
-- **TensorRT** — NVIDIA's compiler. Best latency on NVIDIA GPUs (workstation and Jetson). Integrates with ONNX Runtime or standalone.
-- **Core ML** — Apple's runtime for iOS/macOS. Needs `.mlmodel` or `.mlpackage`.
-- **TFLite** — Google's runtime for Android/ARM. Needs `.tflite`.
-- **OpenVINO** — Intel's runtime for CPU/VPU. Needs `.xml` + `.bin`.
+- **PyTorch eager** — wolny, nie do wdrożenia. Używaj tylko do developmentu.
+- **TorchScript** — legacy. Wyparty przez `torch.compile` i eksport ONNX.
+- **ONNX Runtime** — neutralny runtime. CPU, CUDA, CoreML, TensorRT, OpenVINO mają wszystkie providery ONNX. Zaczynaj stąd.
+- **TensorRT** — kompilator NVIDIA. Najlepsze latency na GPU NVIDIA (stacja robocza i Jetson). Integruje się z ONNX Runtime lub standalone.
+- **Core ML** — runtime Apple dla iOS/macOS. Potrzebuje `.mlmodel` lub `.mlpackage`.
+- **TFLite** — runtime Google dla Android/ARM. Potrzebuje `.tflite`.
+- **OpenVINO** — runtime Intel dla CPU/VPU. Potrzebuje `.xml` + `.bin`.
 
-In practice: export PyTorch -> ONNX -> pick the runtime for the target. ONNX is the lingua franca.
+W praktyce: eksportuj PyTorch -> ONNX -> wybierz runtime dla celu. ONNX to lingua franca.
 
-### Edge architecture picker
+### Picker architektury edge
 
-| Budget | Model | Why |
-|--------|-------|-----|
-| < 3M params | MobileNetV3-Small | Compiles everywhere, good baseline |
-| 3-10M | EfficientNet-Lite-B0 | Best accuracy per param on TFLite |
-| 10-20M | ConvNeXt-Tiny | Best accuracy-per-param, CPU-friendly |
-| 20-30M | MobileViT-S or EfficientViT | Transformer with ImageNet accuracy |
-| 30-80M | Swin-V2-Tiny | If stack supports window attention |
+| Budżet | Model | Dlaczego |
+|--------|-------|----------|
+| < 3M params | MobileNetV3-Small | Kompiluje się wszędzie, dobry baseline |
+| 3-10M | EfficientNet-Lite-B0 | Najlepsza dokładność na param na TFLite |
+| 10-20M | ConvNeXt-Tiny | Najlepsza dokładność-na-param, przyjazny CPU |
+| 20-30M | MobileViT-S lub EfficientViT | Transformer z dokładnością ImageNet |
+| 30-80M | Swin-V2-Tiny | Jeśli stack obsługuje window attention |
 
-Quantise all of these to INT8 unless you have a specific reason not to.
+Kwantyzuj wszystkie do INT8, chyba że masz konkretny powód, żeby tego nie robić.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Measure latency correctly
+### Krok 1: Mierz latency poprawnie
 
 ```python
 import time
@@ -136,9 +136,9 @@ def measure_latency(model, input_shape, device="cpu", warmup=10, iters=50):
     }
 ```
 
-Warm up, synchronise, use `time.perf_counter()`. Report percentiles, not just mean.
+Rozgrzewka, synchronizacja, używaj `time.perf_counter()`. Raportuj percentyle, nie tylko średnią.
 
-### Step 2: Parameter and FLOP counts
+### Krok 2: Liczba parametrów i FLOPs
 
 ```python
 def parameter_count(model):
@@ -171,9 +171,9 @@ def flops_estimate(model, input_shape):
     return total
 ```
 
-For real projects use `fvcore.nn.FlopCountAnalysis` or `ptflops`; they handle every module type correctly.
+Dla prawdziwych projektów używaj `fvcore.nn.FlopCountAnalysis` lub `ptflops`; obsługują poprawnie każdy typ modułu.
 
-### Step 3: Post-training static quantisation
+### Krok 3: Post-training static quantization
 
 ```python
 def quantise_ptq(model, calibration_loader, backend="x86"):
@@ -188,9 +188,9 @@ def quantise_ptq(model, calibration_loader, backend="x86"):
     return model
 ```
 
-Three steps: configure, prepare (insert observers), calibrate with real data, convert (fuse + quantise). Requires the model to be fused (`Conv -> BN -> ReLU` -> `ConvBnReLU`), which `torch.ao.quantization.fuse_modules` handles.
+Trzy kroki: skonfiguruj, przygotuj (wstaw observatorów), kalibruj z realnymi danymi, konwertuj (fuse + quantize). Wymaga, żeby model był sfuzowany (`Conv -> BN -> ReLU` -> `ConvBnReLU`), co obsługuje `torch.ao.quantization.fuse_modules`.
 
-### Step 4: Export to ONNX
+### Krok 4: Eksport do ONNX
 
 ```python
 def export_onnx(model, sample_input, path="model.onnx"):
@@ -207,9 +207,9 @@ def export_onnx(model, sample_input, path="model.onnx"):
     return path
 ```
 
-`opset_version=17` is the safe default in 2026. `dynamic_axes` lets you run the ONNX model with arbitrary batch size.
+`opset_version=17` to bezpieczny default w 2026. `dynamic_axes` pozwala uruchamiać model ONNX z dowolnym batchem.
 
-### Step 5: Benchmark and compare regimes
+### Krok 5: Benchmark i porównanie reżimów
 
 ```python
 import torch.nn as nn
@@ -224,47 +224,40 @@ def compare_regimes():
           f"p50={lat_fp32['p50_ms']:.2f}ms  p95={lat_fp32['p95_ms']:.2f}ms")
 ```
 
-Run the same function for `resnet50`, `efficientnet_v2_s`, and `convnext_tiny` and you have the comparison table you need for a deployment decision.
+Uruchom tę samą funkcję dla `resnet50`, `efficientnet_v2_s` i `convnext_tiny` i masz tabelę porównawczą potrzebną do decyzji wdrożeniowej.
 
-## Use It
+## Użyj tego
 
-Production stacks converge on one of three paths:
+Produkcyjne stacki zbiegają się do jednej z trzech ścieżek:
 
-- **Web / serverless**: PyTorch -> ONNX -> ONNX Runtime (CPU or CUDA provider). Easiest, good enough for most.
-- **NVIDIA edge (Jetson, GPU server)**: PyTorch -> ONNX -> TensorRT. Best latency, biggest engineering effort.
-- **Mobile**: PyTorch -> ONNX -> Core ML (iOS) or TFLite (Android). Quantise before export.
+- **Web / serverless**: PyTorch -> ONNX -> ONNX Runtime (provider CPU lub CUDA). Najłatwiejsze, wystarczające dla większości.
+- **NVIDIA edge (Jetson, serwer GPU)**: PyTorch -> ONNX -> TensorRT. Najlepsze latency, największy wysiłek inżynieryjny.
+- **Mobile**: PyTorch -> ONNX -> Core ML (iOS) lub TFLite (Android). Kwantyzuj przed eksportem.
 
-For measurement, `torch-tb-profiler`, `nvprof` / `nsys`, and Instruments on macOS give layer-by-layer breakdowns. `benchmark_app` (OpenVINO) and `trtexec` (TensorRT) give standalone CLI numbers.
+Do pomiarów `torch-tb-profiler`, `nvprof` / `nsys` i Instruments na macOS dają rozbicia warstwa po warstwie. `benchmark_app` (OpenVINO) i `trtexec` (TensorRT) dają standalone'owe liczby CLI.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
+Ta lekcja produkuje:
 
-- `outputs/prompt-edge-deployment-planner.md` — a prompt that picks backbone, quantisation strategy, and runtime given target device and latency SLA.
-- `outputs/skill-latency-profiler.md` — a skill that writes a complete latency-benchmarking script with warmup, synchronisation, percentiles, and memory tracking.
+- `outputs/prompt-edge-deployment-planner.md` — prompt, który wybiera backbone, strategię kwantyzacji i runtime przy danym docelowym urządzeniu i SLA latency.
+- `outputs/skill-latency-profiler.md` — skill, który pisze kompletny skrypt benchmarku latency z rozgrzewką, synchronizacją, percentylami i śledzeniem pamięci.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Measure p50 latency for `resnet18`, `mobilenet_v3_small`, `efficientnet_v2_s`, and `convnext_tiny` at 224x224 on CPU. Report the table and identify which architecture has the best accuracy-per-ms.
-2. **(Medium)** Apply post-training static quantisation to `mobilenet_v3_small`. Report FP32 vs INT8 latency and accuracy loss on a held-out subset of CIFAR-10 or similar.
-3. **(Hard)** Export `convnext_tiny` to ONNX, run it through `onnxruntime` with the `CPUExecutionProvider`, and compare latency to the PyTorch eager baseline. Identify the first layer where ONNX Runtime is faster and explain why.
+1. **(Łatwe)** Zmierz p50 latency dla `resnet18`, `mobilenet_v3_small`, `efficientnet_v2_s` i `convnext_tiny` przy 224x224 na CPU. Zgłoś tabelę i zidentyfikuj, która architektura ma najlepszą dokładność na ms.
+2. **(Średnie)** Zastosuj post-training static quantization do `mobilenet_v3_small`. Zgłoś FP32 vs INT8 latency i utratę dokładności na held-out subset CIFAR-10 lub podobnym.
+3. **(Trudne)** Wyeksportuj `convnext_tiny` do ONNX, uruchom przez `onnxruntime` z `CPUExecutionProvider` i porównaj latency do PyTorch eager baseline. Zidentyfikuj pierwszą warstwę, gdzie ONNX Runtime jest szybszy i wyjaśnij dlaczego.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Latency | "How fast" | Time from input to output; p50/p95/p99 percentiles, not mean |
-| FLOPs | "Model size" | Floating-point ops per forward pass; rough proxy for compute cost |
-| INT8 quantisation | "8-bit" | Replace FP32 weights/activations with 8-bit integers; ~4x smaller, 2-4x faster |
-| PTQ | "Post-training quantisation" | Quantise a trained model without retraining; easy, usually enough |
-| QAT | "Quantisation-aware training" | Simulate quantisation during training; best accuracy, requires labelled data |
-| ONNX | "The neutral format" | Model exchange format supported by every mainstream inference runtime |
-| TensorRT | "NVIDIA compiler" | Compiles ONNX into an optimised engine for NVIDIA GPUs |
-| Distillation | "Teacher -> student" | Train a small model to mimic a big model's logits; recovers most lost accuracy |
-
-## Further Reading
-
-- [EfficientNet (Tan & Le, 2019)](https://arxiv.org/abs/1905.11946) — compound scaling for efficient architectures
-- [MobileNetV3 (Howard et al., 2019)](https://arxiv.org/abs/1905.02244) — mobile-first architecture with h-swish and squeeze-excite
-- [A Practical Guide to TensorRT Optimization (NVIDIA)](https://developer.nvidia.com/blog/accelerating-model-inference-with-tensorrt-tips-and-best-practices-for-pytorch-users/) — how to actually get the throughput numbers in the paper
-- [ONNX Runtime docs](https://onnxruntime.ai/docs/) — quantisation, graph optimisation, provider selection
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|-------------------------|
+| Latency | "Jak szybko" | Czas od wejścia do wyjścia; percentyle p50/p95/p99, nie średnia |
+| FLOPs | "Rozmiar modelu" | Floating-point ops na forward pass; rough proxy dla kosztu obliczeniowego |
+| INT8 quantisation | "8-bit" | Zamiana wag/aktywacji FP32 na 8-bitowe integery; ~4x mniejszy, 2-4x szybszy |
+| PTQ | "Post-training quantisation" | Kwantyzacja wytrenowanego modelu bez retrainingu; łatwe, zwykle wystarczające |
+| QAT | "Quantisation-aware training" | Symulacja kwantyzacji podczas treningu; najlepsza dokładność, wymaga oznaczonych danych |
+| ONNX | "The neutral format" | Format wymiany modeli wspierany przez każdy mainstreamowy runtime inferencyjny |
+| TensorRT | "Kompilator NVIDIA" | Kompiluje ONNX w zoptymalizowany engine dla GPU NVIDIA |
+| Distillation | "Teacher -> student" | Trenowanie małego modelu, żeby naśladował logity dużego; odzyskuje większość utraconej dokładności |

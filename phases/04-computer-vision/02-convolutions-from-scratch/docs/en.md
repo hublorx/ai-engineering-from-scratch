@@ -1,46 +1,46 @@
-# Convolutions from Scratch
+# Sploty od zera
 
-> A convolution is a tiny dense layer you slide across an image, sharing the same weights at every location.
+> Splot to gęsta warstwa w miniature, którą przesuwasz po obrazie, dzieląc te same wagi w każdej lokalizacji.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 3 (Deep Learning Core), Phase 4 Lesson 01 (Image Fundamentals)
-**Time:** ~75 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Faza 3 (Deep Learning Core), Faza 4 Lekcja 01 (Podstawy obrazu)
+**Szacowany czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement 2D convolution from scratch using only NumPy, including the nested-loop version and a vectorised `im2col` version
-- Compute output spatial size for any combination of input size, kernel size, padding, and stride, and justify the `(H - K + 2P) / S + 1` formula
-- Hand-design kernels (edge, blur, sharpen, Sobel) and explain why each one produces the pattern of activations it does
-- Stack convolutions into a feature extractor and connect the depth-of-the-stack to the size of the receptive field
+- Zaimplementuj splot 2D od zera używając tylko NumPy, w tym wersję z zagnieżdżonymi pętlami oraz zwektoryzowaną wersję `im2col`
+- Oblicz rozmiar przestrzenny wyjścia dla dowolnej kombinacji rozmiaru wejścia, rozmiaru jądra, paddingu i kroku, oraz uzasadnij wzór `(H - K + 2P) / S + 1`
+- Zaprojektuj ręcznie jądra (wykrywanie krawędzi, rozmycie, wyostrzenie, Sobel) i wyjaśnij, dlaczego każde z nich wytwarza określony wzór aktywacji
+- Złóż sploty w ekstraktor cech i połącz głębokość stosu z rozmiarem pola recepcyjnego
 
-## The Problem
+## Problem
 
-A fully connected layer on a 224x224 RGB image would need 224 * 224 * 3 = 150,528 input weights per neuron. A single hidden layer with 1,000 units is already 150 million parameters — before you have learnt anything useful. Worse, that layer has no notion that a dog in the top-left and a dog in the bottom-right are the same pattern. It treats every pixel position as independent, which is exactly wrong for images: translating a cat by three pixels should not force the network to relearn the concept.
+Gęsta warstwa na obrazie RGB 224x224 wymagałaby 224 * 224 * 3 = 150 528 wag wejściowych na neuron. Sama ukryta warstwa z 1 000 jednostkami to już 150 milionów parametrów — zanim cokolwiek przydatnego się nauczyła. Co gorsza, ta warstwa nie ma pojęcia, że pies w lewym górnym rogu i pies w prawym dolnym rogu to ten sam wzór. Traktuje każdą pozycję piksela jako niezależną, co jest całkowicie błędne dla obrazów: przesunięcie kota o trzy piksele nie powinno zmuszać sieci do ponownego uczenia się koncepcji.
 
-The two properties an image model needs are **translation equivariance** (the output shifts when the input shifts) and **parameter sharing** (the same feature detector runs everywhere). Dense layers give you neither. Convolution gives you both for free.
+Dwie właściwości, których potrzebuje model obrazu, to **niezmienniczość translacyjna** (wyjście przesuwa się, gdy wejście się przesuwa) oraz **dzielenie parametrów** (ten sam detektor cech działa wszędzie). Gęste warstwy nie dają żadnej z nich. Splot daje obie za darmo.
 
-Convolution was not invented for deep learning. It is the same operation that powers JPEG compression, Gaussian blur in Photoshop, edge detection in industrial vision, and every audio filter ever shipped. The reason CNNs dominated ImageNet from 2012 to 2020 is that convolution is the correct prior for data where nearby values are related and the same pattern can appear anywhere.
+Splot nie został wynaleziony dla deep learningu. To ta sama operacja, która napędza kompresję JPEG, rozmycie Gaussowskie w Photoshopie, wykrywanie krawędzi w wizji przemysłowej i każdy filtr audio kiedykolwiek wydany. Powód, dla którego CNN-y zdominowały ImageNet od 2012 do 2020, polega na tym, że splot jest właściwym priorytetem dla danych, gdzie bliskie wartości są powiązane i ten sam wzór może pojawić się w dowolnym miejscu.
 
-## The Concept
+## Koncepcja
 
-### One kernel, sliding
+### Jedno jądro, przesuwane
 
-A 2D convolution takes a small weight matrix called the kernel (or filter), slides it across the input, and at each location computes the sum of element-wise products. That sum becomes one output pixel.
+Splot 2D pobiera małą macierz wag zwaną jądrem (lub filtrem), przesuwa ją po wejściu i w każdej lokalizacji oblicza sumę iloczynów element-wise. Ta suma staje się jednym pikselem wyjściowym.
 
 ```mermaid
 flowchart LR
-    subgraph IN["Input (H x W)"]
+    subgraph IN["Wejście (H x W)"]
         direction LR
-        I1["5 x 5 image"]
+        I1["obraz 5 x 5"]
     end
-    subgraph K["Kernel (3 x 3)"]
-        K1["learned<br/>weights"]
+    subgraph K["Jądro (3 x 3)"]
+        K1["wagi<br/>do nauczenia"]
     end
-    subgraph OUT["Output (H-2 x W-2)"]
-        O1["3 x 3 map"]
+    subgraph OUT["Wyjście (H-2 x W-2)"]
+        O1["mapa 3 x 3"]
     end
-    I1 --> |"slide kernel<br/>compute dot product<br/>at each position"| O1
+    I1 --> |"przesuń jądro<br/>oblicz iloczyn skalarny<br/>w każdej pozycji"| O1
     K1 --> O1
 
     style IN fill:#dbeafe,stroke:#2563eb
@@ -48,143 +48,143 @@ flowchart LR
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-A concrete 3x3 example on a 5x5 input (no padding, stride 1):
+Konkretny przykład 3x3 na wejściu 5x5 (bez paddingu, krok 1):
 
 ```
-Input X (5 x 5):                Kernel W (3 x 3):
+Wejście X (5 x 5):                  Jądro W (3 x 3):
 
-  1  2  0  1  2                   1  0 -1
-  0  1  3  1  0                   2  0 -2
-  2  1  0  2  1                   1  0 -1
+  1  2  0  1  2                     1  0 -1
+  0  1  3  1  0                     2  0 -2
+  2  1  0  2  1                     1  0 -1
   1  0  2  1  3
   2  1  1  0  1
 
-The kernel slides across every valid 3 x 3 window. Output Y is 3 x 3:
+Jądro przesuwa się przez każde poprawne okno 3 x 3. Wyjście Y ma rozmiar 3 x 3:
 
  Y[0,0] = sum( W * X[0:3, 0:3] )
  Y[0,1] = sum( W * X[0:3, 1:4] )
  Y[0,2] = sum( W * X[0:3, 2:5] )
  Y[1,0] = sum( W * X[1:4, 0:3] )
- ... and so on
+ ... i tak dalej
 ```
 
-That one formula — **shared weights, locality, sliding window** — is the entire idea. Everything else is bookkeeping.
+Ten jeden wzór — **współdzielone wagi, lokalność, przesuwane okno** — to cała idea. Wszystko inne to tylko księgowość.
 
-### Output size formula
+### Wzór na rozmiar wyjścia
 
-Given input spatial size `H`, kernel size `K`, padding `P`, stride `S`:
+Przy danym przestrzennym rozmiarze wejścia `H`, rozmiarze jądra `K`, paddingu `P`, kroku `S`:
 
 ```
 H_out = floor( (H - K + 2P) / S ) + 1
 ```
 
-Memorise this. You will compute it dozens of times per architecture.
+Zapamiętaj to na pamięć. Będziesz to obliczać dziesiątki razy podczas projektowania architektury.
 
-| Scenario | H | K | P | S | H_out |
+| Scenariusz | H | K | P | S | H_out |
 |----------|---|---|---|---|-------|
-| Valid conv, no padding | 32 | 3 | 0 | 1 | 30 |
-| Same conv (preserves size) | 32 | 3 | 1 | 1 | 32 |
-| Downsample by 2 | 32 | 3 | 1 | 2 | 16 |
-| Pool 2x2 | 32 | 2 | 0 | 2 | 16 |
-| Large receptive field | 32 | 7 | 3 | 2 | 16 |
+| Splot valid, bez paddingu | 32 | 3 | 0 | 1 | 30 |
+| Splot same (zachowuje rozmiar) | 32 | 3 | 1 | 1 | 32 |
+| Downsampling o 2 | 32 | 3 | 1 | 2 | 16 |
+| Pooling 2x2 | 32 | 2 | 0 | 2 | 16 |
+| Duże pole recepcyjne | 32 | 7 | 3 | 2 | 16 |
 
-"Same padding" means pick P so that H_out == H when S == 1. For odd K, that is P = (K - 1) / 2. That is why 3x3 kernels dominate — they are the smallest odd kernel that still has a centre.
+"Same padding" oznacza wybór P tak, aby H_out == H gdy S == 1. Dla nieparzystego K, jest to P = (K - 1) / 2. Dlatego jądra 3x3 dominują — są najmniejszym nieparzystym jądrem, które ma jeszcze środek.
 
 ### Padding
 
-Without padding, every convolution shrinks the feature map. Stack 20 of them and your 224x224 image becomes 184x184, which wastes compute on the border and complicates residual connections that need matching shapes.
+Bez paddingu każdy splot zmniejsza mapę cech. Złóż 20 takich i Twój obraz 224x224 staje się 184x184, co marnuje obliczenia na granicach i komplikuje połączenia rezydualne, które potrzebują dopasowanych kształtów.
 
 ```
-Zero padding (P = 1) on a 5 x 5 input:
+Zero padding (P = 1) na wejściu 5 x 5:
 
   0  0  0  0  0  0  0
   0  1  2  0  1  2  0
   0  0  1  3  1  0  0
-  0  2  1  0  2  1  0       Now the kernel can centre on pixel
-  0  1  0  2  1  3  0       (0, 0) and still have three rows and
-  0  2  1  1  0  1  0       three columns of values to multiply.
+  0  2  1  0  2  1  0       Teraz jądro może wycentrować się na pikselu
+  0  1  0  2  1  3  0       (0, 0) i nadal mieć trzy wiersze i
+  0  2  1  1  0  1  0       trzy kolumny wartości do pomnożenia.
   0  0  0  0  0  0  0
 ```
 
-Modes you meet in practice: `zero` (most common), `reflect` (mirror the edge, avoids hard borders in generative models), `replicate` (copy the edge), `circular` (wrap around, used in toroidal problems).
+Tryby, które spotkasz w praktyce: `zero` (najczęstszy), `reflect` (odbij lustrzanie krawędź, unika twardych granic w modelach generatywnych), `replicate` (kopiuje krawędź), `circular` (zawija wokół, używane w problemach toroidalnych).
 
 ### Stride
 
-Stride is the step size of the slide. `stride=1` is the default. `stride=2` halves the spatial dimensions and is the classic way to downsample inside a CNN without a separate pooling layer — every modern architecture (ResNet, ConvNeXt, MobileNet) uses strided convs in place of max-pool somewhere.
+Stride to rozmiar kroku przesuwania. `stride=1` to domyślny. `stride=2` zmniejsza dwukrotnie wymiary przestrzenne i jest klasycznym sposobem downsamplingu wewnątrz CNN bez osobnej warstwy poolingu — każda nowoczesna architektura (ResNet, ConvNeXt, MobileNet) używa strided conv w miejsce max-pool gdzieś.
 
 ```
-Stride 1 on a 5 x 5 input, 3 x 3 kernel:
+Stride 1 na wejściu 5 x 5, jądro 3 x 3:
 
-  starts: (0,0) (0,1) (0,2)        -> output row 0
-          (1,0) (1,1) (1,2)        -> output row 1
-          (2,0) (2,1) (2,2)        -> output row 2
+  startuje: (0,0) (0,1) (0,2)        -> wiersz wyjścia 0
+          (1,0) (1,1) (1,2)        -> wiersz wyjścia 1
+          (2,0) (2,1) (2,2)        -> wiersz wyjścia 2
 
-  Output: 3 x 3
+  Wyjście: 3 x 3
 
-Stride 2 on the same input:
+Stride 2 na tym samym wejściu:
 
-  starts: (0,0) (0,2)              -> output row 0
-          (2,0) (2,2)              -> output row 1
+  startuje: (0,0) (0,2)              -> wiersz wyjścia 0
+          (2,0) (2,2)              -> wiersz wyjścia 1
 
-  Output: 2 x 2
+  Wyjście: 2 x 2
 ```
 
-### Multiple input channels
+### Wiele kanałów wejściowych
 
-Real images have three channels. A 3x3 convolution on an RGB input is actually a 3x3x3 volume: one 3x3 slice per input channel. At each spatial position, you multiply and sum across all three slices and add a bias.
+Prawdziwe obrazy mają trzy kanały. Splot 3x3 na wejściu RGB jest w istocie objętością 3x3x3: jeden plaster 3x3 na kanał wejściowy. W każdej pozycji przestrzennej mnożysz i sumujesz przez wszystkie trzy plastry i dodajesz bias.
 
 ```
-Input:   (C_in,  H,  W)        3 x 5 x 5
-Kernel:  (C_in,  K,  K)        3 x 3 x 3 (one kernel)
-Output:  (1,     H', W')       2D map
+Wejście:   (C_in,  H,  W)        3 x 5 x 5
+Jądro:     (C_in,  K,  K)        3 x 3 x 3 (jedno jądro)
+Wyjście:   (1,     H', W')       mapa 2D
 
-For a layer that produces C_out output channels, you stack C_out kernels:
+Dla warstwy produkującej C_out kanałów wyjściowych, układasz C_out jąder:
 
-Weight:  (C_out, C_in, K, K)   e.g. 64 x 3 x 3 x 3
-Output:  (C_out, H', W')       64 x 3 x 3
+Wagi:      (C_out, C_in, K, K)   np. 64 x 3 x 3 x 3
+Wyjście:   (C_out, H', W')       64 x 3 x 3
 
-Parameter count: C_out * C_in * K * K + C_out   (the + C_out is biases)
+Liczba parametrów: C_out * C_in * K * K + C_out   (+ C_out to biasy)
 ```
 
-That last line is the one you will calculate when planning a model. A 64-channel 3x3 conv on a 3-channel input has `64 * 3 * 3 * 3 + 64 = 1,792` parameters. Cheap.
+Ta ostatnia linia to ta, którą będziesz obliczać podczas planowania modelu. Splot 3x3 z 64 kanałami na wejściu 3-kanałowym ma `64 * 3 * 3 * 3 + 64 = 1 792` parametrów. Tanio.
 
-### The im2col trick
+### Trik im2col
 
-Nested loops are easy to read but slow. GPUs want big matrix multiplies. The trick: flatten every receptive-field window of the input into one column of a big matrix, flatten the kernel into a row, and the whole convolution becomes a single matmul.
+Zagnieżdżone pętle są łatwe do czytania, ale wolne. GPU chcą dużych mnożeń macierzy. Trick: spłaszcz każde okno pola recepcyjnego wejścia w jedną kolumnę dużej macierzy, spłaszcz jądro w wiersz, a cały splot staje się jednym mnożeniem matmul.
 
 ```mermaid
 flowchart LR
-    X["Input<br/>(C_in, H, W)"] --> IM2COL["im2col<br/>(extract patches)"]
-    IM2COL --> COLS["Cols matrix<br/>(C_in * K * K, H_out * W_out)"]
-    W["Weight<br/>(C_out, C_in, K, K)"] --> FLAT["Flatten<br/>(C_out, C_in * K * K)"]
+    X["Wejście<br/>(C_in, H, W)"] --> IM2COL["im2col<br/>(wyciągnij patche)"]
+    IM2COL --> COLS["Macierz kolumn<br/>(C_in * K * K, H_out * W_out)"]
+    W["Wagi<br/>(C_out, C_in, K, K)"] --> FLAT["Spłaszcz<br/>(C_out, C_in * K * K)"]
     FLAT --> MM["matmul"]
     COLS --> MM
-    MM --> OUT["Output<br/>(C_out, H_out * W_out)<br/>reshape to (C_out, H_out, W_out)"]
+    MM --> OUT["Wyjście<br/>(C_out, H_out * W_out)<br/>reshape na (C_out, H_out, W_out)"]
 
     style X fill:#dbeafe,stroke:#2563eb
     style W fill:#fef3c7,stroke:#d97706
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-Every production conv implementation is some variant of this plus cache-tiling tricks (direct conv, Winograd, FFT conv for large kernels). Understand im2col and you understand the core.
+Każda produkcyjna implementacja splotu to jakaś wariant tego plus triki cache-tiling (direct conv, Winograd, FFT conv dla dużych jąder). Zrozum im2col, a zrozumiesz sedno.
 
-### Receptive field
+### Pole recepcyjne
 
-A single 3x3 conv looks at 9 input pixels. Stack two 3x3 convs and a neuron in the second layer looks at 5x5 input pixels. Three 3x3 convs give 7x7. In general:
+Pojedynczy splot 3x3 widzi 9 pikseli wejściowych. Złóż dwa sploty 3x3 i neuron w drugiej warstwie widzi 5x5 pikseli wejściowych. Trzy sploty 3x3 dają 7x7. Ogólnie:
 
 ```
-RF after L stacked K x K convs (stride 1) = 1 + L * (K - 1)
+RF po L nałożonych splotach K x K (stride 1) = 1 + L * (K - 1)
 
-With strides:   RF grows multiplicatively with stride along each layer.
+Ze stride:   RF rośnie multiplikatywnie ze stride w każdej warstwie.
 ```
 
-The entire reason "3x3 all the way down" works (VGG, ResNet, ConvNeXt) is that two 3x3 convs see the same input area as one 5x5 conv but with fewer parameters and an extra non-linearity in between.
+Cały powód, dla którego "3x3 przez całą drogę" działa (VGG, ResNet, ConvNeXt), polega na tym, że dwa sploty 3x3 widzą ten sam obszar wejścia co jeden splot 5x5, ale z mniejszą liczbą parametrów i dodatkową nieliniowością pomiędzy.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Pad an array
+### Krok 1: Wypełnij tablicę zerami
 
-Start with the smallest primitive: a function that pads with zeros around an H x W array.
+Zacznij od najmniejszego prymitywu: funkcji, która wypełnia zerami wokół tablicy H x W.
 
 ```python
 import numpy as np
@@ -203,11 +203,11 @@ print()
 print(pad2d(x, 1))
 ```
 
-The trailing-axes trick `x.shape[:-2]` means the same function works on `(H, W)`, `(C, H, W)`, or `(N, C, H, W)` without modification.
+Sztuczka z osiami końcowymi `x.shape[:-2]` oznacza, że ta sama funkcja działa na `(H, W)`, `(C, H, W)` lub `(N, C, H, W)` bez modyfikacji.
 
-### Step 2: 2D convolution with nested loops
+### Krok 2: Splot 2D z zagnieżdżonymi pętlami
 
-The reference implementation — slow, but unambiguous. This is what `torch.nn.functional.conv2d` does in principle.
+Implementacja referencyjna — wolna, ale jednoznaczna. To jest to, co `torch.nn.functional.conv2d` robi w zasadzie.
 
 ```python
 def conv2d_naive(x, w, b=None, stride=1, padding=0):
@@ -232,11 +232,11 @@ def conv2d_naive(x, w, b=None, stride=1, padding=0):
     return out
 ```
 
-Four nested loops (output channel, row, column, plus the implicit sum over C_in, kh, kw). This is the ground truth you will check every faster implementation against.
+Cztery zagnieżdżone pętle (kanał wyjściowy, wiersz, kolumna, plus implikowana suma nad C_in, kh, kw). To jest ground truth, przeciwko której będziesz sprawdzać każdą szybszą implementację.
 
-### Step 3: Verify with a hand-designed kernel
+### Krok 3: Weryfikacja z ręcznie zaprojektowanym jądrem
 
-Build a vertical Sobel kernel, apply it to a synthetic step image, and watch the vertical edge light up.
+Zbuduj pionowe jądro Sobela, zastosuj je do syntetycznego obrazu ze stopniem i obserwuj, jak pionowa krawędź się zapala.
 
 ```python
 def synthetic_step_image():
@@ -255,11 +255,11 @@ y = conv2d_naive(x, sobel_x, padding=1)
 print(y[0].round(1))
 ```
 
-Expect large positive values on column 7 (left-to-right brightness increase) and zeros everywhere else. That single print is your sanity check that the math is right.
+Oczekuj dużych dodatnich wartości w kolumnie 7 (wzrost jasności od lewej do prawej) i zer gdzie indziej. Ten jeden wydruk to Twoje sanity check, że matematyka jest poprawna.
 
-### Step 4: im2col
+### Krok 4: im2col
 
-Convert every kernel-sized window in the input into a column of a matrix. For `C_in=3, K=3`, each column is 27 numbers.
+Konwertuj każde okno wielkości jądra w wejściu na kolumnę macierzy. Dla `C_in=3, K=3`, każda kolumna ma 27 liczb.
 
 ```python
 def im2col(x, kh, kw, stride=1, padding=0):
@@ -280,11 +280,11 @@ def im2col(x, kh, kw, stride=1, padding=0):
     return cols, h_out, w_out
 ```
 
-It is still a Python loop, but now the heavy lifting will be a single vectorised matmul.
+To wciąż pętla Pythona, ale teraz ciężka praca będzie jednym zwektoryzowanym matmulem.
 
-### Step 5: Fast conv via im2col + matmul
+### Krok 5: Szybki splot przez im2col + matmul
 
-Replace the quadruple loop with one matrix multiplication.
+Zamień poczwórną pętlę na jedno mnożenie macierzowe.
 
 ```python
 def conv2d_im2col(x, w, b=None, stride=1, padding=0):
@@ -297,7 +297,7 @@ def conv2d_im2col(x, w, b=None, stride=1, padding=0):
     return out.reshape(c_out, h_out, w_out)
 ```
 
-Correctness check: run both implementations and compare.
+Sprawdzenie poprawności: uruchom obie implementacje i porównaj.
 
 ```python
 rng = np.random.default_rng(0)
@@ -311,11 +311,11 @@ y_im2col = conv2d_im2col(x, w, b, padding=1)
 print(f"max abs diff: {np.max(np.abs(y_naive - y_im2col)):.2e}")
 ```
 
-`max abs diff` should be around `1e-5` — the difference is floating-point accumulation order, not a bug.
+`max abs diff` powinno być około `1e-5` — różnica wynika z kolejności akumulacji zmiennoprzecinkowej, nie z błędu.
 
-### Step 6: A bank of hand-designed kernels
+### Krok 6: Bank ręcznie zaprojektowanych jąder
 
-Five filters that show what a single conv layer can express before any training.
+Pięć filtrów, które pokazują, co pojedyncza warstwa splotowa może wyrazić przed jakimkolwiek treningiem.
 
 ```python
 KERNELS = {
@@ -332,11 +332,11 @@ def apply_kernel(img2d, kernel):
     return conv2d_im2col(x, w, padding=1)[0]
 ```
 
-Applied to any grayscale image, blur softens, sharpen crisps up edges, Sobel-x lights up vertical edges, Sobel-y lights up horizontal edges. These are exactly the patterns that the *first* trained conv layer in AlexNet and VGG ended up learning — because a good image model needs edge and blob detectors no matter what task comes later.
+Zastosowane do dowolnego obrazu w skali szarości, blur miękczy, sharpen podostrza krawędzie, Sobel-x zapala pionowe krawędzie, Sobel-y zapala poziome krawędzie. To są dokładnie te wzory, które *pierwsza* trenowana warstwa splotowa w AlexNecie i VGG nauczyła się wykrywać — bo dobry model obrazu potrzebuje detektorów krawędzi i blobów niezależnie od późniejszego zadania.
 
-## Use It
+## Użyj tego
 
-PyTorch's `nn.Conv2d` wraps the same operation with autograd, CUDA kernels, and cuDNN optimisation. Shape semantics are identical.
+`nn.Conv2d` z PyTorcha opakowuje tę samą operację z autograd, kernelami CUDA i optymalizacją cuDNN. Semantyka kształtów jest identyczna.
 
 ```python
 import torch
@@ -354,37 +354,30 @@ print(f"\ninput  shape: {tuple(x.shape)}")
 print(f"output shape: {tuple(y.shape)}")
 ```
 
-Swap `padding=1` for `padding=0` and the output drops to 222x222. Swap `stride=1` for `stride=2` and it drops to 112x112. Same formula you memorised above.
+Zamień `padding=1` na `padding=0` i wyjście spadnie do 222x222. Zamień `stride=1` na `stride=2` i spadnie do 112x112. Ten sam wzór, który zapamiętałeś powyżej.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
+Ta lekcja wytwarza:
 
-- `outputs/prompt-cnn-architect.md` — a prompt that, given input size, parameter budget, and target receptive field, designs a stack of `Conv2d` layers with the right K/S/P at every step.
-- `outputs/skill-conv-shape-calculator.md` — a skill that walks a network spec layer by layer and returns the output shape, receptive field, and parameter count for every block.
+- `outputs/prompt-cnn-architect.md` — prompt, który przy danym rozmiarze wejścia, budżecie parametrów i docelowym polu recepcyjnym projektuje stos warstw `Conv2d` z odpowiednim K/S/P na każdym kroku.
+- `outputs/skill-conv-shape-calculator.md` — skill, który przechodzi przez specyfikację sieci warstwa po warstwie i zwraca kształt wyjścia, pole recepcyjne i liczbę parametrów dla każdego bloku.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Given a 128x128 grayscale input and a stack of `[Conv3x3(s=1,p=1), Conv3x3(s=2,p=1), Conv3x3(s=1,p=1), Conv3x3(s=2,p=1)]`, compute the output spatial size and the receptive field at each layer by hand. Verify with a PyTorch `nn.Sequential` of dummy convs.
-2. **(Medium)** Extend `conv2d_naive` and `conv2d_im2col` to accept a `groups` argument. Show that `groups=C_in=C_out` reproduces a depthwise convolution and that its parameter count is `C * K * K` instead of `C * C * K * K`.
-3. **(Hard)** Implement the backward pass of `conv2d_im2col` by hand: given the gradient of the output, compute the gradient of `x` and `w`. Verify against `torch.autograd.grad` on the same inputs and weights. The trick: the gradient of im2col is `col2im`, and it has to accumulate overlapping windows.
+1. **(Łatwe)** Mając wejście 128x128 w skali szarości i stos `[Conv3x3(s=1,p=1), Conv3x3(s=2,p=1), Conv3x3(s=1,p=1), Conv3x3(s=2,p=1)]`, oblicz ręcznie przestrzenny rozmiar wyjścia i pole recepcyjne na każdej warstwie. Zweryfikuj z `nn.Sequential` z PyTorch dummy convs.
+2. **(Średnie)** Rozszerz `conv2d_naive` i `conv2d_im2col` o argument `groups`. Pokaż, że `groups=C_in=C_out` odtwarza depthwise convolution i że jej liczba parametrów to `C * K * K` zamiast `C * C * K * K`.
+3. **(Trudne)** Zaimplementuj wsteczną propagację `conv2d_im2col` ręcznie: mając gradient wyjścia, oblicz gradient `x` i `w`. Zweryfikuj przeciwko `torch.autograd.grad` na tych samych wejściach i wagach. Trick: gradient im2col to `col2im`, i musi akumulować nakładające się okna.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Convolution | "Sliding a filter" | A learnable dot product applied at every spatial location with shared weights; mathematically a cross-correlation, but everyone calls it convolution |
-| Kernel / filter | "The feature detector" | A small weight tensor of shape (C_in, K, K) whose dot product with a window of input produces one output pixel |
-| Stride | "How far you jump" | The step size between consecutive kernel placements; stride 2 halves each spatial dimension |
-| Padding | "Zeros on the edges" | Extra values added around the input so the kernel can centre on border pixels; `same` padding keeps output size equal to input size |
-| Receptive field | "How much the neuron sees" | The patch of original input that a given output activation depends on, growing with depth and stride |
-| im2col | "The GEMM trick" | Rearranging every receptive window into columns so convolution becomes one big matrix multiply — the core of every fast conv kernel |
-| Depthwise conv | "One kernel per channel" | A conv with `groups == C_in`, computing each output channel from only its matching input channel; the backbone of MobileNet and ConvNeXt |
-| Translation equivariance | "Shift in, shift out" | Property that shifting the input by k pixels shifts the output by k pixels; comes for free with shared weights |
-
-## Further Reading
-
-- [A guide to convolution arithmetic for deep learning (Dumoulin & Visin, 2016)](https://arxiv.org/abs/1603.07285) — the definitive diagrams of padding/stride/dilation that every course quietly copies
-- [CS231n: Convolutional Neural Networks for Visual Recognition](https://cs231n.github.io/convolutional-networks/) — the canonical lecture notes, including the original im2col explanation
-- [The Annotated ConvNet (fast.ai)](https://nbviewer.org/github/fastai/fastbook/blob/master/13_convolutions.ipynb) — a notebook that walks from manual convolution to a trained digit classifier
-- [Receptive Field Arithmetic for CNNs (Dang Ha The Hien)](https://distill.pub/2019/computing-receptive-fields/) — the paper-quality interactive explainer of receptive field calculations
+| Splot | "Przesuwanie filtru" | Nauczalny iloczyn skalarny stosowany w każdej lokalizacji przestrzennej ze współdzielonymi wagami; matematycznie cross-correlation, ale wszyscy nazywają to splotem |
+| Jądro / filtr | "Detektor cech" | Mały tensor wag o kształcie (C_in, K, K), którego iloczyn skalarny z oknem wejścia produkuje jeden piksel wyjścia |
+| Stride | "Jak daleko skaczesz" | Rozmiar kroku między kolejnymi pozycjami jądra; stride 2 zmniejsza dwukrotnie każdy wymiar przestrzenny |
+| Padding | "Zera na krawędziach" | Dodatkowe wartości dodawane wokół wejścia, aby jądro mogło wycentrować się na pikselach granicznych; `same` padding zachowuje równość rozmiaru wyjścia z wejściem |
+| Pole recepcyjne | "Ile neuron widzi" | Plaster oryginalnego wejścia, od którego zależy dana aktywacja wyjściowa, rosnący z głębokością i stride |
+| im2col | "Sztuczka GEMM" | Przestawienie każdego okna recepcyjnego w kolumny, aby splot stał się jednym dużym mnożeniem macierzy — sedno każdego szybkiego kernela splotowego |
+| Depthwise conv | "Jedno jądro na kanał" | Splot z `groups == C_in`, obliczający każdy kanał wyjściowy tylko z jego pasującego kanału wejściowego; szkielet MobileNet i ConvNeXt |
+| Niezmienniczość translacyjna | "Przesuń wejście, przesuń wyjście" | Właściwość, że przesunięcie wejścia o k pikseli przesuwa wyjście o k pikseli; wynika za darmo ze współdzielonych wag |

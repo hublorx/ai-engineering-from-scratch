@@ -1,42 +1,42 @@
-# Image Fundamentals — Pixels, Channels, Color Spaces
+# Podstawy obrazu — piksele, kanały, przestrzenie barw
 
-> An image is a tensor of light samples. Every vision model you will ever use starts from this one fact.
+> Obraz to tensor próbek światła. Od tego faktu zaczyna się każdy model wizyjny, z którym kiedykolwiek będziesz pracować.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 1 Lesson 12 (Tensor Operations), Phase 3 Lesson 11 (Intro to PyTorch)
-**Time:** ~45 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Lekcja 12 fazy 1 (Operacje na tensorach), Lekcja 11 fazy 3 (Wprowadzenie do PyTorch)
+**Szacowany czas:** ~45 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Explain how a continuous scene gets discretized into pixels and why sampling/quantization decisions set the ceiling on every downstream model
-- Read, slice, and inspect images as NumPy arrays and switch fluently between HWC and CHW layouts
-- Convert between RGB, grayscale, HSV, and YCbCr and justify why each color space exists
-- Apply pixel-level preprocessing (normalize, standardize, resize, channel-first) exactly as torchvision expects it
+- Wyjaśnić, w jaki sposób ciągła scena zostaje zdyskretyzowana do pikseli i dlaczego decyzje dotyczące próbkowania/kwantyzacji ustawiają pułap dla każdego modelu downstream
+- Odczytywać, wycinać i sprawdzać obrazy jako tablice NumPy oraz płynnie przełączać się między układami HWC i CHW
+- Konwertować między RGB, grayscale, HSV i YCbCr oraz uzasadnić, dlaczego każda przestrzeń barw istnieje
+- Stosować preprocessowanie na poziomie pikseli (normalize, standardize, resize, channel-first) dokładnie tak, jak oczekuje torchvision
 
-## The Problem
+## Problem
 
-Every paper you will read, every pretrained weight you will download, every vision API you will call assumes a specific encoding of the input. Pass a `uint8` image where the model wants `float32` and it will still run — and silently produce garbage. Feed BGR to a network trained on RGB and accuracy collapses by ten points. Hand a model channels-last input when it expects channels-first and the first conv layer treats height as a feature channel. None of this throws an error. It just ruins your metrics and you spend a week hunting for a bug that lives in how you loaded the file.
+Każdy artykuł, który przeczytasz, każde wstępnie wytrenowane wagi, które pobierzesz, każde wywołanie API wizyjnego zakłada określone kodowanie danych wejściowych. Podajesz obraz `uint8` tam, gdzie model oczekuje `float32` — nadal działa — i cicho generuje śmieci. Wsadzasz BGR do sieci trenowanej na RGB i dokładność spada o dziesięć punktów. Przekazujesz modelowi dane w układzie channels-last, gdy oczekuje channels-first i pierwsza warstwa konwolucyjna traktuje wysokość jako kanał cech. Żadne z tych zachowań nie rzuca błędu. Po prostu niszczy metryki i przez tydzień szukasz błędu, który tkwi w tym, jak załadowałeś plik.
 
-A convolution is not complicated once you know what it is sliding over. The hard part is that "an image" means different things to a camera, a JPEG decoder, PIL, OpenCV, torchvision, and a CUDA kernel. Each stack has its own axis order, byte range, and channel convention. A vision engineer who cannot keep these straight ships broken pipelines.
+Konwolucja nie jest skomplikowana, gdy wiesz, po czym się przesuwa. Trudność polega na tym, że „obraz" oznacza różne rzeczy dla kamery, dekodera JPEG, PIL, OpenCV, torchvision i kernela CUDA. Każdy stos ma własną kolejność osi, zakres bajtów i konwencję kanałów. Inżynier wizyjny, który nie potrafi tego ogarnąć, dostarcza zepsute pipeline'y.
 
-This lesson fixes the foundation so the rest of the phase can build on it. By the end you will know what a pixel is, why there are three numbers per pixel instead of one, what "normalize with ImageNet stats" actually does, and how to move between the two or three layouts that every other lesson in this phase will assume.
+Ta lekcja naprawia fundament, aby reszta fazy mogła na nim budować. Pod koniec będziesz wiedzieć, czym jest piksel, dlaczego są trzy liczby na piksel zamiast jednej, co „normalize z statystykami ImageNet" faktycznie robi i jak przemieszczać się między dwoma lub trzema układami, które każda inna lekcja w tej fazie będzie zakładać.
 
-## The Concept
+## Koncepcja
 
-### The full preprocessing pipeline at a glance
+### Pełny pipeline preprocessowania na jeden rzut oka
 
-Every production vision system is the same sequence of reversible transforms. Get one step wrong and the model sees a different input than it was trained on.
+Każdy produkcyjny system wizyjny to ta sama sekwencja odwracalnych transformacji. Pomylisz jeden krok i model widzi inny wkład niż ten, na którym był trenowany.
 
 ```mermaid
 flowchart LR
-    A["Image file<br/>(JPEG/PNG)"] --> B["Decode<br/>uint8 HWC"]
-    B --> C["Convert<br/>colorspace<br/>(RGB/BGR/YCbCr)"]
-    C --> D["Resize<br/>shorter side"]
-    D --> E["Center crop<br/>model size"]
-    E --> F["Divide by 255<br/>float32 [0,1]"]
-    F --> G["Subtract mean<br/>Divide by std"]
-    G --> H["Transpose<br/>HWC → CHW"]
+    A["Plik obrazu<br/>(JPEG/PNG)"] --> B["Dekoduj<br/>uint8 HWC"]
+    B --> C["Konwertuj<br/>przestrzeń barw<br/>(RGB/BGR/YCbCr)"]
+    C --> D["Zmień rozmiar<br/>krótszy bok"]
+    D --> E["Przytnij środek<br/>rozmiar modelu"]
+    E --> F["Podziel przez 255<br/>float32 [0,1]"]
+    F --> G["Odejmij średnią<br/>Podziel przez odchylenie"]
+    G --> H["Transponuj<br/>HWC → CHW"]
     H --> I["Batch<br/>CHW → NCHW"]
     I --> J["Model"]
 
@@ -46,50 +46,50 @@ flowchart LR
     style H fill:#bfdbfe,stroke:#2563eb
 ```
 
-The two red and blue boxes are where 80% of silent failures live: missing standardization and wrong layout.
+Dwa czerwone i niebieskie pola to miejsca, gdzie żyje 80% cichych błędów: brak standaryzacji i zły układ.
 
-### A pixel is a sample, not a square
+### Piksel to próbka, nie kwadrat
 
-A camera sensor counts photons that land on a grid of tiny detectors. Each detector integrates light for a fraction of a second and emits a voltage proportional to how many photons hit it. The sensor then discretizes that voltage into an integer. One detector becomes one pixel.
-
-```
-Continuous scene                 Sensor grid                     Digital image
-(infinite detail)                (H x W detectors)               (H x W integers)
-
-    ~~~~~                        +--+--+--+--+--+                 210 198 180 155 120
-   ~   ~   ~                     |  |  |  |  |  |                 205 195 178 152 118
-  ~ light ~      ---->           +--+--+--+--+--+     ---->       200 190 175 150 115
-   ~~~~~                         |  |  |  |  |  |                 195 185 170 148 112
-                                 +--+--+--+--+--+                 188 180 165 145 108
-```
-
-Two choices happen at this step and they fix the ceiling on everything downstream:
-
-- **Spatial sampling** decides how many detectors per degree of the scene. Too few, and edges become jagged (aliasing). Too many, and storage and compute explode.
-- **Intensity quantization** decides how finely the voltage is bucketed. 8 bits gives 256 levels and is standard for display. 10, 12, 16 bits give smoother gradients and matter for medical imaging, HDR, and raw sensor pipelines.
-
-A pixel is not a coloured square with area. It is a single measurement. When you resize or rotate, you are resampling that measurement grid.
-
-### Why three channels
-
-One detector counts photons across the whole visible spectrum — that is grayscale. To get colour, the sensor covers the grid with a mosaic of red, green, and blue filters. After demosaicing, every spatial location has three integers: the response of the red-filtered detector, green-filtered, and blue-filtered nearby. Those three integers are a pixel's RGB triplet.
+Matryca kamery zlicza fotony, które lądują na siatce miniaturowych detektorów. Każdy detektor integruje światło przez ułamek sekundy i emituje napięcie proporcjonalne do tego, ile fotonów go uderzyło. Matryca następnie dyskretyzuje to napięcie do liczby całkowitej. Jeden detektor staje się jednym pikselem.
 
 ```
-One pixel in memory:
+Ciągła scena                  Siatka matrycy                Obraz cyfrowy
+(nieskończona szczegółowość)  (H x W detektorów)            (H x W liczb całkowitych)
 
-    (R, G, B) = (210, 140, 30)   <- reddish-orange
-
-An H x W RGB image:
-
-    shape (H, W, 3)     stored as   H rows of W pixels of 3 values
-                                    each in [0, 255] for uint8
+    ~~~~~                       +--+--+--+--+--+              210 198 180 155 120
+   ~   ~   ~                    |  |  |  |  |  |              205 195 178 152 118
+  ~ światło ~       ---->       +--+--+--+--+--+    ---->    200 190 175 150 115
+   ~~~~~                        |  |  |  |  |  |              195 185 170 148 112
+                               +--+--+--+--+--+              188 180 165 145 108
 ```
 
-Three is not magic. Depth cameras add a Z channel. Satellites add infrared and ultraviolet bands. Medical scans often have one channel (X-ray, CT) or many (hyperspectral). The number of channels is the last axis; conv layers learn to mix across it.
+Na tym etapie podejmowane są dwie decyzje, które ustalają pułap dla wszystkiego downstream:
 
-### Two layout conventions: HWC and CHW
+- **Próbkowanie przestrzenne** decyduje o tym, ile detektorów przypada na stopień sceny. Zbyt mało — krawędzie stają się postrzępione (aliasing). Zbyt dużo — wybuchają pamięć i obliczenia.
+- **Kwantyzacja intensywności** decyduje o tym, jak drobno napięcie jest pakowane w przedziały. 8 bitów daje 256 poziomów i jest standardem do wyświetlania. 10, 12, 16 bitów daje gładsze gradienty i ma znaczenie w obrazowaniu medycznym, HDR i pipeline'ach surowych danych z matrycy.
 
-Same tensor, two orderings. Every library picks one.
+Piksel to nie kolorowy kwadrat z powierzchnią. To jedno pomiar. Gdy zmieniasz rozmiar lub obracasz, przebudowujesz tę siatkę pomiarową.
+
+### Dlaczego trzy kanały
+
+Jeden detektor zlicza fotony w całym widmie widzialnym — to grayscale. Aby uzyskać kolor, matrycę pokrywa się mozaiką filtrów czerwonych, zielonych i niebieskich. Po demosaicingu każda lokalizacja przestrzenna ma trzy liczby całkowite: odpowiedź detektora z filtrem czerwonym, zielonym i pobliskim niebieskim. Te trzy liczby całkowite to trójka RGB piksela.
+
+```
+Jeden piksel w pamięci:
+
+    (R, G, B) = (210, 140, 30)   <- czerwonawo-pomarańczowy
+
+Obraz H x W RGB:
+
+    kształt (H, W, 3)     przechowywany jako   H wierszy po W pikseli po 3 wartości
+                                        każda w [0, 255] dla uint8
+```
+
+Trzy to nie magia. Kamery głębokości dodają kanał Z. Satelity dodają podczerwień i pasma ultrafioletowe. Skany medyczne często mają jeden kanał (rentgen, CT) lub wiele (hiperspektralne). Liczba kanałów to ostatnia oś; warstwy konwolucyjne uczą się mieszać między nimi.
+
+### Dwie konwencje układu: HWC i CHW
+
+Ten sam tensor, dwa porządki. Każda biblioteka wybiera jedno.
 
 ```
 HWC (height, width, channels)           CHW (channels, height, width)
@@ -103,104 +103,105 @@ v |R G B|R G B|R G B|                   v |G G G G G G|
                                           |B B B B B B|
                                           +-----+-----+
 
-   PIL, OpenCV, matplotlib,              PyTorch, most deep learning
-   almost every image file on disk       frameworks, cuDNN kernels
+   PIL, OpenCV, matplotlib,              PyTorch, większość frameworków DL
+   prawie każdy plik obrazu na dysku     kernele cuDNN
 ```
 
-CHW exists because convolution kernels slide across H and W. Keeping the channel axis first means each kernel sees a contiguous 2D plane per channel, which vectorizes cleanly. Disk formats keep HWC because that matches how scanlines come out of a sensor.
+CHW istnieje dlatego, że jądra konwolucyjne przesuwają się przez H i W. Trzymanie osi kanałów na początku oznacza, że każde jądro widzi ciągłą płaszczyznę 2D na kanał, co wektoryzuje się czysto. Formaty dyskowe trzymają HWC dlatego, że odpowiada to temu, jak linie skanowania wychodzą z matrycy.
 
-The one-line conversion you will type a thousand times:
+Jednolinijkowa konwersja, którą napiszesz tysiąc razy:
 
 ```
 img_chw = img_hwc.transpose(2, 0, 1)      # NumPy
 img_chw = img_hwc.permute(2, 0, 1)        # PyTorch tensor
 ```
 
-Memory layout, visualised:
+Układ pamięci, zwizualizowany:
 
 ```mermaid
 flowchart TB
-    subgraph HWC["HWC — pixels stored interleaved (PIL, OpenCV, JPEG)"]
-        H1["row 0: R G B | R G B | R G B ..."]
-        H2["row 1: R G B | R G B | R G B ..."]
-        H3["row 2: R G B | R G B | R G B ..."]
+    subgraph HWC["HWC — piksele przechowywane przeplatane (PIL, OpenCV, JPEG)"]
+        H1["wiersz 0: R G B | R G B | R G B ..."]
+        H2["wiersz 1: R G B | R G B | R G B ..."]
+        H3["wiersz 2: R G B | R G B | R G B ..."]
     end
-    subgraph CHW["CHW — channels stored as stacked planes (PyTorch, cuDNN)"]
-        C1["plane R: entire H x W of red values"]
-        C2["plane G: entire H x W of green values"]
-        C3["plane B: entire H x W of blue values"]
+    subgraph CHW["CHW — kanały przechowywane jako stos płaszczyzn (PyTorch, cuDNN)"]
+        C1["płaszczyzna R: całe H x W wartości czerwieni"]
+        C2["płaszczyzna G: całe H x W wartości zieleni"]
+        C3["płaszczyzna B: całe H x W wartości niebieskiego"]
     end
     HWC -->|"transpose(2, 0, 1)"| CHW
     CHW -->|"transpose(1, 2, 0)"| HWC
 ```
 
-### Byte ranges and dtype
+### Zakresy bajtów i dtype
 
-Three conventions dominate:
+Trzy konwencje dominują:
 
-| Convention | dtype | Range | Where you see it |
-|------------|-------|-------|------------------|
-| Raw | `uint8` | [0, 255] | Files on disk, PIL, OpenCV output |
-| Normalized | `float32` | [0.0, 1.0] | After `img.astype('float32') / 255` |
-| Standardized | `float32` | roughly [-2, +2] | After subtracting mean and dividing by std |
+| Konwencja | dtype | Zakres | Gdzie to widzisz |
+|------------|-------|-------|-------------------|
+| Surowy | `uint8` | [0, 255] | Pliki na dysku, PIL, wyjście OpenCV |
+| Znormalizowany | `float32` | [0.0, 1.0] | Po `img.astype('float32') / 255` |
+| Standaryzowany | `float32` | w przybliżeniu [-2, +2] | Po odjęciu średniej i podzieleniu przez odchylenie |
 
-Convolutional networks were trained on standardized inputs. ImageNet stats `mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]` are the arithmetic mean and standard deviation of the three channels over the full ImageNet training set, computed on [0, 1] normalized pixels. Feeding raw `uint8` into a model that expects standardized float is the single most common silent failure in applied vision.
+Sieci konwolucyjne były trenowane na standaryzowanych danych wejściowych. Statystyki ImageNet `mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]` to średnia arytmetyczna i odchylenie standardowe trzech kanałów z pełnego zbioru treningowego ImageNet, obliczone na pikselach znormalizowanych do [0, 1]. Wkładanie surowego `uint8` do modelu, który oczekuje standaryzowanego floata to najczęstszy cichy błąd w applied vision.
 
-### Color spaces and why they exist
+### Przestrzenie barw i dlaczego istnieją
 
-RGB is the capture format but it is not always the most useful representation for a model.
+RGB to format zapisu, ale nie zawsze najbardziej użyteczna reprezentacja dla modelu.
 
 ```
  RGB               HSV                       YCbCr / YUV
 
- R red             H hue (angle 0-360)       Y luminance (brightness)
- G green           S saturation (0-1)        Cb chroma blue-yellow
- B blue            V value/brightness (0-1)  Cr chroma red-green
+ R czerwony        H barwa (kąt 0-360)        Y luminancja (jasność)
+ G zielony         S nasycenie (0-1)          Cb chrominancja niebiesko-żółta
+ B niebieski       V wartość/jasność (0-1)   Cr chrominancja czerwono-zielona
 
- Linear to         Separates color from      Separates brightness from
- sensor output     brightness. Useful for    color. JPEG and most video
-                   color thresholding, UI    codecs compress the chroma
-                   sliders, simple filters   channels harder because the
-                                             human eye is less sensitive
-                                             to chroma detail than to Y.
+ Liniowy do        Separuje kolor od          Separuje jasność od
+ wyjścia matrycy   jasności. Użyteczne        koloru. JPEG i większość
+                   do binaryzacji            kodeków wideo kompresuje
+                   koloru, suwaków UI,        kanały chrominancji mocniej,
+                   prostych filtrów           bo ludzkie oko jest mniej
+                                            wrażliwe na szczegóły chrominancji
+                                            niż na Y.
 ```
 
-For most modern CNNs you feed RGB. You meet other spaces when:
+Dla większości współczesnych CNN wkładasz RGB. Inne przestrzenie spotykasz, gdy:
 
-- **HSV** — classical CV code, color-based segmentation, white-balancing.
-- **YCbCr** — reading JPEG internals, video pipelines, super-resolution models that operate on Y only.
-- **Grayscale** — OCR, document models, any case where color is nuisance variable rather than signal.
+- **HSV** — klasyczny kod CV, binaryzacja oparta na kolorze, balans bieli.
+- **YCbCr** — czytanie wnętrza JPEG, pipeline'y wideo, modele super-resolution, które operują tylko na Y.
+- **Grayscale** — OCR, modele dokumentów, każdy przypadek, gdzie kolor jest zmienną zakłócającą, a nie sygnałem.
 
-Grayscale from RGB is a weighted sum, not an average, because the human eye is more sensitive to green than to red or blue:
-
-```
-Y = 0.299 R + 0.587 G + 0.114 B       (ITU-R BT.601, the classic weights)
-```
-
-### Aspect ratio, resizing, and interpolation
-
-Every model has a fixed input size (224x224 for most ImageNet classifiers, 384x384 or 512x512 for modern detectors). Your images rarely match. The three resize choices that matter:
-
-- **Resize shorter side, then center crop** — the standard ImageNet recipe. Preserves aspect ratio, throws away a strip of edge pixels.
-- **Resize and pad** — preserves aspect ratio and every pixel, adds black bars. Standard for detection and OCR.
-- **Resize directly to target** — stretches the image. Cheap, distorts geometry, fine for many classification tasks.
-
-The interpolation method decides how intermediate pixels are computed when the new grid does not align with the old one:
+Grayscale z RGB to ważona suma, nie średnia, dlatego że ludzkie oko jest bardziej wrażliwe na zieleń niż na czerwień czy niebieski:
 
 ```
-Nearest neighbour     fastest, blocky, only choice for masks/labels
-Bilinear              fast, smooth, default for most image resizing
-Bicubic               slower, sharper on upscaling
-Lanczos               slowest, best quality, used for final display
+Y = 0.299 R + 0.587 G + 0.114 B       (ITU-R BT.601, klasyczne wagi)
 ```
 
-Rule of thumb: bilinear for training, bicubic or lanczos for assets you will look at, nearest for anything containing integer class IDs.
+### Proporcje boków, zmiana rozmiaru i interpolacja
 
-## Build It
+Każdy model ma ustalony rozmiar wejściowy (224x224 dla większości klasyfikatorów ImageNet, 384x384 lub 512x512 dla nowoczesnych detektorów). Twoje obrazy rzadko pasują. Trzy wybory zmiany rozmiaru, które mają znaczenie:
 
-### Step 1: Load an image and inspect its shape
+- **Zmień rozmiar krótszego boku, potem przytnij środek** — standardowy przepis ImageNet. Zachowuje proporcje boków, wyrzuca pasek brzegowych pikseli.
+- **Zmień rozmiar i dopasuj padding** — zachowuje proporcje boków i każdy piksel, dodaje czarne paski. Standard dla detekcji i OCR.
+- **Zmień rozmiar bezpośrednio do docelowego** — rozciąga obraz. Tanie, zniekształca geometrię, w porządku dla wielu zadań klasyfikacji.
 
-Use Pillow to load any JPEG or PNG, convert to NumPy, and print what you got. For a deterministic example that runs offline, synthesize one.
+Metoda interpolacji decyduje o tym, jak obliczane są pośrednie piksele, gdy nowa siatka nie pokrywa się ze starą:
+
+```
+Nearest neighbour     najszybsze, blokowe, jedyny wybór dla masek/etykiet
+Bilinear              szybkie, gładkie, domyślne dla większości zmian rozmiaru
+Bicubic               wolniejsze, ostrzejsze przy upscalingu
+Lanczos               najwolniejsze, najlepsza jakość, używane do finalnego wyświetlania
+```
+
+Zasada kciuka: bilinear do trenowania, bicubic lub lanczos dla zasobów, które będziesz oglądać, nearest dla wszystkiego zawierającego całkowite ID klas.
+
+## Zbuduj to
+
+### Krok 1: Załaduj obraz i sprawdź jego kształt
+
+Użyj Pillow do załadowania dowolnego JPEG lub PNG, konwertuj do NumPy i wypisz, co masz. Dla deterministycznego przykładu, który działa offline, stwórz syntetyczny.
 
 ```python
 import numpy as np
@@ -227,11 +228,11 @@ print(f"max:    {arr.max()}")
 print(f"pixel at (0, 0): {arr[0, 0]}")
 ```
 
-Expected output: `shape: (H, W, 3)`, `dtype: uint8`, range `[0, 255]`. That is the canonical on-disk representation whether the bytes came from a camera, a JPEG decoder, or a synthetic generator.
+Oczekiwany wynik: `shape: (H, W, 3)`, `dtype: uint8`, zakres `[0, 255]`. To kanoniczna reprezentacja na dysku niezależnie od tego, czy bajty pochodzą z kamery, dekodera JPEG czy generatora syntetycznego.
 
-### Step 2: Split channels and re-order layout
+### Krok 2: Podziel kanały i zmień kolejność układu
 
-Pull out R, G, B separately, then convert from HWC to CHW for PyTorch.
+Wyciągnij R, G, B oddzielnie, potem konwertuj z HWC do CHW dla PyTorch.
 
 ```python
 R = arr[:, :, 0]
@@ -246,11 +247,11 @@ print(f"\nHWC shape: {arr.shape}")
 print(f"CHW shape: {arr_chw.shape}")
 ```
 
-Three grayscale planes, one per channel. CHW just reorders the axes; no data copy is strictly required when the memory layout allows it.
+Trzy płaszczyzny grayscale, jedna na kanał. CHW tylko przestawia osie; kopiowanie danych nie jest ściśle wymagane, gdy układ pamięci na to pozwala.
 
-### Step 3: Grayscale and HSV conversions
+### Krok 3: Konwersje grayscale i HSV
 
-Weighted-sum grayscale, then a manual RGB-to-HSV.
+Ważona suma grayscale, potem ręczna konwersja RGB-do-HSV.
 
 ```python
 def rgb_to_grayscale(rgb):
@@ -287,11 +288,11 @@ print(f"sat range: [{hsv[..., 1].min():.2f}, {hsv[..., 1].max():.2f}]")
 print(f"val range: [{hsv[..., 2].min():.2f}, {hsv[..., 2].max():.2f}]")
 ```
 
-Hue comes out in degrees, saturation and value in [0, 1]. That matches the OpenCV `hsv_full` convention.
+Hue wychodzi w stopniach, nasycenie i value w [0, 1]. To odpowiada konwencji `hsv_full` OpenCV.
 
-### Step 4: Normalize, standardize, and reverse it
+### Krok 4: Normalize, standardize i odwróć to
 
-Go from raw bytes to the exact tensor a pretrained ImageNet model expects, then back.
+Idź od surowych bajtów do dokładnie takiego tensora, jakiego oczekuje wstępnie wytrenowany model ImageNet, potem z powrotem.
 
 ```python
 mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -320,11 +321,11 @@ max_diff = np.abs(roundtrip.astype(int) - arr.astype(int)).max()
 print(f"roundtrip max pixel diff: {max_diff}    # should be 0 or 1")
 ```
 
-Per-channel mean should be close to zero, std close to one. The preprocess/deprocess pair is exactly what every torchvision `transforms.Normalize` call is doing under the hood.
+Średnia na kanał powinna być bliska zeru, odchylenie bliskie jedności. Para preprocess/deprocess to dokładnie to, co każde wywołanie `transforms.Normalize` w torchvision robi pod maską.
 
-### Step 5: Resize with three interpolation methods
+### Krok 5: Zmień rozmiar z trzema metodami interpolacji
 
-Compare nearest, bilinear, and bicubic on an upscale so the difference is visible.
+Porównaj nearest, bilinear i bicubic na upscale, żeby różnica była widoczna.
 
 ```python
 target = (arr.shape[0] * 3, arr.shape[1] * 3)
@@ -342,11 +343,11 @@ for name, out in [("nearest", nearest), ("bilinear", bilinear), ("bicubic", bicu
     print(f"{name:>8}  shape={out.shape}  roughness={local_roughness(out):6.2f}")
 ```
 
-Nearest scores highest on roughness because it keeps hard edges. Bilinear is the smoothest. Bicubic sits in between, preserving perceived sharpness without the stair-step artifacts.
+Nearest ma najwyższy wynik roughness, bo zachowuje twarde krawędzie. Bilinear jest najgładszy. Bicubic jest pomiędzy, zachowując postrzeganą ostrość bez artefaktów schodkowych.
 
-## Use It
+## Użyj tego
 
-`torchvision.transforms` bundles everything above into a single composable pipeline. The code below reproduces exactly what `preprocess_imagenet` does, plus resize and crop.
+`torchvision.transforms` łączy wszystko powyżej w jeden komponowalny pipeline. Poniższy kod odtwarza dokładnie to, co robi `preprocess_imagenet`, plus resize i crop.
 
 ```python
 import torch
@@ -373,37 +374,37 @@ batch = x.unsqueeze(0)
 print(f"\nbatched shape: {tuple(batch.shape)}   # (N, C, H, W) — ready for a model")
 ```
 
-Four steps, in this exact order: `Resize(256)` scales the shorter side to 256; `CenterCrop(224)` takes a 224x224 patch from the middle; `ToTensor()` divides by 255 and swaps HWC to CHW; `Normalize` subtracts the ImageNet mean and divides by std. Reversing that order silently changes what reaches the model.
+Cztery kroki, w tej dokładnie kolejności: `Resize(256)` skaluje krótszy bok do 256; `CenterCrop(224)` bierze patch 224x224 ze środka; `ToTensor()` dzieli przez 255 i zamienia HWC na CHW; `Normalize` odejmuje średnią ImageNet i dzieli przez std. Odwrócenie tej kolejności cicho zmienia, co dociera do modelu.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
+Ta lekcja tworzy:
 
-- `outputs/prompt-vision-preprocessing-audit.md` — a prompt that turns any model card or dataset card into a checklist of the exact preprocessing invariants a team must honour.
-- `outputs/skill-image-tensor-inspector.md` — a skill that, given any image-shaped tensor or array, reports dtype, layout, range, and whether it looks raw, normalized, or standardized.
+- `outputs/prompt-vision-preprocessing-audit.md` — prompt, który zamienia dowolną kartę modelu lub datasetu w checklistę dokładnych niezmienników preprocessowania, które zespół musi honorować.
+- `outputs/skill-image-tensor-inspector.md` — skill, który dla dowolnego tensora lub tablicy o kształcie obrazu raportuje dtype, układ, zakres i czy wygląda na surowy, znormalizowany czy standaryzowany.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Load a JPEG with OpenCV (`cv2.imread`) and with Pillow. Print both shapes and the pixel at `(0, 0)`. Explain the channel-order difference, then write a one-line conversion that makes the OpenCV array identical to the Pillow one.
-2. **(Medium)** Write `standardize(img, mean, std)` and its inverse that together pass a `roundtrip_max_diff <= 1` test on any uint8 image. Your functions must work on a single image in HWC and on a batch in NCHW with the same call.
-3. **(Hard)** Take a 3-channel ImageNet-standardized tensor and run it through a 1x1 conv that learns a weighted mixture of RGB into a single grayscale channel. Initialize the weights to `[0.299, 0.587, 0.114]`, freeze them, and verify the output matches your manual `rgb_to_grayscale` to within floating-point error. What other classical color-space transforms can be written as 1x1 convolutions?
+1. **(Łatwe)** Załaduj JPEG z OpenCV (`cv2.imread`) i z Pillow. Wypisz oba kształty i piksel w `(0, 0)`. Wyjaśnij różnicę w kolejności kanałów, potem napisz jednolinijkową konwersję, która sprawia, że tablica OpenCV jest identyczna z Pillow.
+2. **(Średnie)** Napisz `standardize(img, mean, std)` i jego odwrotność, które razem przechodzą test `roundtrip_max_diff <= 1` na dowolnym obrazie uint8. Twoje funkcje muszą działać na pojedynczym obrazie w HWC i na batchu w NCHW tym samym wywołaniem.
+3. **(Trudne)** Weź tensor standaryzowany ImageNet z 3 kanałami i przepuść go przez konwolucję 1x1, która uczy się ważonej mieszanki RGB w jeden kanał grayscale. Zainicjuj wagi na `[0.299, 0.587, 0.114]`, zamroź je i zweryfikuj, że wyjście odpowiada ręcznej `rgb_to_grayscale` w granicach błędu zmiennoprzecinkowego. Jakie inne klasyczne transformacje przestrzeni barw można zapisać jako konwolucje 1x1?
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|----------------|----------------------|
-| Pixel | "A coloured square" | One sample of light intensity at one grid location — three numbers for colour, one for grayscale |
-| Channel | "The colour" | One of the parallel spatial grids stacked into an image tensor; last axis in HWC, first in CHW |
-| HWC / CHW | "The shape" | Axis orderings for an image tensor; disk and PIL use HWC, PyTorch and cuDNN use CHW |
-| Normalize | "Scale the image" | Divide by 255 so pixels live in [0, 1] — necessary but not sufficient |
-| Standardize | "Zero-center" | Subtract mean and divide by std per channel so the input distribution matches what the model was trained on |
-| Grayscale conversion | "Average the channels" | A weighted sum with coefficients 0.299/0.587/0.114 that matches human luminance perception |
-| Interpolation | "How resize picks pixels" | The rule that decides output values when the new grid does not align with the old one — nearest for labels, bilinear for training, bicubic for display |
-| Aspect ratio | "Width over height" | The ratio that distinguishes "resize and pad" from "resize and stretch" |
+| Pixel | „Kolorowy kwadrat" | Jedna próbka intensywności światła w jednej lokalizacji siatki — trzy liczby dla koloru, jedna dla grayscale |
+| Channel | „Kolor" | Jedna z równoległych siatek przestrzennych składanych w tensor obrazu; ostatnia oś w HWC, pierwsza w CHW |
+| HWC / CHW | „Kształt" | Kolejności osi dla tensora obrazu; dysk i PIL używają HWC, PyTorch i cuDNN używają CHW |
+| Normalize | „Skaluj obraz" | Podziel przez 255, żeby piksele żyły w [0, 1] — konieczne, ale niewystarczające |
+| Standardize | „Wyśrodkuj" | Odejmij średnią i podziel przez std na kanał, żeby rozkład danych wejściowych odpowiadał temu, na czym model był trenowany |
+| Konwersja grayscale | „Średnia z kanałów" | Ważona suma ze współczynnikami 0.299/0.587/0.114, która odpowiada percepcji luminancji przez człowieka |
+| Interpolacja | „Jak resize wybiera piksele" | Reguła, która decyduje o wartościach wyjściowych, gdy nowa siatka nie pokrywa się ze starą — nearest dla etykiet, bilinear do trenowania, bicubic do wyświetlania |
+| Aspect ratio | „Szerokość przez wysokość" | Stosunek, który odróżnia „resize i pad" od „resize i stretch" |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Charles Poynton — A Guided Tour of Color Space](https://poynton.ca/PDFs/Guided_tour.pdf) — the clearest technical treatment of why there are so many color spaces and when each one matters
-- [PyTorch Vision Transforms Docs](https://pytorch.org/vision/stable/transforms.html) — the full pipeline of transforms you will actually compose in production
-- [How JPEG Works (Colt McAnlis)](https://www.youtube.com/watch?v=F1kYBnY6mwg) — a sharp visual tour of chroma subsampling, DCT, and why JPEG encodes YCbCr rather than RGB
-- [ImageNet Preprocessing Conventions (torchvision models)](https://pytorch.org/vision/stable/models.html) — the source of truth for `mean=[0.485, 0.456, 0.406]` and why every model in the zoo expects it
+- [Charles Poynton — A Guided Tour of Color Space](https://poynton.ca/PDFs/Guided_tour.pdf) — najjasniejsze techniczne omówienie tego, dlaczego jest tak wiele przestrzeni barw i kiedy każda ma znaczenie
+- [PyTorch Vision Transforms Docs](https://pytorch.org/vision/stable/transforms.html) — pełny pipeline transformacji, które faktycznie będziesz komponować w produkcji
+- [How JPEG Works (Colt McAnlis)](https://www.youtube.com/watch?v=F1kYBnY6mwg) — ostry wizualny przegląd chroma subsamplingu, DCT i dlaczego JPEG koduje YCbCr zamiast RGB
+- [ImageNet Preprocessing Conventions (torchvision models)](https://pytorch.org/vision/stable/models.html) — źródło prawdy dla `mean=[0.485, 0.456, 0.406]` i dlaczego każdy model w zoo tego oczekuje

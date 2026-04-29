@@ -1,114 +1,114 @@
-# Image Generation — GANs
+# Generowanie obrazów — GANy
 
-> A GAN is two neural networks in a fixed game. One draws, one critiques. They get better together until the drawings fool the critic.
+> GAN to dwie sieci neuronowe w ustalonej grze. Jedna rysuje, druga krytykuje. Razem stają się coraz lepsze, aż rysunki oszukują krytyka.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 4 Lesson 03 (CNNs), Phase 3 Lesson 06 (Optimizers), Phase 3 Lesson 07 (Regularization)
-**Time:** ~75 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Lekcja 03 z Faz 4 (CNN), Lekcja 06 z Faz 3 (Optymizatory), Lekcja 07 z Faz 3 (Regularizacja)
+**Szacowany czas:** ~75 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Explain the minimax game between generator and discriminator and why the equilibrium corresponds to p_model = p_data
-- Implement a DCGAN in PyTorch and get it to generate coherent 32x32 synthetic images in under 60 lines
-- Stabilise GAN training with the three standard tricks: non-saturating loss, spectral norm, TTUR (two-timescale update rule)
-- Read training curves that distinguish healthy convergence from mode collapse, oscillation, and discriminator-wins-completely
+- Wyjaśnić grę minimax między generatorem a dyskryminatorem i dlaczego równowaga odpowiada p_model = p_data
+- Zaimplementować DCGAN w PyTorch i sprawić, by generowała spójne syntetyczne obrazy 32x32 w niecałych 60 liniach
+- Ustabilizować trening GAN za pomocą trzech standardowych sztuczek: non-saturating loss, spectral norm, TTUR (two-timescale update rule)
+- Odczytywać krzywe treningowe pozwalające odróżnić zdrową konwergencję od mode collapse, oscylacji i całkowitej wygranej dyskryminatora
 
-## The Problem
+## Problem
 
-Classification teaches a network to map images to labels. Generation inverts the problem: sample new images that look like they came from the same distribution. There is no "correct" output you can diff against; there is only a distribution you want to mimic.
+Klasyfikacja uczy sieć mapowania obrazów na etykiety. Generowanie odwraca problem: próbkowanie nowych obrazów wyglądających tak, jakby pochodziły z tej samej dystrybucji. Nie ma "poprawnego" wyniku, z którym można porównywać; jest tylko dystrybucja, którą chcesz naśladować.
 
-The standard loss functions (MSE, cross-entropy) cannot measure "did this sample come from the real distribution." Minimising per-pixel error produces blurry averages, not realistic samples. The breakthrough was to learn the loss: train a second network whose job is to tell real from fake, and use its judgement to push the generator.
+Standardowe funkcje strat (MSE, cross-entropy) nie mogą mierzyć "czy ta próbka pochodzi z prawdziwej dystrybucji." Minimalizacja błędu per-pixel wytwarza rozmyte średnie, a nie realistyczne próbki. Przełomem było nauczenie straty: trenowanie drugiej sieci, której zadaniem jest odróżnianie prawdziwego od fałszywego, i wykorzystanie jej osądu do popchnięcia generatora.
 
-GANs (Goodfellow et al., 2014) defined that framework. By 2018 StyleGAN was producing 1024x1024 faces indistinguishable from photographs. Diffusion models have since taken the throne on quality and controllability, but every trick that makes diffusion practical — normalisation choices, latent spaces, feature losses — was first understood on GANs.
+GANy (Goodfellow i in., 2014) zdefiniowały ten framework. Do 2018 StyleGAN produkował twarze 1024x1024 nie do odróżnienia od fotografii. Modele dyfuzyjne odebrały im tron pod względem jakości i kontroli, ale każda sztuczka, która sprawia, że dyfuzja jest praktyczna — wybory normalizacji, przestrzenie latentne, straty na cechach — została najpierw zrozumiana na GANach.
 
-## The Concept
+## Koncepcja
 
-### The two networks
+### Dwie sieci
 
 ```mermaid
 flowchart LR
-    Z["z ~ N(0, I)<br/>noise"] --> G["Generator<br/>transposed convs"]
-    G --> FAKE["Fake image"]
-    REAL["Real image"] --> D["Discriminator<br/>conv classifier"]
+    Z["z ~ N(0, I)<br/>szum"] --> G["Generator<br/>transponowane konwolucje"]
+    G --> FAKE["Fałszywy obraz"]
+    REAL["Prawdziwy obraz"] --> D["Dyskryminator<br/>klasyfikator konwolucyjny"]
     FAKE --> D
-    D --> OUT["P(real)"]
+    D --> OUT["P(prawdziwy)"]
 
     style G fill:#dbeafe,stroke:#2563eb
     style D fill:#fef3c7,stroke:#d97706
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-The **generator** G takes a vector of noise `z` and outputs an image. The **discriminator** D takes an image and outputs a single scalar: the probability that the image is real.
+**Generator** G pobiera wektor szumu `z` i generuje obraz. **Dyskryminator** D pobiera obraz i generuje pojedynczą wartość skalarną: prawdopodobieństwo, że obraz jest prawdziwy.
 
-### The game
+### Gra
 
-G wants D to be wrong. D wants to be right. Formally:
+G chce, żeby D się myliło. D chce mieć rację. Formalnie:
 
 ```
 min_G max_D  E_x[log D(x)] + E_z[log(1 - D(G(z)))]
 ```
 
-Read right to left: D is maximising accuracy on real (`log D(real)`) and fake (`log (1 - D(fake))`) images. G is minimising D's accuracy on fakes — it wants `D(G(z))` to be high.
+Czytaj od prawej do lewej: D maksymalizuje dokładność na prawdziwych (`log D(real)`) i fałszywych (`log (1 - D(fake))`) obrazach. G minimalizuje dokładność D na fałszywych — chce, żeby `D(G(z))` było wysokie.
 
-Goodfellow proved that this minimax has a global equilibrium where `p_G = p_data`, D outputs 0.5 everywhere, and the Jensen-Shannon divergence between generated and real distributions is zero. The hard part is getting there.
+Goodfellow udowodnił, że ten minimax ma globalną równowagę, gdzie `p_G = p_data`, D generuje 0.5 wszędzie, a dywergencja Jensen-Shannon między generowaną a prawdziwą dystrybucją wynosi zero. Trudna część to dojście do niej.
 
 ### Non-saturating loss
 
-The form above is numerically unstable. Early in training, `D(G(z))` is near zero for every fake, so `log(1 - D(G(z)))` has vanishing gradients with respect to G. The fix: flip G's loss.
+Forma powyżej jest numerycznie niestabilna. Na początku treningu `D(G(z))` jest bliskie zero dla każdego fałszywego obrazu, więc `log(1 - D(G(z)))` ma zanikające gradienty względem G. Poprawka: odwróć stratę G.
 
 ```
 L_D = -E_x[log D(x)] - E_z[log(1 - D(G(z)))]
 L_G = -E_z[log D(G(z))]                          # non-saturating
 ```
 
-Now when `D(G(z))` is near zero, G's loss is large and its gradient is informative. Every modern GAN trains with this variant.
+Teraz, gdy `D(G(z))` jest bliskie zero, strata G jest duża, a jej gradient jest informacyjny. Każdy nowoczesny GAN trenuje z tą wariantem.
 
-### DCGAN architecture rules
+### Zasady architektury DCGAN
 
-Radford, Metz, Chintala (2015) distilled years of failed experiments into five rules that make GAN training stable:
+Radford, Metz, Chintala (2015) podsumowali lata nieudanych eksperymentów w pięć zasad, które sprawiają, że trening GAN jest stabilny:
 
-1. Replace pooling with strided convs (both nets).
-2. Use batch norm in both generator and discriminator, except output of G and input of D.
-3. Remove fully connected layers on deeper architectures.
-4. G uses ReLU on all layers except output (tanh for output in [-1, 1]).
-5. D uses LeakyReLU (negative_slope=0.2) on all layers.
+1. Zastąp pooling strided convs (obie sieci).
+2. Używaj batch norm w generatorze i dyskryminatorze, z wyjątkiem wyjścia G i wejścia D.
+3. Usuń w pełni połączone warstwy w głębszych architekturach.
+4. G używa ReLU na wszystkich warstwach z wyjątkiem wyjścia (tanh dla wyjścia w [-1, 1]).
+5. D używa LeakyReLU (negative_slope=0.2) na wszystkich warstwach.
 
-Every modern conv-based GAN (StyleGAN, BigGAN, GigaGAN) still starts from these rules and replaces pieces one at a time.
+Każdy nowoczesny GAN oparty na konwolucjach (StyleGAN, BigGAN, GigaGAN) nadal startuje od tych zasad i wymienia elementy jeden po drugim.
 
-### Failure modes and their signatures
+### Tryby awarii i ich sygnatury
 
 ```mermaid
 flowchart LR
-    M1["Mode collapse<br/>G produces a narrow<br/>set of outputs"] --> S1["D loss low,<br/>G loss oscillating,<br/>sample variety drops"]
-    M2["Vanishing gradients<br/>D wins completely"] --> S2["D accuracy ~100%,<br/>G loss huge and static"]
-    M3["Oscillation<br/>G and D keep trading<br/>wins forever"] --> S3["Both losses swing<br/>wildly with no downward trend"]
+    M1["Mode collapse<br/>G produkuje wąski<br/>zbiór wyników"] --> S1[" strata D niska,<br/>strata G oscyluje,<br/>spada różnorodność próbek"]
+    M2["Zanikające gradienty<br/>D wygrywa całkowicie"] --> S2["dokładność D ~100%,<br/>strata G ogromna i statyczna"]
+    M3["Oscylacja<br/>G i D ciągle wymieniają<br/>się zwycięstwami"] --> S3["Obie straty huśtają się<br/>gwałtownie bez trendu spadkowego"]
 
     style M1 fill:#fecaca,stroke:#dc2626
     style M2 fill:#fecaca,stroke:#dc2626
     style M3 fill:#fecaca,stroke:#dc2626
 ```
 
-- **Mode collapse**: G finds one image that fools D and produces only that. Fix: add minibatch discrimination, spectral norm, or label-conditioning.
-- **Discriminator wins**: D becomes too strong too fast, G's gradients vanish. Fix: smaller D, lower D learning rate, or apply label smoothing on the real labels.
-- **Oscillation**: the two nets trade wins without ever approaching equilibrium. Fix: TTUR (D learns faster than G by a factor of 2-4), or switch to Wasserstein loss.
+- **Mode collapse**: G znajduje jeden obraz, który oszukuje D, i produkuje tylko ten. Poprawka: dodaj minibatch discrimination, spectral norm lub label-conditioning.
+- **Dyskryminator wygrywa**: D staje się zbyt silny zbyt szybko, gradienty G zanikają. Poprawka: mniejsze D, niższy learning rate dla D, lub zastosuj label smoothing na prawdziwych etykietach.
+- **Oscylacja**: dwie sieci wymieniają się zwycięstwami bez nigdy zbliżenia się do równowagi. Poprawka: TTUR (D uczy się szybciej niż G o czynnik 2-4), lub przełącz na Wasserstein loss.
 
-### Evaluation
+### Ewaluacja
 
-GANs have no ground truth, so how do you know they are working?
+GANy nie mają ground truth, więc skąd wiesz, że działają?
 
-- **Sample inspection** — just look at 64 samples at the end of every epoch. Non-negotiable.
-- **FID (Fréchet Inception Distance)** — distance between Inception-v3 feature distributions of real and generated sets. Lower is better. Community standard.
-- **Inception Score** — older, more brittle; prefer FID.
-- **Precision/Recall for generative models** — measures quality (precision) and coverage (recall) separately. More informative than FID alone.
+- **Inspekcja próbek** — po prostu spójrz na 64 próbki na końcu każdej epoki. Nie do negocjacji.
+- **FID (Fréchet Inception Distance)** — odległość między dystrybucjami cech Inception-v3 prawdziwych i generowanych zbiorów. Niższy jest lepszy. Standard społeczności.
+- **Inception Score** — starszy, bardziej kruchy; wolisz FID.
+- **Precision/Recall dla modeli generatywnych** — mierzy jakość (precision) i pokrycie (recall) osobno. Bardziej informacyjny niż sam FID.
 
-For a small synthetic-data run, sample inspection is enough.
+Dla małego przebiegu na syntetycznych danych inspekcja próbek jest wystarczająca.
 
-## Build It
+## Zbuduj to
 
-### Step 1: Generator
+### Krok 1: Generator
 
-A small DCGAN generator that takes 64-dim noise and produces a 32x32 image.
+Mały generator DCGAN, który pobiera szum 64-wymiarowy i generuje obraz 32x32.
 
 ```python
 import torch
@@ -135,11 +135,11 @@ class Generator(nn.Module):
         return self.net(z.view(z.size(0), -1, 1, 1))
 ```
 
-Four transposed convs, each with `kernel_size=4, stride=2, padding=1` so they cleanly double spatial size. Output activations in [-1, 1] via tanh.
+Cztery transponowane konwolucje, każda z `kernel_size=4, stride=2, padding=1`, więc czysto podwajają rozmiar przestrzenny. Wyjściowe aktywacje w [-1, 1] przez tanh.
 
-### Step 2: Discriminator
+### Krok 2: Dyskryminator
 
-Mirror of the generator. LeakyReLU, strided convs, ends with a scalar logit.
+Lustrzane odbicie generatora. LeakyReLU, strided convs, kończy skalarnym logitem.
 
 ```python
 class Discriminator(nn.Module):
@@ -161,11 +161,11 @@ class Discriminator(nn.Module):
         return self.net(x).view(-1)
 ```
 
-The last conv reduces a `4x4` feature map to `1x1`. Output is a single scalar per image; apply sigmoid only during loss computation.
+Ostatnia konwolucja redukuje mapę cech 4x4 do 1x1. Wyjście to pojedyncza wartość skalarna na obraz; sigmoid stosuj tylko podczas obliczania straty.
 
-### Step 3: Training step
+### Krok 3: Krok treningowy
 
-Alternate: update D once, then G once, every batch.
+Naprzemiennie: aktualizuj D raz, potem G raz, co batch.
 
 ```python
 import torch.nn.functional as F
@@ -193,9 +193,9 @@ def train_step(G, D, real, z, opt_g, opt_d, device):
     return loss_d.item(), loss_g.item()
 ```
 
-`G(z).detach()` in the D step is critical: we do not want gradients flowing into G during its update. Forgetting that is the classic beginner bug.
+`G(z).detach()` w kroku D jest kluczowe: nie chcemy, żeby gradienty przepływały do G podczas jego aktualizacji. Zapomnienie o tym to klasyczny błąd początkującego.
 
-### Step 4: Full training loop on synthetic shapes
+### Krok 4: Pełna pętla treningowa na syntetycznych kształtach
 
 ```python
 from torch.utils.data import DataLoader, TensorDataset
@@ -230,9 +230,9 @@ for epoch in range(10):
     print(f"epoch {epoch}  D {ld:.3f}  G {lg:.3f}")
 ```
 
-`Adam(lr=2e-4, betas=(0.5, 0.999))` is the DCGAN default — the low beta1 keeps the momentum term from stabilising the adversarial game too much.
+`Adam(lr=2e-4, betas=(0.5, 0.999))` to domyślne DCGAN — niskie beta1 sprawia, że człon momentum nie stabilizuje gry adwersarialnej zbyt mocno.
 
-### Step 5: Sampling
+### Krok 5: Próbkowanie
 
 ```python
 @torch.no_grad()
@@ -244,11 +244,11 @@ def sample(G, n=16, z_dim=64, device="cpu"):
     return imgs.clamp(0, 1)
 ```
 
-Always switch to eval mode before sampling. For DCGAN this matters because batch norm running stats are used instead of the batch's stats.
+Zawsze przełączaj na tryb eval przed próbkowaniem. Dla DCGAN to ma znaczenie, bo używane są running stats z batch norm zamiast statystyk z bieżącego batcha.
 
-### Step 6: Spectral normalisation
+### Krok 6: Spectral normalisation
 
-A drop-in replacement for BN in the discriminator that guarantees the network is 1-Lipschitz. Fixes most "D wins too hard" failures.
+Zamiennik BN w dyskryminatorze, który gwarantuje, że sieć jest 1-Lipschitz. Naprawia większość awarii "D wygrywa za mocno".
 
 ```python
 from torch.nn.utils import spectral_norm
@@ -265,46 +265,46 @@ def build_sn_discriminator(img_channels=3, feat=64):
     )
 ```
 
-Swap `Discriminator` for `build_sn_discriminator()` and you often do not need the TTUR trick. Spectral norm is the easiest single robustness upgrade you can apply.
+Zamień `Discriminator` na `build_sn_discriminator()` i często nie potrzebujesz sztuczki TTUR. Spectral norm to najłatwiejsza pojedyncza poprawa stabilności, którą możesz zastosować.
 
-## Use It
+## Użyj tego
 
-For serious generation, use pretrained weights or switch to diffusion. Two standard libraries:
+Do poważnego generowania użyj pretrained wag lub przełącz na dyfuzję. Dwie standardowe biblioteki:
 
-- `torch_fidelity` computes FID / IS on your generator without writing custom eval code.
-- `pytorch-gan-zoo` (legacy) and `StudioGAN` ship tested implementations of DCGAN, WGAN-GP, SN-GAN, StyleGAN, and BigGAN.
+- `torch_fidelity` oblicza FID / IS na twoim generatorze bez pisania własnego kodu ewaluacyjnego.
+- `pytorch-gan-zoo` (legacy) i `StudioGAN` dostarczają przetestowane implementacje DCGAN, WGAN-GP, SN-GAN, StyleGAN i BigGAN.
 
-In 2026, GANs are still the best choice for: real-time image generation (latency <10 ms), style transfer, image-to-image translation with precise control (Pix2Pix, CycleGAN). Diffusion wins on photorealism and text conditioning.
+W 2026 GANy są nadal najlepszym wyborem dla: generowania obrazów w czasie rzeczywistym (latency <10 ms), transferu stylu, translacji obraz-do-obrazu z precyzyjną kontrolą (Pix2Pix, CycleGAN). Dyfuzja wygrywa pod względem fotorealizmu i warunkowania tekstem.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
+Ta lekcja tworzy:
 
-- `outputs/prompt-gan-training-triage.md` — a prompt that reads a training curve description and picks the failure mode (mode collapse, D-wins, oscillation) plus the single recommended fix.
-- `outputs/skill-dcgan-scaffold.md` — a skill that writes a DCGAN scaffold from `z_dim`, target `image_size`, and `num_channels`, including training loop and sample saver.
+- `outputs/prompt-gan-training-triage.md` — prompt, który czyta opis krzywej treningowej i wybiera tryb awarii (mode collapse, D-wins, oscylacja) plus jedyną zalecaną poprawkę.
+- `outputs/skill-dcgan-scaffold.md` — skill, który pisze szkielet DCGAN z `z_dim`, docelowym `image_size` i `num_channels`, włącznie z pętlą treningową i zapisem próbek.
 
-## Exercises
+## Ćwiczenia
 
-1. **(Easy)** Train the DCGAN above on the synthetic circle dataset and save a grid of 16 samples at the end of each epoch. By which epoch do the generated circles become clearly circular?
-2. **(Medium)** Replace the discriminator's batch norm with spectral norm. Train both versions side by side. Which one converges faster? Which one has lower variance across three seeds?
-3. **(Hard)** Implement a conditional DCGAN: feed the class label into both G and D (concat one-hot to the noise in G, concat a class embedding channel in D). Train on the synthetic "circles vs squares" dataset from lesson 7 and show that class conditioning works by sampling with specific labels.
+1. **(Łatwe)** Trenuj DCGAN powyżej na syntetycznym zbiorze danych z kołami i zapisuj siatkę 16 próbek na końcu każdej epoki. W której epoce generowane koła stają się wyraźnie okrągłe?
+2. **(Średnie)** Zastąp batch norm dyskryminatora spectral norm. Trenuj obie wersje równolegle. Która zbiega się szybciej? Która ma niższą wariancję między trzema seedami?
+3. **(Trudne)** Zaimplementuj conditional DCGAN: wprowadź etykietę klasy do G i D (concat one-hot do szumu w G, concat kanał embeddingu klasy w D). Trenuj na syntetycznym zbiorze danych "koła vs kwadraty" z lekcji 7 i pokaż, że warunkowanie klasowe działa, próbkując z określonymi etykietami.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Generator (G) | "The draws-stuff net" | Maps noise to images; trained to fool the discriminator |
-| Discriminator (D) | "The critic" | Binary classifier; trained to distinguish real from generated images |
-| Minimax | "The game" | min over G, max over D of an adversarial loss; equilibrium is p_G = p_data |
-| Non-saturating loss | "The numerically sane version" | G's loss is -log(D(G(z))) instead of log(1 - D(G(z))) to avoid vanishing gradients early in training |
-| Mode collapse | "Generator makes one thing" | G produces only a small subset of the data distribution; fix with SN, minibatch discrimination, or larger batch |
-| TTUR | "Two learning rates" | D learns faster than G, typically by a factor of 2-4; stabilises training |
-| Spectral norm | "1-Lipschitz layer" | A weight-normalisation that bounds each layer's Lipschitz constant; stops D from becoming arbitrarily steep |
-| FID | "Fréchet Inception Distance" | Distance between Inception-v3 feature distributions of real and generated sets; the standard evaluation metric |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|--------------------------|
+| Generator (G) | "Sieć co rysuje" | Mapuje szum na obrazy; trenowana, żeby oszukać dyskryminator |
+| Dyskryminator (D) | "Krytyk" | Binarny klasyfikator; trenowany, żeby odróżniać prawdziwe od generowanych obrazów |
+| Minimax | "Gra" | min po G, max po D adversarial loss; równowaga to p_G = p_data |
+| Non-saturating loss | "Numerycznie rozsądna wersja" | Strata G to -log(D(G(z))) zamiast log(1 - D(G(z))) żeby uniknąć zanikających gradientów na początku treningu |
+| Mode collapse | "Generator robi jedną rzecz" | G produkuje tylko mały podzbiór dystrybucji danych; poprawka: SN, minibatch discrimination lub większy batch |
+| TTUR | "Dwa learning rates" | D uczy się szybciej niż G, typowo o czynnik 2-4; stabilizuje trening |
+| Spectral norm | "Warstwa 1-Lipschitz" | Normalizacja wag, która ogranicza stałą Lipschitza każdej warstwy; powstrzymuje D przed staniem się arbitralnie strome |
+| FID | "Fréchet Inception Distance" | Odległość między dystrybucjami cech Inception-v3 prawdziwych i generowanych zbiorów; standardowa metryka ewaluacyjna |
 
-## Further Reading
+## Dalsza lektura
 
-- [Generative Adversarial Networks (Goodfellow et al., 2014)](https://arxiv.org/abs/1406.2661) — the paper that started it all
-- [DCGAN (Radford, Metz, Chintala, 2015)](https://arxiv.org/abs/1511.06434) — the architecture rules that made GANs trainable
-- [Spectral Normalization for GANs (Miyato et al., 2018)](https://arxiv.org/abs/1802.05957) — the single most useful stabilisation trick
-- [StyleGAN3 (Karras et al., 2021)](https://arxiv.org/abs/2106.12423) — the SOTA GAN; reads like a greatest-hits album of every trick from the last decade
+- [Generative Adversarial Networks (Goodfellow i in., 2014)](https://arxiv.org/abs/1406.2661) — papier, który to wszystko zaczął
+- [DCGAN (Radford, Metz, Chintala, 2015)](https://arxiv.org/abs/1511.06434) — zasady architektoniczne, które uczyniły GANy trenowalnymi
+- [Spectral Normalization for GANs (Miyato i in., 2018)](https://arxiv.org/abs/1802.05957) — najbardziej użyteczna pojedyncza sztuczka stabilizacyjna
+- [StyleGAN3 (Karras i in., 2021)](https://arxiv.org/abs/2106.12423) — SOTA GAN; czyta się jak greatest-hits album każdej sztuczki z ostatniej dekady
