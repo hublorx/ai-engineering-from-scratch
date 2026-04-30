@@ -1,45 +1,45 @@
 # Audio-Language Models — Qwen2.5-Omni, Audio Flamingo, GPT-4o Audio
 
-> 2026 audio-language models reason over speech + environmental sound + music. Qwen2.5-Omni-7B matches GPT-4o Audio on MMAU-Pro. Audio Flamingo Next beats Gemini 2.5 Pro on LongAudioBench. The gap between open and closed is essentially closed — except on multi-audio tasks, where everyone is near random.
+> Modele audio-językowe z 2026 roku przeprowadzają rozumowanie na podstawie mowy, dźwięków środowiskowych i muzyki. Qwen2.5-Omni-7B dorównuje GPT-4o Audio na MMAU-Pro. Audio Flamingo Next przewyższa Gemini 2.5 Pro na LongAudioBench. Przewaga modeli zamkniętych nad otwartymi została zasadniczo zlikwidowana — z wyjątkiem zadań multi-audio, gdzie wszyscy osiągają wyniki bliskie losowym.
 
-**Type:** Learn
-**Languages:** Python
-**Prerequisites:** Phase 6 · 04 (ASR), Phase 12 · 03 (Vision-Language Models), Phase 7 · 10 (Audio Transformers)
-**Time:** ~45 minutes
+**Typ:** Nauka
+**Języki:** Python
+**Wymagania wstępne:** Phase 6 · 04 (ASR), Phase 12 · 03 (Vision-Language Models), Phase 7 · 10 (Audio Transformers)
+**Szacowany czas:** około 45 minut
 
-## The Problem
+## Problem
 
-You have 5 seconds of audio: dog barks, someone yells "stop!", then silence. Useful questions span multiple axes:
+Masz 5 sekund audio: psy szczekają, ktoś krzyczy „stop!", a potem cisza. Przydatne pytania obejmują wiele osi:
 
-- **Transcription.** "What was said?" — ASR territory.
-- **Semantic reasoning.** "Is the person in danger?" — requires joint understanding of the bark + yell + silence.
-- **Music reasoning.** "What instruments play the melody?"
-- **Long-audio retrieval.** "Where in this 90-minute lecture did the instructor explain gradient descent?"
+- **Transkrypcja.** „Co zostało powiedziane?" — teren ASR.
+- **Rozumowanie semantyczne.** „Czy osoba jest w niebezpieczeństwie?" — wymaga wspólnego zrozumienia szczekania + krzyku + ciszy.
+- **Rozumowanie muzyczne.** „Jakie instrumenty grają melodię?"
+- **Wyszukiwanie w długim audio.** „Gdzie w tym 90-minutowym wykładzie instruktor wyjaśnił gradient descent?"
 
-A single model that answers all of these with one prompt is an **audio-language model** (LALM / ALM). Separate from pure ASR: LALMs produce free-form natural-language answers, not just transcripts.
+Pojedynczy model odpowiadający na wszystkie te pytania jednym promptem to **audio-language model** (LALM / ALM). Inny niż czyste ASR: LALM generują odpowiedzi w wolnej formie w języku naturalnym, nie tylko transkrypcje.
 
-## The Concept
+## Koncepcja
 
 ![Audio-language model: audio encoder + projector + LLM decoder](../assets/alm-architecture.svg)
 
-### The three-component template
+### Szablon trójskładnikowy
 
-Every 2026 LALM has the same skeleton:
+Każdy LALM z 2026 roku ma ten sam szkielet:
 
-1. **Audio encoder.** Whisper encoder · BEATs · CLAP · WavLM · or a custom encoder per model.
-2. **Projector.** Linear or MLP bridging audio-encoder features into the LLM's token embedding space.
-3. **LLM.** Llama / Qwen / Gemma-based decoder. Takes interleaved text + audio tokens; generates text.
+1. **Audio encoder.** Whisper encoder · BEATs · CLAP · WavLM · lub niestandardowy encoder dla danego modelu.
+2. **Projector.** Warstwa liniowa lub MLP łącząca cechy audio encoder z przestrzenią osadzania tokenów LLM.
+3. **LLM.** Dekoder oparty na Llamie / Qwen / Gemmie. Przyjmuje przeplatane tokeny tekstowe + audio; generuje tekst.
 
-Training:
+Trening:
 
-- **Stage 1.** Freeze encoder + LLM; train projector only on ASR / captioning data.
-- **Stage 2.** Full / LoRA fine-tune on instruction-following audio tasks (QA, reasoning, music understanding).
-- **Stage 3 (optional).** Voice-in / voice-out adds a speech decoder. Qwen2.5-Omni and AF3-Chat do this.
+- **Etap 1.** Zamroź encoder + LLM; trenuj projector tylko na danych ASR / captioning.
+- **Etap 2.** Pełny / LoRA fine-tune na zadaniach instruction-following z audio (QA, rozumowanie, rozumienie muzyki).
+- **Etap 3 (opcjonalny).** Voice-in / voice-out dodaje speech decoder. Qwen2.5-Omni i AF3-Chat to robią.
 
-### The 2026 model map
+### Mapa modeli z 2026
 
-| Model | Backbone | Audio encoder | Output modality | Access |
-|-------|----------|---------------|-----------------|--------|
+| Model | Backbone | Audio encoder | Modalność wyjściowa | Dostęp |
+|-------|----------|---------------|----------------------|--------|
 | Qwen2.5-Omni-7B | Qwen2.5-7B | Custom + Whisper | text + speech | Apache-2.0 |
 | Qwen3-Omni | Qwen3 | Custom | text + speech | Apache-2.0 |
 | Audio Flamingo 3 | Qwen2 | AF-CLAP | text | NVIDIA non-commercial |
@@ -50,39 +50,39 @@ Training:
 | Gemini 2.5 Flash/Pro (closed) | Gemini | proprietary | text + speech | API |
 | GPT-4o Audio (closed) | GPT-4o | proprietary | text + speech | API |
 
-### Benchmark reality check (2026)
+### Sprawdzenie rzeczywistości benchmarków (2026)
 
-**MMAU-Pro.** 1800 QA pairs covering speech / sound / music / mixed. Multi-audio subset included.
+**MMAU-Pro.** 1800 par QA obejmujących speech / sound / music / mixed. Podzbiór multi-audio włączony.
 
-| Model | Overall | Speech | Sound | Music | Multi-audio |
-|-------|---------|--------|-------|-------|-------------|
+| Model | Ogółem | Speech | Sound | Music | Multi-audio |
+|-------|--------|--------|-------|-------|-------------|
 | Gemini 2.5 Pro | ~60% | 73.4% | 51.9% | 64.9% | ~22% |
 | Gemini 2.5 Flash | ~57% | 73.4% | 50.5% | 64.9% | 21.2% |
 | GPT-4o Audio | 52.5% | — | — | — | 26.5% |
 | Qwen2.5-Omni-7B | 52.2% | 57.4% | 47.6% | 61.5% | ~20% |
 | Audio Flamingo 3 | ~54% | — | — | — | — |
-| Audio Flamingo Next | SOTA on LongAudioBench | — | — | — | — |
+| Audio Flamingo Next | SOTA na LongAudioBench | — | — | — | — |
 
-The **multi-audio column is damning for everyone.** Random chance on 4-option multiple choice = 25%; most models score around there. LALMs still struggle to compare two clips.
+**Kolumna multi-audio jest kompromitująca dla wszystkich.** Losowy traf na wielokrotnym wyborze 4 opcji = 25%; większość modeli osiąga właśnie tyle. LALM wciąż mają trudności z porównywaniem dwóch klipów.
 
-### Where LALMs are useful in 2026
+### Gdzie LALM są przydatne w 2026
 
-- **Compliance audit of call-center recordings.** "Did the agent mention the required disclosure?"
-- **Accessibility.** Describe sound events to deaf users (not just transcription).
-- **Content moderation.** Detect violent language + threatening tone + background context.
-- **Podcast / meeting chaptering.** Semantic summary, not just speaker turns.
-- **Music catalog analysis.** "Find all tracks with a B-section key change."
+- **Audit zgodności nagrań call-center.** „Czy agent wspomniał o wymaganym ujawnieniu?"
+- **Dostępność.** Opisuj zdarzenia dźwiękowe dla głuchych użytkowników (nie tylko transkrypcja).
+- **Moderacja treści.** Wykrywaj przemoc werbalną + groźący ton + kontekst tła.
+- **Rozdziałowanie podcastów / spotkań.** Semantyczne podsumowanie, nie tylko zmiany mówców.
+- **Analiza katalogu muzycznego.** „Znajdź wszystkie utwory z zmianą tonacji w części B."
 
-### Where they are NOT (yet) useful
+### Gdzie NIE są (jeszcze) przydatne
 
-- Fine-grained music theory (below chord-level).
-- Speaker-attributed reasoning over long conversations (degrades past 10 minutes).
-- Multi-audio comparison (22-26% is barely above random).
-- Real-time streaming reasoning (most are offline batch inference).
+- Szczegółowa teoria muzyki (poniżej poziomu akordów).
+- Rozumowanie z atrybuacją mówcy w długich rozmowach (pogarsza się po 10 minutach).
+- Porównywanie multi-audio (22-26% to ledwo powyżej losowego).
+- Rozumowanie w czasie rzeczywistym streaming (większość to offline batch inference).
 
-## Build It
+## Zbuduj to
 
-### Step 1: query Qwen2.5-Omni
+### Krok 1: zapytanie do Qwen2.5-Omni
 
 ```python
 from transformers import AutoModelForCausalLM, AutoProcessor
@@ -103,7 +103,7 @@ output = model.generate(**inputs, max_new_tokens=200)
 print(processor.decode(output[0], skip_special_tokens=True))
 ```
 
-### Step 2: the projector pattern
+### Krok 2: wzorzec projectora
 
 ```python
 import torch.nn as nn
@@ -119,9 +119,9 @@ class AudioProjector(nn.Module):
         return self.up(self.act(self.down(audio_features)))
 ```
 
-That's it. The projector is usually 1-3 linear layers. Training it on ASR pairs (audio → transcript) is the Stage-1 pretext task.
+I to wszystko. Projector to zwykle 1-3 warstwy liniowe. Trenowanie go na parach ASR (audio → transkrypcja) to pretext task Etapu 1.
 
-### Step 3: benchmarking MMAU / LongAudioBench
+### Krok 3: benchmarking MMAU / LongAudioBench
 
 ```python
 from datasets import load_dataset
@@ -135,52 +135,52 @@ for item in mmau["test"]:
 print(f"Accuracy: {correct / len(mmau['test']):.3f}")
 ```
 
-Report per-category (speech / sound / music / multi-audio) separately. Aggregate numbers hide where the model fails.
+Raportuj osobno według kategorii (speech / sound / music / multi-audio). Zagregowane liczby ukrywają, gdzie model się nie sprawdza.
 
-## Use It
+## Użyj tego
 
-| Task | 2026 pick |
-|------|-----------|
+| Zadanie | Wybór na 2026 |
+|---------|---------------|
 | Free-form audio QA (open) | Qwen2.5-Omni-7B |
-| Best open on long audio | Audio Flamingo Next |
-| Best closed | Gemini 2.5 Pro |
-| Voice-in / voice-out agent | Qwen2.5-Omni or GPT-4o Audio |
-| Music reasoning | Audio Flamingo 3 or 2 (music-specialized AF-CLAP) |
-| Call-center audit | Gemini 2.5 Pro via API, with RAG over your policy docs |
+| Najlepszy open na długie audio | Audio Flamingo Next |
+| Najlepszy closed | Gemini 2.5 Pro |
+| Voice-in / voice-out agent | Qwen2.5-Omni lub GPT-4o Audio |
+| Rozumowanie muzyczne | Audio Flamingo 3 lub 2 (music-specialized AF-CLAP) |
+| Audit call-center | Gemini 2.5 Pro via API, z RAG na twoich dokumentach polityki |
 
-## Pitfalls
+## Pułapki
 
-- **Over-trust on multi-audio.** If your task needs "which clip has X," random-chance-level performance is real.
-- **Long-audio degradation.** Past 10 minutes, most models' speaker attribution breaks. Diarize first (Lesson 6), then summarize.
-- **Hallucinations on silence.** Same Whisper-style issue inherited by LALMs that use Whisper encoder. VAD-gate.
-- **Benchmark cherry-picking.** Vendor blog posts highlight best-case categories. Run MMAU-Pro multi-audio subset yourself.
+- **Nadmierne zaufanie do multi-audio.** Jeśli twoje zadanie wymaga „który klip ma X," wydajność na poziomie losowym to rzeczywistość.
+- **Pogorszenie na długim audio.** Po 10 minutach atrybuacja mówcy w większości modeli się psuje. Najpierw diarizuj (Lesson 6), potem podsumuj.
+- **Halucynacje na ciszy.** Ten sam problem co w Whisper-style jest dziedziczony przez LALM używające Whisper encoder. Bramkuj VAD.
+- **Cherry-picking benchmarków.** Posty na blogach vendorów podkreślają najlepsze przypadki w kategoriach. Uruchom podzbiór MMAU-Pro multi-audio samodzielnie.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-alm-picker.md`. Pick LALM + benchmark subset + output-modality (text vs speech) for a given audio-understanding task.
+Zapisz jako `outputs/skill-alm-picker.md`. Wybierz LALM + podzbiór benchmark + modalność wyjściowa (text vs speech) dla danego zadania rozumienia audio.
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Run `code/main.py` to see a toy projector pattern + fake LALM routing of (audio-embedding, text-tokens) → output tokens.
-2. **Medium.** Score Qwen2.5-Omni-7B on 100 MMAU-Pro speech items. Compare to the paper's reported number.
-3. **Hard.** Build a minimal audio-captioning baseline: BEATs encoder + 2-layer projector + frozen Llama-3.2-1B. Fine-tune only the projector on AudioCaps. Compare to SALMONN on Clotho-AQA.
+1. **Łatwe.** Uruchom `code/main.py`, aby zobaczyć wzorzec toy projector + fake LALM routing (audio-embedding, text-tokens) → output tokens.
+2. **Średnie.** Oceń Qwen2.5-Omni-7B na 100 elementach MMAU-Pro speech. Porównaj z liczbą podaną w artykule.
+3. **Trudne.** Zbuduj minimalny baseline audio-captioning: BEATs encoder + 2-warstwowy projector + zamrożony Llama-3.2-1B. Fine-tune tylko projector na AudioCaps. Porównaj z SALMONN na Clotho-AQA.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|--------------------------|
 | LALM | Audio ChatGPT | Audio encoder + projector + LLM decoder. |
-| Projector | Adapter | Small MLP mapping audio features into LLM embedding space. |
-| MMAU | The benchmark | 10k audio-QA pairs across speech, sound, music. |
-| MMAU-Pro | Harder MMAU | 1800 multi-audio / reasoning-heavy questions. |
-| LongAudioBench | Long-form eval | Multi-minute clips with semantic queries. |
-| Voice-in / voice-out | Speech-native | Model ingests speech and emits speech without text detour. |
+| Projector | Adapter | Małe MLP mapujące cechy audio w przestrzeń osadzania LLM. |
+| MMAU | Benchmark | 10k par audio-QA obejmujących speech, sound, music. |
+| MMAU-Pro | Trudniejszy MMAU | 1800 pytań multi-audio / intensywnych rozumieniowo. |
+| LongAudioBench | Ewaluacja długich form | Wielominutowe klipy z zapytaniami semantycznymi. |
+| Voice-in / voice-out | Speech-native | Model przyjmuje mowę i emituje mowę bez pośrednictwa tekstu. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Chu et al. (2024). Qwen2-Audio](https://arxiv.org/abs/2407.10759) — reference architecture.
+- [Chu et al. (2024). Qwen2-Audio](https://arxiv.org/abs/2407.10759) — architektura referencyjna.
 - [Alibaba (2025). Qwen2.5-Omni](https://huggingface.co/Qwen/Qwen2.5-Omni-7B) — speech-in-speech-out.
-- [NVIDIA (2025). Audio Flamingo 3](https://arxiv.org/abs/2507.08128) — the open long-audio leader.
-- [NVIDIA (2026). Audio Flamingo Next](https://arxiv.org/abs/2604.10905) — LongAudioBench SOTA.
-- [Tang et al. (2023). SALMONN](https://arxiv.org/abs/2310.13289) — dual-encoder pioneer.
-- [MMAU-Pro leaderboard](https://mmaubenchmark.github.io/) — live 2026 rankings.
+- [NVIDIA (2025). Audio Flamingo 3](https://arxiv.org/abs/2507.08128) — otwarty lider long-audio.
+- [NVIDIA (2026). Audio Flamingo Next](https://arxiv.org/abs/2604.10905) — SOTA na LongAudioBench.
+- [Tang et al. (2023). SALMONN](https://arxiv.org/abs/2310.13289) — pionier dual-encoder.
+- [MMAU-Pro leaderboard](https://mmaubenchmark.github.io/) — live rankings na 2026.

@@ -1,61 +1,62 @@
-# Voice Activity Detection & Turn-Taking — Silero, Cobra, and the Flush Trick
+```markdown
+# Voice Activity Detection i wykrywanie zmiany turny — Silero, Cobra i sztuczka z flush
 
-> Every voice agent lives or dies on two decisions: is the user speaking now, and are they done? VAD answers the first. Turn-detection (VAD + silence-hangover + semantic endpoint model) answers the second. Get either wrong and your assistant either cuts users off or never shuts up.
+> Każdy voice agent żyje lub umiera z dwóch decyzji: czy użytkownik teraz mówi i czy skończył? VAD odpowiada na pierwsze. Wykrywanie zmiany turny (VAD + cisza po aktywności + semantyczny model końca wypowiedzi) odpowiada na drugie. Zrób którekolwiek źle, a Twój asystent albo przerywa użytkownikowi, albo nigdy nie zamknie dzioba.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 6 · 11 (Real-Time Audio), Phase 6 · 12 (Voice Assistant)
-**Time:** ~45 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 6 · 11 (Real-Time Audio), Phase 6 · 12 (Voice Assistant)
+**Szacowany czas:** ~45 minut
 
-## The Problem
+## Problem
 
-Three distinct decisions a voice agent makes on every 20 ms chunk:
+Trzy różne decyzje, które voice agent podejmuje dla każdego fragmentu 20 ms:
 
-1. **Is this frame speech?** — VAD. Binary, per-frame.
-2. **Has the user started a new utterance?** — onset detection.
-3. **Has the user finished?** — end-pointing (turn-end).
+1. **Czy ta ramka to mowa?** — VAD. Binarna, na ramkę.
+2. **Czy użytkownik zaczął nową wypowiedź?** — wykrywanie początku.
+3. **Czy użytkownik skończył?** — wskazanie punktu końcowego (koniec tury).
 
-The naive answer (energy threshold) fails on any noise — traffic, keyboards, crowd babble. The 2026 answer: Silero VAD (open, deep-learned) + a turn-detection model (semantic endpointing) + a VAD-calibrated silence hangover.
+Naiwna odpowiedź (próg energii) zawodzi przy jakimkolwiek szumie — ruch uliczny, klawiatury, gwar tłumu. Odpowiedź 2026: Silero VAD (open, deep-learned) + model wykrywania zmiany turny (semantyczne wskazanie końca) + VAD-kalibrowane ciszy po aktywności.
 
-## The Concept
+## Koncepcja
 
-![VAD cascade: energy → Silero → turn-detector → flush trick](../assets/vad-turn-taking.svg)
+![Kaskada VAD: energia → Silero → detektor turn → sztuczka z flush](../assets/vad-turn-taking.svg)
 
-### The three-tier VAD cascade
+### Trzypoziomowa kaskada VAD
 
-**Tier 1: energy gate.** Cheapest. Threshold RMS at -40 dBFS. Filters obvious silence but fires on any noise above the threshold.
+**Poziom 1: bramka energetyczna.** Najtańsza. Próg RMS przy -40 dBFS. Filtruje oczywistą ciszę, ale wyzwala przy dowolnym szumie powyżej progu.
 
-**Tier 2: Silero VAD** (2020-2026, MIT). 1M parameters. Trained on 6000+ languages. Runs in ~1 ms per 30 ms chunk on a single CPU thread. 87.7% TPR at 5% FPR. The open-source default.
+**Poziom 2: Silero VAD** (2020-2026, MIT). 1M parametrów. Trenowany na 6000+ języków. Działa w ~1 ms na fragment 30 ms na jednym wątku CPU. 87.7% TPR przy 5% FPR. Domyślny open-source.
 
-**Tier 3: semantic turn detector.** LiveKit's turn-detection model (2024-2026) or your own small classifier. Distinguishes "pause mid-sentence" from "done talking." Uses linguistic context (intonation + recent words), not just silence.
+**Poziom 3: semantyczny detektor turn.** Model LiveKit do wykrywania turn (2024-2026) lub własna mała klasyfikator. Rozróżnia "pauza w środku zdania" od "skończyłem mówić." Używa kontekstu lingwistycznego (intonacja + ostatnie słowa), nie tylko ciszy.
 
-### Key parameters and their defaults
+### Kluczowe parametry i ich wartości domyślne
 
-- **Threshold.** Silero outputs a probability; classify speech at &gt; 0.5 (default) or &gt; 0.3 (sensitive). Lower threshold = fewer first-word clips, more false positives.
-- **Minimum speech duration.** Reject speech shorter than 250 ms — usually coughs or chair noise.
-- **Silence hangover (end-pointing).** After VAD returns to 0, wait 500-800 ms before declaring end-of-turn. Too short → interrupt user. Too long → feels sluggish.
-- **Pre-roll buffer.** Keep 300-500 ms of audio before VAD fires. Prevents "hey" being clipped.
+- **Threshold.** Silero zwraca prawdopodobieństwo; klasyfikuj mowę przy > 0.5, (domyślne) lub > 0.3 (czułe). Niższy próg = mniej obciętych pierwszych słów, więcej fałszywych pozytywów.
+- **Minimalny czas trwania mowy.** Odrzuć mowę krótszą niż 250 ms — zwykle kaszel lub dźwięk krzesła.
+- **Cisza po aktywności (wskazanie końca).** Po powrocie VAD do 0, poczekaj 500-800 ms przed ogłoszeniem końca tury. Za krótko → przerywasz użytkownikowi. Za długo → sprawia wrażenie opieszałości.
+- **Bufor pre-roll.** Trzymaj 300-500 ms audio przed wyzwoleniem VAD. Zapobiega obcięciu "hej".
 
-### The flush trick (Kyutai 2025)
+### Sztuczka z flush (Kyutai 2025)
 
-Streaming STT models have a look-ahead delay (500 ms for Kyutai STT-1B, 2.5 s for STT-2.6B). Normally you'd wait that long after end-of-speech for the transcript. Flush trick: when VAD fires end-of-speech, **send a flush signal to the STT** that forces immediate output. STT processes at ~4× realtime, so the 500 ms buffer finishes in ~125 ms.
+Strumieniowe modele STT mają opóźnienie lookahead (500 ms dla Kyutai STT-1B, 2.5 s dla STT-2.6B). Normalnie czekałbyś tak długo po końcu mowy na transkrypt. Sztuczka z flush: gdy VAD wykrywa koniec mowy, **wyślij sygnał wymuszenia do STT**, który wymusza natychmiastowy wynik. STT typu flush przetwarza w ~4× realtime, więc bufor 500 ms kończy się w ~125 ms.
 
-End-to-end: 125 ms VAD + flush STT = conversational latency.
+Od końca do końca: 125 ms VAD + flush STT = latencja konwersacyjna.
 
-### 2026 VAD comparison
+### Porównanie VAD 2026
 
-| VAD | TPR @ 5% FPR | Latency | License |
-|-----|--------------|---------|---------|
+| VAD | TPR @ 5% FPR | Latencja | Licencja |
+|-----|--------------|---------|----------|
 | WebRTC VAD (Google, 2013) | 50.0% | 30 ms | BSD |
 | Silero VAD (2020-2026) | 87.7% | ~1 ms | MIT |
-| Cobra VAD (Picovoice) | 98.9% | ~1 ms | commercial |
+| Cobra VAD (Picovoice) | 98.9% | ~1 ms | komercyjna |
 | pyannote segmentation | 95% | ~10 ms | MIT-ish |
 
-Silero is the right default. Cobra is the compliance / accuracy upgrade. Energy-only VAD has no place in 2026 production.
+Silero to właściwy domyślny wybór. Cobra to ulepszenie dokładności / zgodności**,** Energy-only VAD nie ma miejsca w produkcji 2026.
 
-## Build It
+## Zbuduj to
 
-### Step 1: the energy gate
+### Krok 1: bramka energetyczna
 
 ```python
 def energy_vad(chunk, threshold_dbfs=-40.0):
@@ -64,7 +65,7 @@ def energy_vad(chunk, threshold_dbfs=-40.0):
     return dbfs > threshold_dbfs
 ```
 
-### Step 2: Silero VAD in Python
+### Krok 2: Silero VAD w Python
 
 ```python
 from silero_vad import load_silero_vad, get_speech_timestamps
@@ -82,7 +83,7 @@ for s in segments:
     print(f"{s['start']/16000:.2f}s - {s['end']/16000:.2f}s")
 ```
 
-### Step 3: turn-end state machine
+### Krok 3: automat stanów wykrywania końca tury
 
 ```python
 class TurnDetector:
@@ -109,7 +110,7 @@ class TurnDetector:
         return None
 ```
 
-### Step 4: the flush trick skeleton
+### Krok 4: szkielet sztuczki z flush
 
 ```python
 def flush_on_end(stt_client, audio_buffer):
@@ -118,56 +119,48 @@ def flush_on_end(stt_client, audio_buffer):
     return stt_client.recv_transcript(timeout_ms=150)
 ```
 
-STT (Kyutai, Deepgram, AssemblyAI) must support flush for this to work. Whisper streaming does not — it's block-based and always waits for chunks.
+STT (Kyutai, Deepgram, AssemblyAI) musi obsługiwać flush, żeby to działało. Whisper streaming nie — jest block-based i zawsze czeka na chunki.
 
-## Use It
+## Użyj tego
 
-| Situation | VAD choice |
-|-----------|-----------|
+| Sytuacja | Wybór VAD |
+|----------|-----------|
 | Open, fast, general | Silero VAD |
-| Commercial call center | Cobra VAD |
-| On-device (phone) | Silero VAD ONNX |
+| Komercyjne call center | Cobra VAD |
+| On-device (telefon) | Silero VAD ONNX |
 | Research / diarization | pyannote segmentation |
 | Zero-dependency fallback | WebRTC VAD (legacy) |
-| Need turn-ending quality | Silero + LiveKit turn-detector layered |
+| Potrzebujesz jakości końca tury | Silero + LiveKit turn-detector layered |
 
-Rule of thumb: never ship energy-only VAD unless you really have no other option.
+Zasada kciuka: nigdy nie wysyłaj energy-only VAD, chyba że naprawdę nie masz innej opcji.
 
-## Pitfalls
+## Pułapki
 
-- **Fixed threshold.** Works in quiet, fails in noisy. Either calibrate on-device or switch to Silero.
-- **Too-short silence hangover.** Agent interrupts mid-sentence. 500-800 ms is the sweet spot for conversational speech.
-- **Too-long hangover.** Feels sluggish. A/B test with target users.
-- **No pre-roll buffer.** First 200-300 ms of user audio lost. Always keep a rolling pre-roll.
-- **Ignoring semantic endpointing.** "Hmm, let me think..." contains long pauses. Users hate being cut off mid-thought. Use LiveKit's turn-detector or similar.
+- **Stały próg.** Działa w ciszy, zawodzi w hałasie. Albo kalibruj on-device, albo przełącz na Silero.
+- **Za krótka cisza po aktywności.** Agent przerywa w połowie zdania. 500-800 ms to optimum dla mowy konwersacyjnej.
+- **Za długa cisza po aktywności.** Sprawia wrażenie opieszałości. Testuj A/B z docelowymi użytkownikami.
+- **Brak bufora pre-roll.** Pierwsze 200-300 ms audio użytkownika tracone. Zawsze trzymaj rolling pre-roll.
+- **Ignorowanie semantycznego wskazania końca.** "Hmm, daj pomyśleć..." zawiera długie pauzy. Użytkownicy nienawidzą, gdy przerywa im w połowie myśli. Używaj LiveKit turn-detector lub podobnego.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-vad-tuner.md`. Pick VAD model, threshold, hangover, pre-roll, and turn-detection strategy for a workload.
+Zapisz jako `outputs/skill-vad-tuner.md`. Wybierz model VAD, threshold, hangover, pre-roll i strategię wykrywania turn dla swojego obciążenia.
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Run `code/main.py`. It simulates a speech + silence + speech + coughs sequence and tests three VAD tiers.
-2. **Medium.** Install `silero-vad`, process a 5-min recording, tune threshold to minimize both first-word clips and false triggers. Report precision/recall.
-3. **Hard.** Build a mini turn-detector: Silero VAD + a 3-layer MLP on the last 10 words' embeddings (use sentence-transformers). Train on a hand-labeled turn-end dataset. Beat Silero-only by 10% F1.
+1. **Łatwe.** Uruchom `code/main.py`. Symuluje sekwencję mowa + cisza + mowa + kaszel i testuje trzy poziomy VAD.
+2. **Średnie.** Zainstaluj `silero-vad`, przetwórz nagranie 5-min, dostrój threshold, żeby zminimalizować obcięte pierwsze słowa i fałszywe wyzwalania. Raportuj precision/recall.
+3. **Trudne.** Zbuduj mini turn-detector: Silero VAD + 3-warstwowy MLP na ostatnich 10 słowach embeddings (użyj sentence-transformers). Trenuj na ręcznie oznakowanym datasetcie końca tury. Przebij Silero-only o 10% F1.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| VAD | Voice detector | Binary per-frame: is this speech? |
-| Turn detection | End-pointing | VAD + silence-hangover + semantic endpoint. |
-| Silence hangover | Wait-after-speech | Time to wait before declaring turn end; 500-800 ms. |
-| Pre-roll | Pre-speech buffer | Keep 300-500 ms audio before VAD fires. |
-| Flush trick | Kyutai hack | VAD → flush-STT → 125 ms instead of 500 ms delay. |
-| Semantic endpoint | "Did they mean to stop?" | ML classifier that looks at words, not just silence. |
-| TPR @ FPR 5% | ROC point | Standard VAD benchmark; 87.7% for Silero, 50% WebRTC. |
-
-## Further Reading
-
-- [Silero VAD](https://github.com/snakers4/silero-vad) — the reference open VAD.
-- [Picovoice Cobra VAD](https://picovoice.ai/products/cobra/) — commercial accuracy leader.
-- [Kyutai — Unmute + flush trick](https://kyutai.org/stt) — the sub-200 ms engineering trick.
-- [LiveKit — turn detection](https://docs.livekit.io/agents/logic/turns/) — semantic endpointing in production.
-- [WebRTC VAD](https://webrtc.googlesource.com/src/) — the legacy baseline.
-- [pyannote segmentation](https://github.com/pyannote/pyannote-audio) — diarization-grade segmentation.
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|--------------------------|
+| VAD | Wykrywacz głosu | Binarny na ramkę: czy to mowa? |
+| Turn detection | Wskazanie końca | VAD + cisza po aktywności + semantyczny endpoint. |
+| Silence hangover | Czekanie po mowie | Czas przed ogłoszeniem końca tury; 500-800 ms. |
+| Pre-roll | Bufor przed mową | Trzymaj 300-500 ms audio przed wyzwoleniem VAD. |
+| Flush trick | Hack Kyutai | VAD → flush-STT → 125 ms zamiast 500 ms opóźnienia. |
+| Semantic endpoint | "Czy zamierzał się zatrzymać?" | Klasyfikator ML, który patrzy na słowa, nie tylko ciszę. |
+| TPR @ FPR 5% | Punkt ROC | Standard VAD benchmark; 87.7% dla Silero, 50% WebRTC. |
+```

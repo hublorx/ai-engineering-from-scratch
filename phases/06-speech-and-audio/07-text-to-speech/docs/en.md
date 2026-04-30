@@ -1,64 +1,64 @@
-# Text-to-Speech (TTS) — From Tacotron to F5 and Kokoro
+# Text-to-Speech (TTS) — od Tacotrona do F5 i Kokoro
 
-> ASR inverts speech to text; TTS inverts text to speech. The 2026 stack is three parts: text → tokens, tokens → mel, mel → waveform. Each part has a default model that fits in a laptop.
+> ASR odwraca mowę na tekst; TTS odwraca tekst na mowę. Stack 2026 składa się z trzech części: tekst → tokeny, tokeny → mel, mel → waveform. Każda część ma domyślny model, który mieści się na laptopie.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 6 · 02 (Spectrograms & Mel), Phase 5 · 09 (Seq2Seq), Phase 7 · 05 (Full Transformer)
-**Time:** ~75 minutes
+**Typ:** Budowanie
+**Języki:** Python
+**Wymagania wstępne:** Faza 6 · 02 (Spektrogramy i Mel), Faza 5 · 09 (Seq2Seq), Faza 7 · 05 (Pełny Transformer)
+**Szacowany czas:** ~75 minut
 
-## The Problem
+## Problem
 
-You have a string: "Please remind me to water the plants at 6 pm." You need a 3-second audio clip that sounds natural, has correct prosody (pauses, stress), pronounces "plants" with the right vowel, and runs in under 300 ms on a CPU for a live voice assistant. You also need to swap voices, handle code-switched input ("remind me at 6 pm, daijoubu?"), and not embarrass yourself on names.
+Masz string: "Please remind me to water the plants at 6 pm." Potrzebujesz 3-sekundowego klipu audio, który brzmi naturalnie, ma poprawną prozodię (pauzy, akcent), wymawia "plants" z właściwą samogłoską i działa w mniej niż 300 ms na CPU dla live voice assistant. Potrzebujesz też zmieniać głosy, obsługiwać code-switched input ("remind me at 6 pm, daijoubu?") i nie robić wstydu przy nazwiskach.
 
-Modern TTS pipelines look like this:
+Nowoczesne pipeline'y TTS wyglądają tak:
 
-1. **Text frontend.** Normalize text (dates, numbers, emails), convert to phonemes or subword tokens, predict prosody features.
-2. **Acoustic model.** Text → mel spectrogram. Tacotron 2 (2017), FastSpeech 2 (2020), VITS (2021), F5-TTS (2024), Kokoro (2024).
-3. **Vocoder.** Mel → waveform. WaveNet (2016), WaveRNN, HiFi-GAN (2020), BigVGAN (2022), neural codec vocoders in 2024+.
+1. **Text frontend.** Normalizuj tekst (daty, liczby, emaile), konwertuj na fonemy lub subword tokeny, przewiduj cechy prozodii.
+2. **Model akustyczny.** Tekst → mel spectrogram. Tacotron 2 (2017), FastSpeech 2 (2020), VITS (2021), F5-TTS (2024), Kokoro (2024).
+3. **Vocoder.** Mel → waveform. WaveNet (2016), WaveRNN, HiFi-GAN (2020), BigVGAN (2022), neural codec vocodery w 2024+.
 
-In 2026 the acoustic + vocoder split blurs with end-to-end diffusion and flow-matching models. But the mental model of three parts still holds for debugging.
+W 2026 roku podział acoustic + vocoder się zaciera wraz z end-to-end modelami diffusion i flow-matching. Ale mental model trzech części nadal obowiązuje przy debugowaniu.
 
-## The Concept
+## Koncepcja
 
 ![Tacotron, FastSpeech, VITS, F5/Kokoro side-by-side](../assets/tts.svg)
 
-**Tacotron 2 (2017).** Seq2seq: char-embedding → BiLSTM encoder → location-sensitive attention → autoregressive LSTM decoder emits mel frames. Slow (AR), wobbly on long text. Still cited as a baseline.
+**Tacotron 2 (2017).** Seq2seq: char-embedding → BiLSTM encoder → location-sensitive attention → autoregressive LSTM decoder emituje mel frames. Wolny (AR), niestabilny przy długim tekście. Wciąż cytowany jako baseline.
 
-**FastSpeech 2 (2020).** Non-autoregressive. Duration predictor outputs how many mel frames each phoneme gets. 1-pass, 10× faster than Tacotron. Loses some naturalness (monotonic alignment) but ships everywhere.
+**FastSpeech 2 (2020).** Non-autoregressive. Duration predictor输出uje, ile mel frames przypada na każdy fonem. 1-pass, 10× szybszy niż Tacotron. Traci trochę naturalności (monotonic alignment), ale działa wszędzie.
 
-**VITS (2021).** Jointly trains encoder + flow-based duration + HiFi-GAN vocoder end-to-end with variational inference. High quality, single model. Dominant open-source TTS 2022–2024. Variants: YourTTS (multi-speaker zero-shot), XTTS v2 (2024, Coqui).
+**VITS (2021).** Wspólnie trenuje encoder + flow-based duration + HiFi-GAN vocoder end-to-end z wnioskowaniem wariacyjnym. Wysoka jakość, jeden model. Dominujący open-source TTS 2022–2024. Warianty: YourTTS (multi-speaker zero-shot), XTTS v2 (2024, Coqui).
 
-**F5-TTS (2024).** Diffusion transformer over flow matching. Natural prosody, zero-shot voice cloning with 5 seconds of reference audio. Top of the 2026 open-source TTS leaderboards. 335M params.
+**F5-TTS (2024).** Diffusion transformer over flow matching. Naturalna prozodia, zero-shot voice cloning z 5 sekund reference audio. Szczyt open-source TTS leaderboards w 2026. 335M params.
 
-**Kokoro (2024).** Small (82M), CPU-runnable, best-in-class English TTS for real-time use. Closed-vocabulary English-only, apache-2.0.
+**Kokoro (2024).** Mały (82M), działa na CPU, najlepszy angielski TTS klasy real-time. Zamknięty vocabulary English-only, apache-2.0.
 
-**OpenAI TTS-1-HD, ElevenLabs v2.5, Google Chirp-3.** Commercial state of the art. ElevenLabs v2.5 emotion tags ("[whispered]", "[laughing]") and character voices dominate audiobook production in 2026.
+**OpenAI TTS-1-HD, ElevenLabs v2.5, Google Chirp-3.** Komercyna state of the art. ElevenLabs v2.5 emotion tags ("[whispered]", "[laughing]") i character voices dominują produkcję audiobooków w 2026.
 
-### Vocoder evolution
+### Ewolucja vocodera
 
-| Era | Vocoder | Latency | Quality |
-|-----|---------|---------|---------|
-| 2016 | WaveNet | offline only | SOTA at release |
-| 2018 | WaveRNN | ~realtime | good |
+| Era | Vocoder | Latency | Jakość |
+|-----|---------|---------|--------|
+| 2016 | WaveNet | tylko offline | SOTA przy wydaniu |
+| 2018 | WaveRNN | ~realtime | dobra |
 | 2020 | HiFi-GAN | 100× realtime | near-human |
-| 2022 | BigVGAN | 50× realtime | generalizes across speakers/langs |
-| 2024 | SNAC, DAC (neural codecs) | integrated with AR models | discrete tokens, bit-efficient |
+| 2022 | BigVGAN | 50× realtime | generalizuje across speakers/langs |
+| 2024 | SNAC, DAC (neural codecs) | zintegrowany z AR models | discrete tokens, bit-efficient |
 
-By 2026 most "TTS" models are end-to-end from text to waveform; the mel spectrogram is an internal representation.
+Do 2026 większość modeli "TTS" to end-to-end z tekstu na waveform; mel spectrogram to internal representation.
 
-### Evaluation
+### Ewaluacja
 
-- **MOS (Mean Opinion Score).** 1–5 scale, crowd-sourced. Still the gold standard; painfully slow.
-- **CMOS (Comparative MOS).** A-vs-B preference. Tighter confidence intervals per annotation.
-- **UTMOS, DNSMOS.** Reference-free neural MOS predictors. Used for leaderboards.
-- **CER (Character Error Rate) via ASR.** Run TTS output through Whisper, compute CER against the input text. Proxy for intelligibility.
-- **SECS (Speaker Embedding Cosine Similarity).** Voice-cloning quality.
+- **MOS (Mean Opinion Score).** Skala 1–5, crowd-sourced. Wciąż gold standard; boleśnie wolny.
+- **CMOS (Comparative MOS).** Preferencja A-vs-B. Zawężone confidence intervals per annotation.
+- **UTMOS, DNSMOS.** Reference-free neural MOS predictors. Używane w leaderboards.
+- **CER (Character Error Rate) via ASR.** Przepuść TTS output przez Whisper, oblicz CER względem input text. Proxy for intelligibility.
+- **SECS (Speaker Embedding Cosine Similarity).** Voice-clone quality.
 
-2026 numbers on LibriTTS test-clean:
+Wyniki 2026 na LibriTTS test-clean:
 
-| Model | UTMOS | CER (via Whisper) | Size |
-|-------|-------|-------------------|------|
+| Model | UTMOS | CER (via Whisper) | Rozmiar |
+|-------|-------|-------------------|---------|
 | Ground truth | 4.08 | 1.2% | — |
 | F5-TTS | 3.95 | 2.1% | 335M |
 | XTTS v2 | 3.81 | 3.5% | 470M |
@@ -66,9 +66,9 @@ By 2026 most "TTS" models are end-to-end from text to waveform; the mel spectrog
 | Kokoro v0.19 | 3.87 | 1.8% | 82M |
 | Parler-TTS Large | 3.76 | 2.8% | 2.3B |
 
-## Build It
+## Budowanie
 
-### Step 1: phonemize input
+### Krok 1: fonemizacja inputu
 
 ```python
 from phonemizer import phonemize
@@ -76,9 +76,9 @@ ph = phonemize("Hello world", language="en-us", backend="espeak")
 # 'həloʊ wɜːld'
 ```
 
-Phonemes are the universal bridge. Avoid feeding raw text to anything below VITS-level quality.
+Fonemy to uniwersalny pomost. Unikaj podawania surowego tekstu do wszystkiego poniżej jakości VITS.
 
-### Step 2: run Kokoro (2026 CPU default)
+### Krok 2: uruchom Kokoro (2026 CPU default)
 
 ```python
 from kokoro import KPipeline
@@ -87,9 +87,9 @@ audio, sr = tts("Please remind me to water the plants at 6 pm.", voice="af_bella
 # audio: float32 tensor, sr=24000
 ```
 
-Runs offline, single file, 82M params.
+Działa offline, single file, 82M params.
 
-### Step 3: run F5-TTS with voice cloning
+### Krok 3: uruchom F5-TTS z voice cloning
 
 ```python
 from f5_tts.api import F5TTS
@@ -101,11 +101,11 @@ wav = tts.infer(
 )
 ```
 
-Pass a 5-second reference clip + its transcript; F5 clones prosody and timbre.
+Przekaż 5-sekundowy klip referencyjny + jego transkrypcję; F5 klonuje prozodię i timbre.
 
-### Step 4: HiFi-GAN vocoder from scratch
+### Krok 4: HiFi-GAN vocoder od zera
 
-Too big to fit in a tutorial script, but the shape is:
+Zbyt duży, żeby zmieścić się w tutorial script, ale kształt jest taki:
 
 ```python
 class HiFiGAN(nn.Module):
@@ -117,9 +117,9 @@ class HiFiGAN(nn.Module):
         return self.blocks(mel)  # -> waveform
 ```
 
-Training: adversarial (discriminator on short windows) + mel-spectrogram reconstruction loss + feature-matching loss. Commoditized — use pretrained checkpoints from `hifi-gan` repo or nvidia-NeMo.
+Trening: adversarial (discriminator on short windows) + mel-spectrogram reconstruction loss + feature-matching loss. Skomodytyzowane — używaj pretrained checkpoints z `hifi-gan` repo lub nvidia-NeMo.
 
-### Step 5: the full pipeline (pseudocode)
+### Krok 5: pełny pipeline (pseudokod)
 
 ```python
 text = "Please remind me at 6 pm."
@@ -129,55 +129,55 @@ wav = vocoder(mel)                                # [T * 256]
 soundfile.write("out.wav", wav, 24000)
 ```
 
-## Use It
+## Użycie
 
-The 2026 stack:
+Stack 2026:
 
-| Situation | Pick |
-|-----------|------|
-| Real-time English voice assistant | Kokoro (CPU) or XTTS v2 (GPU) |
-| Voice cloning from 5 s reference | F5-TTS |
-| Commercial character voices | ElevenLabs v2.5 |
-| Audiobook narration | ElevenLabs v2.5 or XTTS v2 + fine-tune |
-| Low-resource language | Train VITS on 5–20 h target-lang data |
-| Expressive / emotion tags | ElevenLabs v2.5 or StyleTTS 2 fine-tune |
+| Sytuacja | Wybierz |
+|---------|--------|
+| Real-time English voice assistant | Kokoro (CPU) lub XTTS v2 (GPU) |
+| Voice cloning z 5 s reference | F5-TTS |
+| Komercynne character voices | ElevenLabs v2.5 |
+| Audiobook narration | ElevenLabs v2.5 lub XTTS v2 + fine-tune |
+| Low-resource language | Trenuj VITS na 5–20 h target-lang data |
+| Expressive / emotion tags | ElevenLabs v2.5 lub StyleTTS 2 fine-tune |
 
-Open-source leader as of 2026: **F5-TTS for quality, Kokoro for efficiency**. Don't reach for Tacotron unless you are a historian.
+Open-source leader w 2026: **F5-TTS dla jakości, Kokoro dla efektywności**. Nie sięgaj po Tacotrona, chyba że jesteś historykiem.
 
-## Pitfalls
+## Pułapki
 
-- **No text normalizer.** "Dr. Smith" reads as "Doctor" or "Drive"? "2026" as "twenty twenty six" or "two zero two six"? Normalize BEFORE phonemizer.
-- **OOV proper nouns.** "Ghumare" → "ghyu-mair"? Ship a fallback grapheme-to-phoneme model for unknown tokens.
-- **Clipping.** Vocoder output rarely clips, but mel scaling mismatch at inference can overshoot ±1.0. Always `np.clip(wav, -1, 1)`.
-- **Sample-rate mismatch.** Kokoro outputs 24 kHz; your downstream pipeline expects 16 kHz → resample or get aliasing.
+- **Brak text normalizera.** "Dr. Smith" czyta się jako "Doctor" czy "Drive"? "2026" jako "twenty twenty six" czy "two zero two six"? Normalizuj PRZED phonemizer.
+- **OOV proper nouns.** "Ghumare" → "ghyu-mair"? Dostarcz fallback grapheme-to-phoneme model dla nieznanych tokenów.
+- **Clipping.** Vocoder output rzadko clipuje, ale mel scaling mismatch przy inference może przekroczyć ±1.0. Zawsze `np.clip(wav, -1, 1)`.
+- **Sample-rate mismatch.** Kokoro outputuje 24 kHz; twój downstream pipeline oczekuje 16 kHz → resampluj albo dostaniesz aliasing.
 
-## Ship It
+## Dostarcz to
 
-Save as `outputs/skill-tts-designer.md`. Design a TTS pipeline for a given voice, latency, and language target.
+Zapisz jako `outputs/skill-tts-designer.md`. Zaprojektuj pipeline TTS dla danego głosu, latency i target language.
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Run `code/main.py`. Builds a phoneme dictionary from a toy vocab, estimates duration per phoneme, and prints a fake "mel" schedule.
-2. **Medium.** Install Kokoro, synthesize the same sentence at voice `af_bella` and `am_adam`. Compare audio durations and subjective quality.
-3. **Hard.** Record a 5-second reference clip of yourself. Use F5-TTS to clone it. Report SECS between reference and cloned output.
+1. **Łatwe.** Uruchom `code/main.py`. Buduje phoneme dictionary z toy vocab, szacuje duration per fonem i drukuje fake "mel" schedule.
+2. **Średnie.** Zainstaluj Kokoro, zsyntezuj to samo zdanie w voice `af_bella` i `am_adam`. Porównaj audio durations i subiektywną jakość.
+3. **Trudne.** Nagraj 5-sekundowy klip referencyjny siebie. Użyj F5-TTS do sklonowania. Zgłoś SECS między reference a cloned output.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Term | Co ludzie mówią | Co to faktycznie oznacza |
 |------|-----------------|-----------------------|
-| Phoneme | Sound unit | Abstract sound class; 39 in English (ARPABet). |
-| Duration predictor | How long each phoneme lasts | Non-AR model output; integer frames per phoneme. |
-| Vocoder | Mel → waveform | Neural net mapping mel-spec to raw samples. |
-| HiFi-GAN | Standard vocoder | GAN-based; dominant 2020–2024. |
-| MOS | Subjective quality | 1–5 mean opinion score from human raters. |
-| SECS | Voice-clone metric | Cosine similarity between target and output speaker embedding. |
+| Phoneme | Jednostka dźwięku | Abstrakcyjna klasa dźwięku; 39 w języku angielskim (ARPABet). |
+| Duration predictor | Jak długo trwa każdy fonem | Non-AR model output; integer frames per phoneme. |
+| Vocoder | Mel → waveform | Neural net mapujący mel-spec na raw samples. |
+| HiFi-GAN | Standardowy vocoder | GAN-based; dominujący 2020–2024. |
+| MOS | Subiektywna jakość | Średni wynik opinii 1–5 od ludzkich oceniających. |
+| SECS | Metryka voice-clone | Cosine similarity między target a output speaker embedding. |
 | F5-TTS | 2024 open-source SOTA | Flow-matching diffusion; zero-shot cloning. |
 | Kokoro | CPU English leader | 82M-param model, Apache 2.0. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Shen et al. (2017). Tacotron 2](https://arxiv.org/abs/1712.05884) — the seq2seq baseline.
-- [Kim, Kong, Son (2021). VITS](https://arxiv.org/abs/2106.06103) — end-to-end flow-based.
-- [Chen et al. (2024). F5-TTS](https://arxiv.org/abs/2410.06885) — current open-source SOTA.
-- [Kong, Kim, Bae (2020). HiFi-GAN](https://arxiv.org/abs/2010.05646) — the vocoder that still ships in 2026.
-- [Kokoro-82M on HuggingFace](https://huggingface.co/hexgrad/Kokoro-82M) — 2024 CPU-friendly English TTS.
+- Shen i in. (2017). Tacotron 2 — baseline seq2seq.
+- Kim, Kong, Son (2021). VITS — end-to-end flow-based.
+- Chen i in. (2024). F5-TTS — current open-source SOTA.
+- Kong, Kim, Bae (2020). HiFi-GAN — vocoder, który wciąż się używa w 2026.
+- Kokoro-82M na HuggingFace — 2024 CPU-friendly English TTS.
