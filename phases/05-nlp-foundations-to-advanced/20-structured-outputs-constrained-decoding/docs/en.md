@@ -1,62 +1,62 @@
-# Structured Outputs & Constrained Decoding
+# Structured Outputs i Constrained Decoding
 
-> Ask an LLM for JSON. Get JSON most of the time. In production, "most" is the problem. Constrained decoding turns "most" into "always" by editing the logits before sampling.
+> Poproś LLM o JSON. Otrzymaj JSON przez większość czasu. W produkcji „przez większość czasu" to problem. Constrained decoding zamienia „przez większość" w „zawsze" poprzez edycję logitów przed samplingiem.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 5 · 17 (Chatbots), Phase 5 · 19 (Subword Tokenization)
-**Time:** ~60 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 5 · 17 (Chatboty), Phase 5 · 19 (Subword Tokenization)
+**Szacowany czas:** ~60 minut
 
-## The Problem
+## Problem
 
-A classifier prompts an LLM: "Return one of {positive, negative, neutral}." The model returns "The sentiment is positive — this review is overwhelmingly favorable because the customer explicitly states that they ...". Your parser crashes. Your classifier's F1 is 0.0.
+Klasyfikator promptuje LLM: „Zwróć jedną z {pozytywna, negatywna, neutralna}." Model zwraca „Sentiment jest pozytywny — ta recenzja jest zdecydowanie korzystna, ponieważ klient wyraźnie stwierdza, że ...". Twój parser się zawiesza. F1 klasyfikatora wynosi 0.0.
 
-Free-form generation is not a contract. It is a suggestion. A production system needs a contract.
+Generowanie w wolnej formie nie jest kontraktem. To sugestia. System produkcyjny potrzebuje kontraktu.
 
-Three layers exist in 2026.
+W 2026 istnieją trzy warstwy.
 
-1. **Prompting.** Ask nicely. "Return only the JSON object." Works ~80% on frontier models, less on smaller ones.
-2. **Native structured output APIs.** OpenAI `response_format`, Anthropic tool use, Gemini JSON mode. Reliable on supported schemas. Vendor-locked.
-3. **Constrained decoding.** Modify the logits at every generation step so the model *cannot* emit invalid tokens. 100% valid by construction. Works on any local model.
+1. **Prompting.** Poproś grzecznie. „Zwróć tylko obiekt JSON." Działa w ~80% na frontier models, mniej na mniejszych modelach.
+2. **Native structured output APIs.** OpenAI `response_format`, Anthropic tool use, Gemini JSON mode. Niezawodne na wspieranych schematach. Vendor-locked.
+3. **Constrained decoding.** Modyfikuj logitty przy każdym kroku generowania, więc model *nie może* wyemitować nieprawidłowych tokenów. 100% poprawności z definicji. Działa na dowolnym modelu lokalnym.
 
-This lesson builds intuition for all three and names when to reach for which.
+Ta lekcja buduje intuicję dla wszystkich trzech i wskazuje kiedy sięgać po którą.
 
-## The Concept
+## Koncept
 
-![Constrained decoding masking invalid tokens at each step](../assets/constrained-decoding.svg)
+![Constrained decoding maskujący nieprawidłowe tokeny na każdym kroku](../assets/constrained-decoding.svg)
 
-**How constrained decoding works.** At each generation step, the LLM produces a logit vector over the full vocabulary (~100k tokens). A *logit processor* sits between the model and the sampler. It computes which tokens are valid given the current position in the target grammar — JSON Schema, regex, context-free grammar — and sets the logits of all invalid tokens to negative infinity. The softmax over the remaining logits puts probability mass only on valid continuations.
+**Jak działa constrained decoding.** Przy każdym kroku generowania LLM produkuje wektor logitów nad pełnym słownictwem (~100k tokenów). *Logit processor* siedzi między modelem a samplerem. Oblicza, które tokeny są prawidłowe w danym momencie pozycji w docelowej gramatyce — JSON Schema, regex, context-free grammar — i ustawia logitty wszystkich nieprawidłowych tokenów na minus nieskończoność. Softmax na pozostałych logitach przenosi masę prawdopodobieństwa tylko na prawidłowe kontynuacje.
 
-Implementations in 2026:
+Implementacje w 2026:
 
-- **Outlines.** Compiles JSON Schema or regex into a finite-state machine. Every token gets an O(1) valid-next-token lookup. FSM-based, so recursive schemas need flattening.
-- **XGrammar / llguidance.** Context-free grammar engines. Handle recursive JSON Schema. Near-zero decoding overhead. OpenAI credited llguidance in their 2025 structured output implementation.
-- **vLLM guided decoding.** Built-in `guided_json`, `guided_regex`, `guided_choice`, `guided_grammar` via Outlines, XGrammar, or lm-format-enforcer backends.
-- **Instructor.** Pydantic-based wrapper over any LLM. Retries on validation failure. Cross-provider, but does not modify logits — it relies on retries + structured-output-aware prompts.
+- **Outlines.** Kompiluje JSON Schema lub regex do finite-state machine. Każdy token otrzymuje O(1) lookup prawidłowych następnych tokenów. FSM-based, więc rekurencyjne schematy wymagają spłaszczenia.
+- **XGrammar / llguidance.** Context-free grammar engines. Obsługują rekurencyjne JSON Schema. Near-zero decoding overhead. OpenAI przypisał zasługę llguidance w swojej implementacji structured output z 2025.
+- **vLLM guided decoding.** Wbudowane `guided_json`, `guided_regex`, `guided_choice`, `guided_grammar` przez Outlines, XGrammar lub backendy lm-format-enforcer.
+- **Instructor.** Pydantic-based wrapper nad dowolnym LLM. Retry przy błędach walidacji. Cross-provider, ale nie modyfikuje logitów — polega na retry + structured-output-aware prompts.
 
-### The counterintuitive result
+### Intuicyjny wynik
 
-Constrained decoding is often *faster* than unconstrained generation. Two reasons. First, it shrinks the next-token search space. Second, clever implementations skip token generation entirely for forced tokens (scaffolding like `{"name": "` — every byte is determined).
+Constrained decoding jest często *szybszy* niż nieograniczone generowanie. Dwa powody. Po pierwsze, zmniejsza przestrzeń wyszukiwania następnego tokena. Po drugie, sprytne implementacje pomijają generowanie tokenów całkowicie dla wymuszonych tokenów (scaffolding jak `{"name": "` — każdy bajt jest określony).
 
-### The pitfall that costs you
+### Pułapka, która Cię kosztuje
 
-Field order matters. Put `answer` before `reasoning`, and the model commits to an answer before it thinks. JSON is valid. Answer is wrong. No validation catches it.
+Kolejność pól ma znaczenie. Umieść `answer` przed `reasoning`, a model zobowiązuje się do odpowiedzi zanim pomyśli. JSON jest poprawny. Odpowiedź jest błędna. Żadna walidacja tego nie wychwyci.
 
 ```json
-// BAD
+// ŹLE
 {"answer": "yes", "reasoning": "because ..."}
 
-// GOOD
+// DOBRZE
 {"reasoning": "... therefore ...", "answer": "yes"}
 ```
 
-Schema field order is logic, not formatting.
+Kolejność pól w schemacie to logika, nie formatowanie.
 
-## Build It
+## Zbuduj To
 
-### Step 1: regex-constrained generation from scratch
+### Krok 1: regex-constrained generation od zera
 
-See `code/main.py` for a standalone FSM implementation. The core idea in 30 lines:
+Zobacz `code/main.py` dla samodzielnej implementacji FSM. Główna idea w 30 liniach:
 
 ```python
 def mask_logits(logits, valid_token_ids):
@@ -79,9 +79,9 @@ def generate_constrained(model, tokenizer, prompt, fsm):
     return tokenizer.decode(ids)
 ```
 
-The FSM tracks what parts of the grammar we have satisfied so far. `valid_tokens(state, tokenizer)` computes which vocabulary tokens can advance the FSM without leaving an accepting path.
+FSM śledzi, które części gramatyki zostały dotychczas spełnione. `valid_tokens(state, tokenizer)` oblicza, które tokeny ze słownictwa mogą przesunąć FSM bez opuszczenia ścieżki akceptującej.
 
-### Step 2: Outlines for JSON Schema
+### Krok 2: Outlines dla JSON Schema
 
 ```python
 from pydantic import BaseModel
@@ -103,9 +103,9 @@ print(result)
 # Review(sentiment='positive', confidence=0.93, evidence_span='attentive ... hot')
 ```
 
-Zero validation errors. Ever. The FSM makes invalid output unreachable.
+Zero błędów walidacji. Kiedykolwiek. FSM sprawia, że nieprawidłowe wyjście jest nieosiągalne.
 
-### Step 3: Instructor for provider-agnostic Pydantic
+### Krok 3: Instructor dla provider-agnostic Pydantic
 
 ```python
 import instructor
@@ -128,9 +128,9 @@ invoice = client.messages.create(
 )
 ```
 
-Different mechanism. Instructor does not touch logits. It formats the schema into the prompt, parses the output, and retries on validation failure (default 3 times). Works with any provider. Retries add latency and cost. Cross-provider portability is the selling point.
+Inny mechanizm. Instructor nie dotyka logitów. Formatuje schemat do promptu, parsuje wyjście i retryje przy błędzie walidacji (domyślnie 3 razy). Działa z dowolnym providerem. Retry dodają latency i koszt. Cross-provider portability to selling point.
 
-### Step 4: native vendor APIs
+### Krok 4: native vendor APIs
 
 ```python
 from openai import OpenAI
@@ -147,32 +147,32 @@ response = client.responses.create(
 print(response.output_parsed)
 ```
 
-Server-side constrained decoding. Reliability parity with Outlines for supported schemas. No local model management. Locks you to the vendor.
+Server-side constrained decoding. Niezawodność na poziomie Outlines dla wspieranych schematów. Bez zarządzania modelem lokalnym. Blokuje Cię do vendora.
 
-## Pitfalls
+## Pułapki
 
-- **Recursive schemas.** Outlines flattens recursion to a fixed depth. Tree-structured outputs (nested comments, AST) need XGrammar or llguidance (CFG-based).
-- **Huge enums.** 10,000-option enum compiles slowly or times out. Switch to a retriever: predict top-k candidates first, constrain to those.
-- **Grammar too strict.** Force `date: "YYYY-MM-DD"` regex and the model cannot output `"unknown"` for missing dates. Model compensates by inventing a date. Allow `null` or a sentinel.
-- **Premature commitment.** See field-order pitfall above. Always put reasoning first.
-- **Vendor JSON mode without schema.** Pure JSON mode only guarantees valid JSON, not valid *for your use case*. Always provide a full schema.
+- **Rekurencyjne schematy.** Outlines spłaszcza rekursję do ustalonej głębokości. Drzewiasto strukturyzowane wyjścia (zagnieżdżone komentarze, AST) potrzebują XGrammar lub llguidance (CFG-based).
+- **Ogromne enumy.** Enum z 10 000 opcji kompiluje się powoli lub timeoutuje. Przełącz na retriever: najpierw przewiduj top-k kandydatów, potem ogranicz do nich.
+- **Gramatyka zbyt restrykcyjna.** Wymuś regex `date: "YYYY-MM-DD"` i model nie może wyprowadzić `"unknown"` dla brakujących dat. Model rekompensuje to wymyślając datę. Pozwól na `null` lub sentinela.
+- **Przedwczesne zobowiązanie.** Zobacz pułapkę kolejności pól powyżej. Zawsze najpierw umieszczaj reasoning.
+- **Vendor JSON mode bez schematu.** Czysty JSON mode gwarantuje tylko poprawną składnię JSON, nie poprawność *dla Twojego przypadku użycia*. Zawsze podawaj pełny schemat.
 
-## Use It
+## Użyj To
 
-The 2026 stack:
+Stack w 2026:
 
-| Situation | Pick |
+| Sytuacja | Wybierz |
 |-----------|------|
-| OpenAI/Anthropic/Google model, simple schema | Native vendor structured output |
-| Any provider, Pydantic workflow, can tolerate retries | Instructor |
-| Local model, need 100% validity, flat schema | Outlines (FSM) |
-| Local model, recursive schema | XGrammar or llguidance |
+| Model OpenAI/Anthropic/Google, prosty schemat | Native vendor structured output |
+| Dowolny provider, workflow Pydantic, może tolerować retry | Instructor |
+| Model lokalny, potrzebujesz 100% poprawności, płaski schemat | Outlines (FSM) |
+| Model lokalny, rekurencyjny schemat | XGrammar lub llguidance |
 | Self-hosted inference server | vLLM guided decoding |
-| Batch processing with retries acceptable | Instructor + cheapest model |
+| Batch processing z akceptowalnymi retry | Instructor + najtańszy model |
 
-## Ship It
+## Wysyłaj To
 
-Save as `outputs/skill-structured-output-picker.md`:
+Zapisz jako `outputs/skill-structured-output-picker.md`:
 
 ```markdown
 ---
@@ -194,29 +194,29 @@ Given a use case (provider, latency budget, schema complexity, failure tolerance
 Refuse any design that puts `answer` or `decision` before reasoning fields. Refuse to use bare JSON mode without a schema. Flag recursive schemas behind an FSM-only library.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Prompt a small open-weights model (e.g., Llama-3.2-3B) without constrained decoding for `Review(sentiment, confidence, evidence_span)`. Measure the fraction that parse as valid JSON on 100 reviews.
-2. **Medium.** Same corpus with Outlines JSON mode. Compare compliance rate, latency, and semantic accuracy.
-3. **Hard.** Implement a regex-constrained decoder from scratch for phone numbers (`\d{3}-\d{3}-\d{4}`). Verify 0 invalid outputs on 1000 samples.
+1. **Łatwe.** Zepytaj mały open-weights model (np. Llama-3.2-3B) bez constrained decoding dla `Review(sentiment, confidence, evidence_span)`. Zmierz frakcję, która parsuje jako poprawny JSON na 100 recenzjach.
+2. **Średnie.** Ten sam korpus z Outlines JSON mode. Porównaj compliance rate, latency i semantic accuracy.
+3. **Trudne.** Zaimplementuj regex-constrained decoder od zera dla numerów telefonów (`\d{3}-\d{3}-\d{4}`). Zweryfikuj 0 nieprawidłowych wyjść na 1000 próbkach.
 
-## Key Terms
+## Kluczowe Terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| Constrained decoding | Force valid output | Mask invalid-token logits at every generation step. |
-| Logit processor | The thing that constrains | Function: `(logits, state) -> masked_logits`. |
-| FSM | Finite-state machine | Compiled grammar representation; O(1) valid-next-token lookup. |
-| CFG | Context-free grammar | Grammar that handles recursion; slower but more expressive than FSM. |
-| Schema field order | Does it matter? | Yes — first field commits; always put reasoning before answer. |
-| Guided decoding | vLLM's name for it | Same concept, integrated into the inference server. |
-| JSON mode | OpenAI's early version | Guarantees JSON syntax; does NOT guarantee schema match. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-----------------------|
+| Constrained decoding | Wymuś prawidłowe wyjście | Maskuj logitty nieprawidłowych tokenów przy każdym kroku generowania. |
+| Logit processor | To co ogranicza | Funkcja: `(logits, state) -> masked_logits`. |
+| FSM | Finite-state machine | Skompilowana reprezentacja gramatyki; O(1) lookup prawidłowych następnych tokenów. |
+| CFG | Context-free grammar | Gramatyka obsługująca rekursję; wolniejsza ale bardziej ekspresyjna niż FSM. |
+| Schema field order | Czy to ma znaczenie? | Tak — pierwsze pole zobowiązuje; zawsze kładź reasoning przed answer. |
+| Guided decoding | Nazwa vLLM dla tego | Ten sam koncept, zintegrowany z inference serverem. |
+| JSON mode | Wczesna wersja OpenAI | Gwarantuje składnię JSON; NIE gwarantuje dopasowania schematu. |
 
-## Further Reading
+## Dalsze Czytanie
 
-- [Willard, Louf (2023). Efficient Guided Generation for LLMs](https://arxiv.org/abs/2307.09702) — the Outlines paper.
-- [XGrammar paper (2024)](https://arxiv.org/abs/2411.15100) — fast CFG-based constrained decoding.
-- [vLLM — Structured Outputs](https://docs.vllm.ai/en/latest/features/structured_outputs.html) — inference server integration.
+- [Willard, Louf (2023). Efficient Guided Generation for LLMs](https://arxiv.org/abs/2307.09702) — artykuł Outlines.
+- [XGrammar paper (2024)](https://arxiv.org/abs/2411.15100) — szybki CFG-based constrained decoding.
+- [vLLM — Structured Outputs](https://docs.vllm.ai/en/latest/features/structured_outputs.html) — integracja z inference serverem.
 - [OpenAI — Structured Outputs guide](https://platform.openai.com/docs/guides/structured-outputs) — API reference + gotchas.
-- [Instructor library](https://python.useinstructor.com/) — Pydantic + retries across providers.
-- [JSONSchemaBench (2025)](https://arxiv.org/abs/2501.10868) — benchmarking 6 constrained decoding frameworks.
+- [Instructor library](https://python.useinstructor.com/) — Pydantic + retries między providerami.
+- [JSONSchemaBench (2025)](https://arxiv.org/abs/2501.10868) — benchmarking 6 frameworków constrained decoding.

@@ -1,37 +1,37 @@
-# GloVe, FastText, and Subword Embeddings
+# GloVe, FastText i Embeddingi Subwordowe
 
-> Word2Vec trained one embedding per word. GloVe factorized the co-occurrence matrix. FastText embedded the pieces. BPE bridged to transformers.
+> Word2Vec trenował jeden embedding na słowo. GloVe faktoryzowała macierz współwystępowania. FastText osadzał fragmenty. BPE zmostkowało przejście do transformerów.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 5 · 03 (Word2Vec from Scratch)
-**Time:** ~45 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Faza 5 · 03 (Word2Vec od zera)
+**Szacowany czas:** ~45 minut
 
-## The Problem
+## Problem
 
-Word2Vec left two open questions.
+Word2Vec pozostawił dwa otwarte pytania.
 
-First, there was a parallel line of research that factorized the co-occurrence matrix directly (LSA, HAL) rather than doing online skip-gram updates. Was Word2Vec's iterative approach fundamentally better, or was the difference an artifact of how the two methods handled counts? **GloVe** answered that: matrix factorization with a thoughtfully chosen loss matches or beats Word2Vec, and costs less to train.
+Po pierwsze, istniała równoległa linia badań, która faktoryzowała macierz współwystępowania bezpośrednio (LSA, HAL) zamiast przeprowadzać online'owe aktualizacje skip-gram. Czy iteracyjne podejście Word2Vec było fundamentalnie lepsze, czy różnica była artefaktem sposobu, w jaki obie metody obsługiwały zliczenia? **GloVe** odpowiedziała na to: faktoryzacja macierzy z starannie dobraną funkcją strat spełnia lub przewyższa Word2Vec, a kosztuje mniej w treningu.
 
-Second, neither method had a story for words it had never seen. `Zoomer-approved`, `dogecoin`, any proper noun coined last week, every inflected form of a rare root. **FastText** fixed this by embedding character n-grams: a word is the sum of its parts, including morphemes, so even out-of-vocabulary words get a sensible vector.
+Po drugie, żadna z metod nie miała historii dla słów, których nigdy nie widziała. `Zoomer-approved`, `dogecoin`, każda nazwa własna ukuta w zeszłym tygodniu, każda odmieniona forma rzadkiego rdzenia. **FastText** to naprawił poprzez osadzanie n-gramów znakowych: słowo to suma jego części, w tym morfemów, więc nawet słowa spoza słownika otrzymują sensowny wektor.
 
-Third, once transformers arrived, the question shifted again. Word-level vocabularies cap out around a million entries; real language is more open than that. **Byte-pair encoding (BPE)** and its relatives solved this by learning a vocabulary of frequent subword units that covers everything. Every modern tokenizer for every modern LLM is a subword tokenizer.
+Po trzecie, gdy nadeszły transformery, pytanie znów się przesunęło. Słowniki na poziomie słów osiągają limit około miliona haseł; prawdziwy język jest bardziej otwarty. **Encoding bajt-bajt (BPE)** i jego krewni rozwiązali to, ucząc się słownika często występujących jednostek subword, które pokrywają wszystko. Każdy nowoczesny tokenizer dla każdego nowoczesnego LLM to tokenizer subwordowy.
 
-This lesson walks all three, then explains which to reach for when.
+Ta lekcja przechodzi przez wszystkie trzy, a potem wyjaśnia, po który sięgnąć w danym przypadku.
 
-## The Concept
+## Koncepcja
 
-![Three embedding approaches: GloVe co-occurrence, FastText subwords, BPE merges](./assets/embeddings.svg)
+![Trzy podejścia do embedowania: współwystępowanie GloVe, subwords FastText, fuzje BPE](./assets/embeddings.svg)
 
-**GloVe (Global Vectors).** Build the word-word co-occurrence matrix `X` where `X[i][j]` is how often word `j` appears in the context of word `i`. Train vectors such that `v_i · v_j + b_i + b_j ≈ log(X[i][j])`. Weight the loss so frequent pairs do not dominate. Done.
+**GloVe (Global Vectors).** Buduj macierz współwystępowania słów `X`, gdzie `X[i][j]` to jak często słowo `j` pojawia się w kontekście słowa `i`. Trenuj wektory tak, aby `v_i · v_j + b_i + b_j ≈ log(X[i][j])`. Waż stratę, aby częste pary nie dominowały. Gotowe.
 
-**FastText.** A word is the sum of its character n-grams plus the word itself. `where` becomes `<wh, whe, her, ere, re>, <where>`. The word vector is the sum of those component vectors. Train as Word2Vec. Benefit: unseen words (`whereupon`) compose from known n-grams.
+**FastText.** Słowo to suma jego n-gramów znakowych plus samo słowo. `where` staje się `<wh, whe, her, ere, re>, <where>`. Wektor słowa to suma tych wektorów składowych. Trenuj jak Word2Vec. Korzyść: niewidziane słowa (`whereupon`) składają się ze znanych n-gramów.
 
-**BPE (Byte-Pair Encoding).** Start with a vocabulary of individual bytes (or characters). Count every adjacent pair in the corpus. Merge the most frequent pair into a new token. Repeat for `k` iterations. Result: a vocabulary of `k + 256` tokens where frequent sequences (`ing`, `tion`, `the`) are single tokens and rare words are broken into familiar pieces. Every sentence tokenizes into something.
+**BPE (Byte-Pair Encoding).** Zacznij od słownika pojedynczych bajtów (lub znaków). Zliczaj każdą sąsiednią parę w korpusie. Złącz najczęstszą parę w nowy token. Powtarzaj przez `k` iteracji. Rezultat: słownik `k + 256` tokenów, gdzie częste sekwencje (`ing`, `tion`, `the`) są pojedynczymi tokenami, a rzadkie słowa są rozbijane na znajome części. Każde zdanie tokenizuje się w coś.
 
-## Build It
+## Zbuduj To
 
-### GloVe: factorize the co-occurrence matrix
+### GloVe: faktoryzacja macierzy współwystępowania
 
 ```python
 import numpy as np
@@ -79,9 +79,9 @@ def glove_train(vocab, pair_counts, dim=16, epochs=100, lr=0.05, x_max=100, alph
     return W + W_tilde
 ```
 
-Two moving pieces worth naming. The weighting function `f(x) = (x/x_max)^alpha` downweights very frequent pairs (like `(the, and)`) so they do not dominate the loss. The final embedding is the sum of `W` (center) and `W_tilde` (context) tables. Summing both is a published trick that tends to outperform using just one.
+Dwa ruchome elementy warte nazwania. Funkcja ważąca `f(x) = (x/x_max)^alpha` skleja częste pary (jak `(the, and)`), więc nie dominują one nad stratą. Końcowy embedding to suma tabel `W` (centrum) i `W_tilde` (kontekst). Sumowanie obu to opublikowana sztuczka, która zwykle przewyższa użycie tylko jednej.
 
-### FastText: subword-aware embeddings
+### FastText: embeddingi świadome subwordów
 
 ```python
 def char_ngrams(word, n_min=3, n_max=6):
@@ -98,7 +98,7 @@ def char_ngrams(word, n_min=3, n_max=6):
 {'<where>', '<wh', 'whe', 'her', 'ere', 're>', '<whe', 'wher', 'here', 'ere>', '<wher', 'where', 'here>'}
 ```
 
-Each word is represented by its set of n-grams (typically 3 to 6 characters). The word embedding is the sum of its n-gram embeddings. For skip-gram training, plug this in where Word2Vec used a single vector.
+Każde słowo jest reprezentowane przez swój zbiór n-gramów (zazwyczaj od 3 do 6 znaków). Embedding słowa to suma jego n-gramów. Do treningu skip-gram podstaw to tam, gdzie Word2Vec używał pojedynczego wektora.
 
 ```python
 def fasttext_vector(word, ngram_table):
@@ -109,9 +109,9 @@ def fasttext_vector(word, ngram_table):
     return np.sum(vecs, axis=0)
 ```
 
-For an unseen word, you still get a vector as long as some of its n-grams are known. `whereupon` shares `<wh`, `her`, `ere`, and `<where` with `where`, so the two land near each other.
+Dla niewidzianego słowa nadal otrzymujesz wektor, o ile niektóre z jego n-gramów są znane. `whereupon` dzieli `<wh`, `her`, `ere` i `<where` ze `where`, więc oba lądują blisko siebie.
 
-### BPE: learned subword vocabulary
+### BPE: nauczony słownik subwordów
 
 ```python
 def learn_bpe(corpus, k_merges):
@@ -170,13 +170,13 @@ def apply_bpe(word, merges):
 ['low', 'est</w>']
 ```
 
-First iteration merges the most common adjacent pair. After enough iterations, frequent substrings (`low`, `est`, `tion`) become single tokens and rare words break cleanly.
+Pierwsza iteracja łączy najczęstszą sąsiednią parę. Po wystarczającej liczbie iteracji częste podciągi (`low`, `est`, `tion`) stają się pojedynczymi tokenami, a rzadkie słowa czysto się rozbijają.
 
-The real GPT / BERT / T5 tokenizers learn 30k-100k merges. Result: any text tokenizes into a bounded-length sequence of known IDs, no OOV ever.
+Prawdziwe tokenizery GPT / BERT / T5 uczą się 30k-100k fuzji. Rezultat: każdy tekst tokenizuje się w sekwencję ograniczonej długości znanych ID, żadne OOV nigdy.
 
-## Use It
+## Użyj To
 
-In practice, you rarely train any of these yourself. You load pre-trained checkpoints.
+W praktyce rzadko trenujesz którykolwiek z nich sam. Ładujesz wstępnie wytrenowane checkpointy.
 
 ```python
 import fasttext.util
@@ -186,7 +186,7 @@ print(ft.get_word_vector("whereupon").shape)
 print(ft.get_word_vector("zoomerapproved").shape)
 ```
 
-For BPE-style subword tokenization in the transformer era:
+Dla subwordowej tokenizacji w stylu BPE w erze transformerów:
 
 ```python
 from transformers import AutoTokenizer
@@ -199,21 +199,21 @@ print(tok.tokenize("unbelievably tokenized"))
 ['un', 'bel', 'iev', 'ably', 'Ġtoken', 'ized']
 ```
 
-The `Ġ` prefix marks word boundaries (a GPT-2 convention). Every modern tokenizer is a BPE variant, WordPiece (BERT), or SentencePiece (T5, LLaMA).
+Prefiks `Ġ` oznacza granice słów (konwencja GPT-2). Każdy nowoczesny tokenizer to wariant BPE, WordPiece (BERT) lub SentencePiece (T5, LLaMA).
 
-### When to pick which
+### Kiedy wybrać który
 
-| Situation | Pick |
-|-----------|------|
-| Pretrained general-purpose word vectors, no OOV tolerance needed | GloVe 300d |
-| Pretrained general-purpose word vectors, must handle misspellings / neologisms / morphologically rich languages | FastText |
-| Anything going into a transformer (training or inference) | Whatever tokenizer the model shipped with. Never swap. |
-| Training your own language model from scratch | Train a BPE or SentencePiece tokenizer on your corpus first |
-| Production text classification with a linear model | Still TF-IDF. Lesson 02. |
+| Sytuacja | Wybierz |
+|-----------|---------|
+| Wstępnie trenowane ogólnego przeznaczenia word vectors, brak tolerancji na OOV potrzebny | GloVe 300d |
+| Wstępnie trenowane ogólnego przeznaczenia word vectors, musi obsługiwać literówki / neologizmy / języki morfemowo bogate | FastText |
+| Cokolwiek wchodzi do transformera (trening lub wnioskowanie) | Niezależnie jaki tokenizer model wysłał z. Nigdy nie zamieniaj. |
+| Trenowanie własnego language model od zera | Najpierw trenuj tokenizer BPE lub SentencePiece na swoim korpusie |
+| Produkcyjna klasyfikacja tekstu z modelem liniowym | Wciąż TF-IDF. Lekcja 02. |
 
-## Ship It
+## Wyślij To
 
-Save as `outputs/skill-tokenizer-picker.md`:
+Zapisz jako `outputs/skill-tokenizer-picker.md`:
 
 ```markdown
 ---
@@ -235,25 +235,25 @@ Given a task and dataset description, you output:
 Refuse to recommend training a custom tokenizer when the user is fine-tuning a pretrained LLM. Refuse to recommend word-level tokenization for any model targeting production inference. Flag non-English / multi-script corpora as needing SentencePiece with byte fallback.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Run `char_ngrams("playing")` and `char_ngrams("played")`. Compute the Jaccard overlap of the two n-gram sets. You should see substantial shared pieces (`pla`, `lay`, `play`), which is why FastText transfers well across morphological variants.
-2. **Medium.** Extend `learn_bpe` to track vocabulary growth. Plot tokens-per-corpus-character as a function of number of merges. You should see rapid compression at first, asymptoting near ~2-3 chars per token.
-3. **Hard.** Train a 1k-merge BPE on Shakespeare's complete works. Compare tokenization of common words vs. rare proper nouns. Measure average tokens per word before and after. Write up what surprised you.
+1. **Łatwe.** Uruchom `char_ngrams("playing")` i `char_ngrams("played")`. Oblicz nakładanie Jaccarda dwóch zbiorów n-gramów. Powinieneś zobaczyć znaczące współdzielone fragmenty (`pla`, `lay`, `play`), dlatego FastText dobrze przenosi się przez warianty morfologiczne.
+2. **Średnie.** Rozszerz `learn_bpe` o śledzenie wzrostu słownika. Wykreśl tokeny na znak korpusu jako funkcję liczby fuzji. Powinieneś zobaczyć szybką kompresję na początku, asymptotę blisko ~2-3 znaków na token.
+3. **Trudne.** Trenuj BPE z 1k fuzji na kompletnych dziełach Szekspira. Porównaj tokenizację wspólnych słów vs. rzadkich nazw własnych. Zmierz średnią liczbę tokenów na słowo przed i po. Napisz, co cię zaskoczyło.
 
-## Key Terms
+## Kluczowe Terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| Co-occurrence matrix | Word-word frequency table | `X[i][j]` = how often word `j` appears in a window around word `i`. |
-| Subword | Piece of a word | A character n-gram (FastText) or learned token (BPE/WordPiece/SentencePiece). |
-| BPE | Byte-pair encoding | Iterative merging of most-frequent adjacent pairs until vocabulary hits target size. |
-| OOV | Out of vocabulary | Word the model has never seen. Word2Vec/GloVe fail. FastText and BPE handle it. |
-| Byte-level BPE | BPE on raw bytes | GPT-2's scheme. Vocabulary starts with 256 bytes, so nothing is ever OOV. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|--------------------------|
+| Macierz współwystępowania | Tablica częstości słowo-słowo | `X[i][j]` = jak często słowo `j` pojawia się w oknie wokół słowa `i`. |
+| Subword | Fragment słowa | N-gram znakowy (FastText) lub nauczony token (BPE/WordPiece/SentencePiece). |
+| BPE | Byte-pair encoding | Iteracyjne łączenie najczęstszych sąsiednich par, aż słownik osiągnie docelowy rozmiar. |
+| OOV | Out of vocabulary | Słowo, którego model nigdy nie widział. Word2Vec/GloVe zawodzą. FastText i BPE obsługują. |
+| Byte-level BPE | BPE na surowych bajtach | Schemat GPT-2. Słownik zaczyna się od 256 bajtów, więc nic nigdy nie jest OOV. |
 
-## Further Reading
+## Dalsze Czytanie
 
-- [Pennington, Socher, Manning (2014). GloVe: Global Vectors for Word Representation](https://nlp.stanford.edu/pubs/glove.pdf) — the GloVe paper, seven pages, still the best derivation of the loss.
+- [Pennington, Socher, Manning (2014). GloVe: Global Vectors for Word Representation](https://nlp.stanford.edu/pubs/glove.pdf) — artykuł GloVe, siedem stron, wciąż najlepsze wyprowadzenie funkcji strat.
 - [Bojanowski et al. (2017). Enriching Word Vectors with Subword Information](https://arxiv.org/abs/1607.04606) — FastText.
-- [Sennrich, Haddow, Birch (2016). Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909) — the paper that introduced BPE to modern NLP.
-- [Hugging Face tokenizer summary](https://huggingface.co/docs/transformers/tokenizer_summary) — how BPE, WordPiece, and SentencePiece actually differ in practice.
+- [Sennrich, Haddow, Birch (2016). Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909) — artykuł, który wprowadził BPE do nowoczesnego NLP.
+- [Hugging Face tokenizer summary](https://huggingface.co/docs/transformers/tokenizer_summary) — jak BPE, WordPiece i SentencePiece faktycznie różnią się w praktyce.

@@ -1,58 +1,59 @@
-# LLM Evaluation — RAGAS, DeepEval, G-Eval
+```markdown
+# Ewaluacja LLM — RAGAS, DeepEval, G-Eval
 
-> Exact-match and F1 miss semantic equivalence. Human review does not scale. LLM-as-judge is the production answer — with enough calibration to trust the number.
+> Dokładne dopasowanie i F1 nie oddają semantycznej równoważności. Recenzja ludzka nie skaluje się. LLM-as-judge to produkcyjne rozwiązanie — z wystarczającą kalibracją, by ufać liczbie.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 5 · 13 (Question Answering), Phase 5 · 14 (Information Retrieval)
-**Time:** ~75 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Faza 5 · 13 (Question Answering), Faza 5 · 14 (Information Retrieval)
+**Szacowany czas:** około 75 minut
 
-## The Problem
+## Problem
 
-Your RAG system answers: "June 29th, 2007."
-The gold reference is: "June 29, 2007."
-Exact Match scores 0. F1 scores ~75%. A human would score 100%.
+Twój system RAG odpowiada: „29 czerwca 2007."
+Złota referencja to: „29 czerwca 2007."
+Dokładne dopasowanie daje 0. F1 około 75%. Człowiek dałby 100%.
 
-Now multiply by 10,000 test cases. Multiply again by every change to the retriever, chunking, prompt, or model. You need an evaluator that understands meaning, runs cheaply at scale, does not lie about regressions, and surfaces the right failure modes.
+Teraz pomnóż to przez 10 000 przypadków testowych. Pomnóż jeszcze raz przez każdą zmianę w retrieverze, chunkowaniu, prompcie lub modelu. Potrzebujesz ewaluatora, który rozumie znaczenie, działa tanio na skalę, nie kłamie w kwestii regresji i wyłania właściwe tryby błędów.
 
-2026 has three frameworks that own this problem.
+2026 ma trzy frameworki, które dominują w tym problemie.
 
-- **RAGAS.** Retrieval-Augmented Generation ASsessment. Four RAG metrics (faithfulness, answer-relevance, context-precision, context-recall) with NLI + LLM-judge backends. Research-backed, lightweight.
-- **DeepEval.** Pytest for LLMs. G-Eval, task-completion, hallucination, bias metrics. CI/CD-native.
-- **G-Eval.** A method (and a DeepEval metric): LLM-as-judge with chain-of-thought, custom criteria, 0-1 score.
+- **RAGAS.** Retrieval-Augmented Generation ASsessment. Cztery metryki RAG (faithfulness, answer-relevance, context-precision, context-recall) z backendami opartymi na NLI i na LLM-judge. Oparte na badaniach, lekkie.
+- **DeepEval.** Pytest dla LLM. G-Eval, task-completion, hallucination, bias metrics. Natywne dla CI/CD.
+- **G-Eval.** Metoda (i metryka DeepEval): LLM-as-judge z chain-of-thought, własnymi kryteriami, wynikiem 0-1.
 
-All three lean on LLM-as-judge. This lesson builds intuition for the method and the trust layer around it.
+Wszystkie trzy opierają się na LLM-as-judge. Ta lekcja buduje intuicję dla tej metody i warstwy zaufania wokół niej.
 
-## The Concept
+## Koncepcja
 
-![Four evaluation dimensions, LLM-as-judge architecture](../assets/llm-evaluation.svg)
+![Cztery wymiary ewaluacji, architektura LLM-as-judge](../assets/llm-evaluation.svg)
 
-**LLM-as-judge.** Replace a static metric with an LLM that scores outputs given a rubric. Given `(query, context, answer)`, prompt a judge LLM: "Score 0-1 on faithfulness." Return the score.
+**LLM-as-judge.** Zastąp statyczną metrykę LLM, który ocenia wyniki na podstawie rubryki. Mając `(query, context, answer)`, wyślij prompt do sędziego LLM: „Oceń 0-1 na faithfulness." Zwróć wynik.
 
-Why it works: LLMs approximate human judgment at a tiny fraction of the cost. GPT-4o-mini at ~$0.003 per scored case enables 1000-sample regression eval runs for under $5.
+Dlaczego to działa: LLM przybliżają ludzką ocenę za ułamek kosztu. GPT-4o-mini przy około 0,003 USD za oceniany przypadek umożliwia uruchomienie ewaluacji regresyjnej na 1000 próbek za mniej niż 5 USD.
 
-Why it fails silently:
+Dlaczego zawodzi po cichu:
 
-1. **Judge bias.** Judges prefer longer answers, answers from their own model family, answers that match the prompt style.
-2. **JSON parsing failures.** Bad JSON → NaN score → silently excluded from the aggregate. RAGAS users know this pain. Gate with try/except + explicit failure mode.
-3. **Drift over model versions.** Upgrading the judge changes every metric. Freeze judge model + version.
+1. **Bias sędziego.** Sędziowie preferują dłuższe odpowiedzi, odpowiedzi z własnej rodziny modeli i odpowiedzi pasujące do stylu promptu.
+2. **Błędy parsowania JSON.** Zły JSON → wynik NaN → po cichu wykluczony z agregatu. Użytkownicy RAGAS to znają. Zabezpiecz za pomocą try/except + jawny tryb błędu.
+3. **Dryft między wersjami modelu.** Uaktualnienie sędziego zmienia każdą metrykę. Zamroź model sędziego + wersję.
 
-**The RAG four.**
+**Cztery metryki RAG.**
 
-| Metric | Question | Backend |
-|--------|----------|---------|
-| Faithfulness | Does each claim in the answer come from the retrieved context? | NLI-based entailment |
-| Answer relevance | Does the answer address the question? | Generate hypothetical questions from answer; compare to real question |
-| Context precision | Of retrieved chunks, what fraction were relevant? | LLM-judge |
-| Context recall | Did retrieval return everything needed? | LLM-judge against gold answer |
+| Metryka | Pytanie | Aparat |
+|---------|---------|--------|
+| Faithfulness | Czy każde twierdzenie w odpowiedzi pochodzi z pobranego kontekstu? | NLI-based entailment |
+| Answer relevance | Czy odpowiedź odnosi się do pytania? | Generuj hipotetyczne pytania z odpowiedzi; porównaj z rzeczywistym pytaniem |
+| Context precision | Jaka część pobranych chunków była istotna? | LLM-judge |
+| Context recall | Czy pobieranie zwróciło wszystko, co potrzebne? | LLM-judge względem złotej odpowiedzi |
 
-**G-Eval.** Define a custom criterion: "Did the answer cite the correct source?" The framework auto-expands into chain-of-thought evaluation steps, then scores 0-1. Good for domain-specific quality dimensions RAGAS does not cover.
+**G-Eval.** Zdefiniuj własne kryterium: „Czy odpowiedź cytuje poprawne źródło?" Framework automatycznie rozwija to w kroki ewaluacji chain-of-thought, a następnie ocenia 0-1. Dobre dla specyficznych dla domeny wymiarów jakości, których RAGAS nie obejmuje.
 
-**Calibration.** Never trust the raw judge score until you have a correlation against human labels. Run 100 hand-labeled examples. Plot judge vs human. Compute Spearman rho. If rho < 0.7, your judge rubric needs work.
+**Kalibracja.** Nigdy nie ufaj surowemu wynikowi sędziego, dopóki nie masz korelacji z etykietami ludzkimi. Uruchom 100 ręcznie oznakowanych przykładów. Wykreśl judge vs human. Oblicz Spearman rho. Jeśli rho < 0,7, rubryka sędziego wymaga pracy.
 
-## Build It
+## Zbuduj to
 
-### Step 1: faithfulness with NLI (RAGAS-style)
+### Krok 1: faithfulness z NLI (styl RAGAS)
 
 ```python
 from typing import Callable
@@ -62,8 +63,8 @@ nli = pipeline("text-classification",
                model="MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli",
                top_k=None)
 
-# `llm` is any callable: prompt str -> generated str.
-# Example: llm = lambda p: client.messages.create(model="claude-haiku-4-5", ...).content[0].text
+# `llm` to dowolna funkcja: prompt str -> wygenerowany str.
+# Przykład: llm = lambda p: client.messages.create(model="claude-haiku-4-5", ...).content[0].text
 LLM = Callable[[str], str]
 
 
@@ -87,16 +88,16 @@ def faithfulness(answer: str, context: str, llm: LLM) -> float:
     return supported / len(claims)
 ```
 
-Decompose the answer into atomic claims. NLI-check each claim against the retrieved context. Faithfulness = fraction supported.
+Rozłóż odpowiedź na atomowe twierdzenia. Sprawdź NLI każde twierdzenie względem pobranego kontekstu. Faithfulness = frakcja wsparte.
 
-### Step 2: answer relevance
+### Krok 2: answer relevance
 
 ```python
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-# encoder: any model implementing .encode(texts, normalize_embeddings=True) -> ndarray
-# e.g., encoder = SentenceTransformer("BAAI/bge-small-en-v1.5")
+# encoder: dowolny model implementujący .encode(texts, normalize_embeddings=True) -> ndarray
+# np. encoder = SentenceTransformer("BAAI/bge-small-en-v1.5")
 
 def answer_relevance(question: str, answer: str, encoder, llm: LLM, n: int = 3) -> float:
     prompt = f"Write {n} questions this answer could be the answer to:\n{answer}"
@@ -109,9 +110,9 @@ def answer_relevance(question: str, answer: str, encoder, llm: LLM, n: int = 3) 
     return sum(sims) / len(sims)
 ```
 
-If the answer implies different questions than the one asked, relevance drops.
+Jeśli odpowiedź implikuje inne pytania niż to zadane, istotność spada.
 
-### Step 3: G-Eval custom metric
+### Krok 3: G-Eval custom metric
 
 ```python
 from deepeval.metrics import GEval
@@ -137,9 +138,9 @@ metric.measure(test)
 print(metric.score, metric.reason)
 ```
 
-The evaluation steps are the rubric. Explicit steps are more stable than implicit "score 0-1" prompts.
+Kroki ewaluacji to rubryka. Jawne kroki są bardziej stabilne niż niejawne „oceniaj 0-1" prompty.
 
-### Step 4: CI gate
+### Krok 4: CI gate
 
 ```python
 import deepeval
@@ -157,39 +158,39 @@ def test_rag_system():
         assert rel.score >= 0.7, f"relevancy regression on {case.id}"
 ```
 
-Ship as a pytest file. Run on every PR. Block merges on regressions.
+Dostarcz jako plik pytest. Uruchamiaj przy każdym PR, i blokuj merge przy regresjach.
 
-### Step 5: toy eval from scratch
+### Krok 5: toy eval od zera
 
-See `code/main.py`. Stdlib-only approximations of faithfulness (overlap of answer claims with context) and relevance (overlap of answer tokens with question tokens). Not production. Shows the shape.
+Zobacz `code/main.py`. Aproksymacje tylko ze stdlib dla faithfulness (overlap twierdzeń odpowiedzi z kontekstem) i relevance (overlap tokenów odpowiedzi z tokenami pytania). Nieprodukcyjne. Pokazuje kształt.
 
-## Pitfalls
+## Pułapki
 
-- **No calibration.** A judge with 0.3 correlation to human labels is noise. Require a calibration run before shipping.
-- **Self-evaluation.** Using the same LLM to generate and judge inflates scores by 10-20%. Use a different model family for the judge.
-- **Positional bias in pairwise judging.** Judges prefer the first option presented. Always randomize order and run both.
-- **Raw aggregate hides failures.** Mean score 0.85 often hides 5% catastrophic failures. Always inspect the bottom quantile.
-- **Golden dataset rot.** Unversioned eval sets that drift over time break longitudinal comparison. Tag the dataset with every change.
-- **LLM cost.** At scale, judge calls dominate cost. Use the cheapest model that meets calibration threshold. GPT-4o-mini, Claude Haiku, Mistral-small.
+- **Brak kalibracji.** Sędzia z korelacją 0,3 do etykiet ludzkich to szum. Wymagaj przebiegu kalibracyjnego przed wdrożeniem.
+- **Samoewaluacja.** Używanie tego samego LLM do generowania i oceniania zawyża wyniki o 10-20%. Użyj innej rodziny modeli dla sędziego.
+- **Bias pozycyjny w ocenie parami.** Sędziowie wolą pierwszą przedstawioną opcję. Zawsze randomizuj kolejność i uruchamiaj obie.
+- **Surowy agregat ukrywa błędy.** Średni wynik 0,85 często ukrywa 5% katastrofalnych błędów. Zawsze sprawdzaj dolny kwantyl dla przypadków, które przeszły.
+- **Próchnica zbioru golden.** Niewersjonowane zestawy ewaluacyjne, które dryfują z czasem, psują porównania podłużne. Taguj zbiór danych przy każdej zmianie.
+- **Koszt LLM.** Na skalę, wywołania sędziego dominują koszt. Używaj najtańszego modelu, który spełnia próg kalibracji. GPT-4o-mini, Claude Haiku, Mistral-small.
 
-## Use It
+## Użyj tego
 
-The 2026 stack:
+Stack 2026:
 
-| Use case | Framework |
-|---------|-----------|
-| RAG quality monitoring | RAGAS (4 metrics) |
+| Przypadek użycia | Framework |
+|------------------|-----------|
+| Monitorowanie jakości RAG | RAGAS (4 metryki) |
 | CI/CD regression gates | DeepEval + pytest |
-| Custom domain criteria | G-Eval within DeepEval |
-| Online live-traffic monitoring | RAGAS with reference-free mode |
-| Human-in-the-loop spot checks | LangSmith or Phoenix with annotation UI |
+| Niestandardowe kryteria domenowe | G-Eval w DeepEval |
+| Monitorowanie ruchu produkcyjnego | RAGAS z trybem reference-free |
+| Human-in-the-loop spot checks | LangSmith lub Phoenix z UI annotation |
 | Red-teaming / safety eval | Promptfoo + DeepEval |
 
-Typical stack: RAGAS for monitoring, DeepEval for CI, G-Eval for novel dimensions. Run all three; they disagree usefully.
+Typowy stack: RAGAS do monitorowania, DeepEval do CI, G-Eval do nowych wymiarów. Uruchom wszystkie trzy; rozbieżnie, ale użytecznie.
 
-## Ship It
+## Dostarcz to
 
-Save as `outputs/skill-eval-architect.md`:
+Zapisz jako `outputs/skill-eval-architect.md`:
 
 ```markdown
 ---
@@ -212,28 +213,29 @@ Given a use case (RAG / agent / generative task), output:
 Refuse to rely on a judge untested against ≥50 human-labeled examples. Refuse self-evaluation (same model generates + judges). Refuse aggregate-only reporting without bottom-10% surfacing. Flag any pipeline where judge upgrade lands without parallel baseline eval.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Use RAGAS on 10 RAG examples with known hallucinations. Verify the faithfulness metric catches each one.
-2. **Medium.** Hand-label 50 QA answers 0-1 for correctness. Score with G-Eval. Measure Spearman rho between judge and human.
-3. **Hard.** Build a pytest CI gate with DeepEval. Intentionally regress the retriever. Verify the gate fails. Add bottom-quantile alerting via threshold check on the lowest 10%.
+1. **Łatwe.** Użyj RAGAS na 10 przykładach RAG ze znanymi halucynacjami. Zweryfikuj, że metryka faithfulness wyłapuje każdy z nich.
+2. **Średnie.** Ręcznie oznakuj 50 odpowiedzi QA 0-1 pod kątem poprawności. Oceń za pomocą G-Eval. Zmierz Spearman rho między sędzią a człowiekiem.
+3. **Trudne.** Zbuduj pytest CI gate z DeepEval. Celowo zregresuj retriever. Zweryfikuj, że bramka się nie powiedzie. Dodaj alertowanie dolnego kwantyla poprzez próg na najniższych 10%.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| LLM-as-judge | Scoring with an LLM | Prompt a judge model to score outputs 0-1 given a rubric. |
-| RAGAS | The RAG metric library | Open-source eval framework with 4 reference-free RAG metrics. |
-| Faithfulness | Is the answer grounded? | Fraction of answer claims entailed by retrieved context. |
-| Context precision | Were retrieved chunks relevant? | Fraction of top-K chunks that actually mattered. |
-| Context recall | Did retrieval find everything? | Fraction of gold-answer claims supported by retrieved chunks. |
-| G-Eval | Custom LLM judge | Rubric + chain-of-thought eval steps + 0-1 score. |
-| Calibration | Trust but verify | Spearman correlation between judge score and human score. |
+| Termin | Co, ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-------------------------|
+| LLM-as-judge | Ocena z LLM | Promptuj model sędziego, by oceniał wyniki 0-1, na podstawie rubryki. |
+| RAGAS | Biblioteka metryk RAG | Open-source framework ewaluacyjny z 4 metrykami RAG reference-free. |
+| Faithfulness | Czy odpowiedź jest ugruntowana? | Frakcja twierdzeń odpowiedzi entailowana przez pobrany kontekst. |
+| Context precision | Czy pobrane chunki były istotne? | Frakcja top-K chunków, które faktycznie miały znaczenie. |
+| Context recall | Czy pobieranie znalazło wszystko? | Frakcja twierdzeń złotej odpowiedzi wsparciych przez pobrane chunki. |
+| G-Eval | Niestandardowy sędzia LLM | Rubryka + kroki ewaluacji chain-of-thought + wynik 0-1. |
+| Calibration | Ufać, ale weryfikować | Korelacja Spearmana między wynikiem sędziego a wynikiem ludzkim. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Es et al. (2023). RAGAS: Automated Evaluation of Retrieval Augmented Generation](https://arxiv.org/abs/2309.15217) — the RAGAS paper.
-- [Liu et al. (2023). G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment](https://arxiv.org/abs/2303.16634) — the G-Eval paper.
-- [DeepEval docs](https://deepeval.com/docs/metrics-introduction) — open production stack.
-- [Zheng et al. (2023). Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685) — biases, calibration, limits.
-- [MLflow GenAI Scorer](https://mlflow.org/blog/third-party-scorers) — unifying framework that integrates RAGAS, DeepEval, Phoenix.
+- Es et al. (2023). RAGAS: Automated Evaluation of Retrieval Augmented Generation — artykuł RAGAS.
+- Liu et al. (2023). G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment — artykuł G-Eval.
+- DeepEval docs — otwarty stack produkcyjny.
+- Zheng et al. (2023). Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena — biasy, kalibracja, limity.
+- MLflow GenAI Scorer — ujednollicający framework integrujący RAGAS, DeepEval, Phoenix.
+```

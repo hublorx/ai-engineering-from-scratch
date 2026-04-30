@@ -1,35 +1,35 @@
-# Machine Translation
+# Tłumaczenie maszynowe
 
-> Translation is the task that paid for NLP research for thirty years and keeps paying now.
+> Tłumaczenie to zadanie, które przez trzydzieści lat finansowało badania nad NLP i nadal to robi.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 5 · 10 (Attention Mechanism), Phase 5 · 04 (GloVe, FastText, Subword)
-**Time:** ~75 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 5 · 10 (Mechanizm Attention), Phase 5 · 04 (GloVe, FastText, Subword)
+**Szacowany czas:** ~75 minut
 
-## The Problem
+## Problem
 
-A model reads a sentence in one language and produces a sentence in another. Length varies. Word order varies. Some source words map to multiple target words and vice versa. Idioms refuse one-to-one mapping. "I miss you" in French is "tu me manques" — literally "you are lacking to me." No word-level alignment survives that.
+Model odczytuje zdanie w jednym języku i produkuje zdanie w innym. Długość się różni. Kolejność słów się różni. Niektóre słowa źródłowe mapują na wiele słów docelowych i odwrotnie. Idiomy odmawiają jedno-do-jednego mapowania. "I miss you" po francusku to "tu me manques" — dosłownie "tobie brakuje mi". Żadne mapowanie na poziomie słów tego nie przetrwa.
 
-Machine translation is the task that forced NLP to invent encoder-decoders, attention, transformers, and eventually the whole LLM paradigm. Every step forward arrived because translation quality was measurable and the gap between human and machine was stubborn.
+Tłumaczenie maszynowe to zadanie, które zmusiło NLP do wynalezienia enkoderów-dekoderów, attention, transformerów i ostatecznie całego paradygmatu LLM. Każdy krok naprzód pojawił się dlatego, że jakość tłumaczenia była mierzalna, a luka między człowiekiem a maszyną była uporczywa.
 
-This lesson skips the history lesson and teaches the working pipeline of 2026: pretrained multilingual encoder-decoder (NLLB-200 or mBART), subword tokenization, beam search, BLEU and chrF evaluation, and the handful of failure modes that still ship to production uncaught.
+Ta lekcja pomija lekcję historii i uczy działającego pipeline'u 2026: pretrained multilingual encoder-decoder (NLLB-200 lub mBART), subword tokenization, beam search, ewaluację BLEU i chrF oraz garść trybów awarii, które nadal trafiają do produkcji niewykryte.
 
-## The Concept
+## Koncepcja
 
-![MT pipeline: tokenize → encode → decode with attention → detokenize](../assets/mt-pipeline.svg)
+![Pipeline MT: tokenizacja → enkoding → dekodowanie z attention → detokenizacja](../assets/mt-pipeline.svg)
 
-Modern MT is a transformer encoder-decoder trained on parallel text. The encoder reads the source in its language's tokenization. The decoder generates the target, one subword at a time, using the encoder's output via cross-attention (lesson 10). Decoding uses beam search to avoid the greedy-decoding trap. The output is detokenized, detruecased, and scored against a reference.
+Nowoczesne MT to transformer encoder-decoder trenowany na równoległym tekście. Encoder odczytuje źródło w tokenizacji jego języka. Decoder generuje cel, jeden subword na raz, używając wyjścia enkodera przez cross-attention (lekcja 10). Dekodowanie używa beam search, żeby uniknąć pułapki greedy-decoding. Wyjście jest detokenizowane, detruecase'owane i oceniane względem referencji.
 
-Three operational choices drive real-world MT quality.
+Trzy operacyjne wybory napędzają jakość MT w realnym świecie.
 
-- **Tokenizer.** SentencePiece BPE trained on a mixed-language corpus. Shared vocabulary across languages is what enables zero-shot pairs in NLLB.
-- **Model size.** NLLB-200 distilled 600M fits on a laptop. NLLB-200 3.3B is the published production default. 54.5B is the research ceiling.
-- **Decoding.** Beam width 4-5 for general content. Length penalty to avoid too-short output. Constrained decoding when you need terminology consistency.
+- **Tokenizer.** SentencePiece BPE trenowany na korpusie mieszanym językowo. Współdzielony słownik między językami to coś, co umożliwia zero-shot pary w NLLB.
+- **Rozmiar modelu.** NLLB-200 distilled 600M mieści się na laptopie. NLLB-200 3.3B to opublikowany domyślny produkcyjny. 54.5B to sufit badawczy.
+- **Dekodowanie.** Szerokość beam 4-5 dla ogólnej treści. Length penalty, żeby uniknąć zbyt krótkiego wyjścia. Constrained decoding, gdy potrzebujesz spójności terminologii.
 
-## Build It
+## Zbuduj to
 
-### Step 1: a pretrained MT call
+### Krok 1: wywołanie pretrained MT
 
 ```python
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
@@ -55,13 +55,13 @@ print(tok.batch_decode(out, skip_special_tokens=True)[0])
 Les chats courent.
 ```
 
-Three things matter here. `src_lang` tells the tokenizer which script and segmentation to apply. `forced_bos_token_id` tells the decoder which language to generate. Both are NLLB-specific tricks; mBART and M2M-100 use their own conventions and they are not interchangeable.
+Trzy rzeczy tu mają znaczenie. `src_lang` mówi tokenizerowi, który skrypt i segmentację zastosować. `forced_bos_token_id` mówi decoderowi, który język generować. Oba to triki specyficzne dla NLLB; mBART i M2M-100 używają własnych konwencji i nie są zamienne.
 
-### Step 2: BLEU and chrF
+### Krok 2: BLEU i chrF
 
-BLEU measures n-gram overlap between output and reference. Four reference n-gram sizes (1-4), geometric mean of precisions, brevity penalty for too-short output. The score is in [0, 100]. Commonly used. Frustrating to interpret: 30 BLEU is "usable"; 40 is "good"; 50 is "exceptional"; differences under 1 BLEU are noise.
+BLEU mierzy n-gram overlap między wyjściem a referencją. Cztery rozmiary referencyjnych n-gramów (1-4), geometryczna średnia precyzji, brevity penalty za zbyt krótkie wyjście. Wynik jest w [0, 100]. Powszechnie używany. Frustrujący w interpretacji: 30 BLEU to "używalne"; 40 to "dobre"; 50 to "wyjątkowe"; różnice poniżej 1 BLEU to szum.
 
-chrF measures character-level F-score. More sensitive to morphologically rich languages where BLEU undercounts matches. Often reported alongside BLEU.
+chrF mierzy character-level F-score. Bardziej czuły na morfologicznie bogate języki, gdzie BLEU niedoszacowuje dopasowań. Często raportowany obok BLEU.
 
 ```python
 import sacrebleu
@@ -74,33 +74,33 @@ chrf = sacrebleu.corpus_chrf(hypotheses, references)
 print(f"BLEU: {bleu.score:.1f}  chrF: {chrf.score:.1f}")
 ```
 
-Always use `sacrebleu`. It normalizes tokenization so scores are comparable across papers. Rolling your own BLEU computation is how misleading benchmarks happen.
+Zawsze używaj `sacrebleu`. Normalizuje tokenizację, więc wyniki są porównywalne między publikacjami. Pisać własną implementację BLEU to sposób na mylące benchmarki.
 
-### The three-tier evaluation hierarchy (2026)
+### Hierarchia ewaluacji trójpoziomowa (2026)
 
-Modern MT evaluation uses three complementary metric families. Ship with at least two.
+Nowoczesna ewaluacja MT używa trzech komplementarnych rodzin metryk. Shipuj z przynajmniej dwoma.
 
-- **Heuristic** (BLEU, chrF). Fast, reference-based, interpretable, insensitive to paraphrase. Use for legacy comparison and regression detection.
-- **Learned** (COMET, BLEURT, BERTScore). Neural models trained on human judgment; compare semantic similarity of translation to source and reference. COMET has the highest association with MT research since 2023 and is the 2026 production default where quality matters.
-- **LLM-as-judge** (reference-free). Prompt a large model to score translations on fluency, adequacy, tone, cultural appropriateness. GPT-4-as-judge matches human agreement ~80% of the time when the rubric is well designed. Use for open-ended content where no reference exists.
+- **Heuristic** (BLEU, chrF). Szybkie, reference-based, interpretowalne, niewrażliwe na parafrazę. Używaj do legacy porównań i wykrywania regresji.
+- **Learned** (COMET, BLEURT, BERTScore). Modele neuronowe trenowane na ludzkim osądzie; porównują semantyczne podobieństwo tłumaczenia do źródła i referencji. COMET ma najwyższą korelację z badaniami MT od 2023 i jest produkcyjnym domyślnym 2026, gdzie jakość ma znaczenie.
+- **LLM-as-judge** (reference-free). Promptuj duży model, żeby oceniał tłumaczenia na płynność, adekwatność, ton, kulturową odpowiedniość. GPT-4-as-judge zgadza się z ludźmi w ~80% przypadków, gdy rubryka jest dobrze zaprojektowana. Używaj dla otwartej treści, gdzie nie ma referencji.
 
-Practical 2026 stack: `sacrebleu` for BLEU and chrF, `unbabel-comet` for COMET, and a prompted LLM for the final human-facing signal. Calibrate every metric against 50-100 human-labeled examples before trusting it on production data.
+Praktyczny stack 2026: `sacrebleu` dla BLEU i chrF, `unbabel-comet` dla COMET i prompted LLM dla końcowego sygnału dla ludzi. Kalibruj każdą metrykę na 50-100 przykładach z etykietami ludzkimi przed zaufaniem jej na danych produkcyjnych.
 
-Reference-free metrics (COMET-QE, BLEURT-QE, LLM-as-judge) let you evaluate translations without a reference, which matters for long-tail language pairs where reference translations do not exist.
+Metryki reference-free (COMET-QE, BLEURT-QE, LLM-as-judge) pozwalają ewaluować tłumaczenia bez referencji, co ma znaczenie dla długoogonowych par językowych, gdzie referencyjne tłumaczenia nie istnieją.
 
-### Step 3: what breaks in production
+### Krok 3: co się psuje w produkcji
 
-The working pipeline above will translate fluently 80% of the time and silently fail the remaining 20%. Named failure modes:
+Działający pipeline powyżej będzie tłumaczył płynnie w 80% przypadków i cicho zawodził w pozostałych 20%. Nazwane tryby awarii:
 
-- **Hallucination.** Model invents content that was not in the source. Common in unfamiliar domain vocabulary. Symptom: output is fluent but claims facts the source did not state. Mitigation: constrained decoding on domain terms, human review on regulated content, monitoring for output much longer than input.
-- **Off-target generation.** Model translates into the wrong language. NLLB is surprisingly prone to this on rare language pairs. Mitigation: verify `forced_bos_token_id` and always decode with a language-ID model check on output.
-- **Terminology drift.** "Sign up" becomes "s'inscrire" in doc 1 and "créer un compte" in doc 2. For UI text and user-facing strings, consistency matters more than raw quality. Mitigation: glossary-constrained decoding or post-edit dictionary.
-- **Formality mismatch.** French "tu" vs "vous", Japanese politeness levels. The model picks whichever form was more common in training. For customer-facing content this is usually wrong. Mitigation: prompt prefix with a formality token if the model supports it, or fine-tune a small model on formal-only corpora.
-- **Length explosion on short input.** Very short input sentences often produce overlong translations because the length penalty falls off a cliff below ~5 source tokens. Mitigation: hard max-length cap proportional to source length.
+- **Hallucination.** Model wymyśla treść, której nie było w źródle. Powszechne w nieznanej domenowej terminologii. Symptom: wyjście jest płynne, ale twierdzi fakty, których źródło nie podawało. Mitygacja: constrained decoding na terminach domenowych, human review na regulowanej treści, monitoring wyjścia znacznie dłuższego niż wejście.
+- **Off-target generation.** Model tłumaczy na zły język. NLLB jest zaskakująco podatny na to przy rzadkich parach językowych. Mitygacja: weryfikuj `forced_bos_token_id` i zawsze dekoduj z language-ID model check na wyjściu.
+- **Terminology drift.** "Sign up" staje się "s'inscrire" w dokumencie 1 i "créer un compte" w dokumencie 2. Dla UI text i user-facing strings spójność ma większe znaczenie niż surowa jakość. Mitygacja: glossary-constrained decoding lub post-edit dictionary.
+- **Formality mismatch.** Francuskie "tu" vs "vous", japońskie poziomy grzeczności. Model wybiera tę formę, która była częstsza w treningu. Dla customer-facing treści to zwykle błąd. Mitygacja: prompt prefix z formality tokenem, jeśli model to wspiera, lub fine-tune małego modelu na korpusach tylko formalnych.
+- **Length explosion on short input.** Bardzo krótkie zdania wejściowe często produkują zbyt długie tłumaczenia, bo length penalty spada z klifu poniżej ~5 tokenów źródłowych. Mitygacja: twardy max-length cap proporcjonalny do długości źródła.
 
-### Step 4: fine-tuning for a domain
+### Krok 4: fine-tuning dla domeny
 
-Pretrained models are generalists. Legal, medical, or game-dialog translation benefits measurably from fine-tuning on domain parallel data. The recipe is not exotic:
+Pretrained modele to generaliści. Tłumaczenie prawne, medyczne lub dialogów z gier mierzalnie korzysta z fine-tuningu na domenowych danych równoległych. Przepis nie jest egzotyczny:
 
 ```python
 from transformers import Trainer, TrainingArguments
@@ -129,30 +129,30 @@ args = TrainingArguments(output_dir="out", per_device_train_batch_size=4, num_tr
 Trainer(model=model, args=args, train_dataset=ds).train()
 ```
 
-A few thousand high-quality parallel examples beats a few hundred thousand noisy web-scraped ones. Quality of training data is the single largest production lever.
+Kilka tysięcy wysokiej jakości równoległych przykładów bije kilkaset tysięcy zaszumionych ze scrapowania sieci. Jakość danych treningowych to pojedyncza największa dźwignia produkcyjna.
 
-## Use It
+## Użyj tego
 
-The 2026 production stack for MT:
+Produkcyjny stack MT na 2026:
 
-| Use case | Recommended starting point |
+| Przypadek użycia | Polecany punkt wyjścia |
 |---------|---------------------------|
-| Any-to-any, 200 languages | `facebook/nllb-200-distilled-600M` (laptop) or `nllb-200-3.3B` (production) |
-| English-centric, high quality, 50 languages | `facebook/mbart-large-50-many-to-many-mmt` |
-| Short runs, cheap inference, English-French/German/Spanish | Helsinki-NLP / Marian models |
+| Dowolny-do-dowolnego, 200 języków | `facebook/nllb-200-distilled-600M` (laptop) lub `nllb-200-3.3B` (produkcja) |
+| English-centric, wysoka jakość, 50 języków | `facebook/mbart-large-50-many-to-many-mmt` |
+| Krótkie uruchomienia, tania inferencja, angielsko-francusko-niemiecko-hiszpański | Helsinki-NLP / Marian models |
 | Latency-critical browser-side | ONNX-quantized Marian (~50 MB) |
-| Maximum quality, willing to pay | GPT-4 / Claude / Gemini with translation prompts |
+| Maksymalna jakość, gotowość płacić | GPT-4 / Claude / Gemini z translation prompts |
 
-LLMs now outperform specialized MT models on several language pairs as of 2026, particularly on idiomatic content and long context. The tradeoff is per-token cost and latency. Pick an LLM when context length, stylistic consistency, or domain adaptation via prompting matters more than throughput.
+LLMy od 2026 przewyższają specjalizowane modele MT na kilku parach językowych, szczególnie na idiomatycznej treści i długim kontekście. Tradeoff to koszt per-token i latency. Wybieraj LLM, gdy długość kontekstu, stylistyczna spójność lub domenowa adaptacja przez prompting ma większe znaczenie niż throughput.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-mt-evaluator.md`:
+Zapisz jako `outputs/skill-mt-evaluator.md`:
 
 ```markdown
 ---
 name: mt-evaluator
-description: Evaluate a machine translation output for shipping.
+description: Ewaluuj wyjście tłumaczenia maszynowego do wysyłki.
 version: 1.0.0
 phase: 5
 lesson: 11
@@ -169,26 +169,26 @@ Given a source text and a candidate translation, output:
 Refuse to ship a translation without a language-ID check on output. Refuse to evaluate without a reference unless the user explicitly opts in to reference-free scoring (COMET-QE, BLEURT-QE). Flag any content over 1000 tokens as likely needing chunked translation.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Translate a 5-sentence English paragraph to French and back to English using `nllb-200-distilled-600M`. Measure how close the round-trip is to the original. You should see semantic preservation with word-choice drift.
-2. **Medium.** Implement a language-ID check on translation outputs using `fasttext lid.176` or `langdetect`. Integrate into the MT call so off-target generations are caught before returning.
-3. **Hard.** Fine-tune `nllb-200-distilled-600M` on a 5,000-pair domain corpus of your choice. Measure BLEU on a held-out set before and after fine-tuning. Report which kinds of sentences improved and which regressed.
+1. **Łatwe.** Przetłumacz 5-zdaniowy angielski paragraf na francuski i z powrotem na angielski używając `nllb-200-distilled-600M`. Zmierz, jak blisko round-trip jest oryginału. Powinieneś zobaczyć semantyczne zachowanie z dryfem wyboru słów.
+2. **Średnie.** Zaimplementuj language-ID check na tłumaczeniach używając `fasttext lid.176` lub `langdetect`. Zintegruj z MT call, żeby off-target generations były łapane przed zwróceniem.
+3. **Trudne.** Fine-tune'uj `nllb-200-distilled-600M` na 5000-parowym korpusie domenowym do wyboru. Zmierz BLEU na held-out set przed i po fine-tuningu. Raportuj, które rodzaje zdań się poprawiły, a które zregresowały.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|-----------------|-----------------------|
-| BLEU | Translation score | N-gram precision with brevity penalty. [0, 100]. |
-| chrF | Character F-score | Character-level F-score. More sensitive for morphologically rich languages. |
-| NMT | Neural MT | Transformer encoder-decoder trained on parallel text. The 2017+ default. |
-| NLLB | No Language Left Behind | Meta's 200-language MT model family. |
-| Constrained decoding | Controlled output | Force specific tokens or n-grams to appear / not appear in the output. |
-| Hallucination | Invented content | Model output that is not supported by the source. |
+| BLEU | Translation score | N-gram precision z brevity penalty. [0, 100]. |
+| chrF | Character F-score | Character-level F-score. Bardziej czuły dla morfologicznie bogatych języków. |
+| NMT | Neural MT | Transformer encoder-decoder trenowany na równoległym tekście. Default od 2017+. |
+| NLLB | No Language Left Behind | Rodzina modeli MT Meta obsługująca 200 języków. |
+| Constrained decoding | Controlled output | Wymuszenie konkretnych tokenów lub n-gramów, żeby pojawiały się / nie pojawiały się w wyjściu. |
+| Hallucination | Wymyślona treść | Wyjście modelu, które nie jest wspierane przez źródło. |
 
-## Further Reading
+## Dalsza lektura
 
-- [Costa-jussà et al. (2022). No Language Left Behind: Scaling Human-Centered Machine Translation](https://arxiv.org/abs/2207.04672) — the NLLB paper.
-- [Post (2018). A Call for Clarity in Reporting BLEU Scores](https://aclanthology.org/W18-6319/) — why `sacrebleu` is the only correct way to report BLEU.
-- [Popović (2015). chrF: character n-gram F-score for automatic MT evaluation](https://aclanthology.org/W15-3049/) — the chrF paper.
-- [Hugging Face MT guide](https://huggingface.co/docs/transformers/tasks/translation) — practical fine-tuning walkthrough.
+- [Costa-jussà et al. (2022). No Language Left Behind: Scaling Human-Centered Machine Translation](https://arxiv.org/abs/2207.04672) — artykuł o NLLB.
+- [Post (2018). A Call for Clarity in Reporting BLEU Scores](https://aclanthology.org/W18-6319/) — dlaczego `sacrebleu` to jedyny poprawny sposób raportowania BLEU.
+- [Popović (2015). chrF: character n-gram F-score for automatic MT evaluation](https://aclanthology.org/W15-3049/) — artykuł o chrF.
+- [Hugging Face MT guide](https://huggingface.co/docs/transformers/tasks/translation) — praktyczny przewodnik fine-tuningu.

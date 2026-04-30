@@ -1,64 +1,64 @@
-# Attention Mechanism — The Breakthrough
+# Mechanizm Attention — Przełom
 
-> The decoder stops squinting at a compressed summary and starts looking at the whole source. Everything after this is attention plus engineering.
+> Dekoder przestaje mrużyć oczy na skompresowane podsumowanie i zaczyna patrzeć na całe źródło. Wszystko po tym to attention plus inżynieria.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 5 · 09 (Sequence-to-Sequence Models)
-**Time:** ~45 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Faza 5 · 09 (Modele Sequence-to-Sequence)
+**Czas:** ~45 minut
 
-## The Problem
+## Problem
 
-Lesson 09 ended on a measured failure. A GRU encoder-decoder trained on a toy copy task goes from 89% accuracy at length 5 to near-chance at length 80. The reason is structural, not a training bug: every bit of information the encoder gleaned has to fit in one fixed-size hidden state, and the decoder never sees anything else.
+Lekcja 09 zakończyła się mierzonym niepowodzeniem. GRU encoder-decoder wytrenowany na zadaniu kopiowania przechodzi z 89% dokładnością przy długości 5 do bliskiego losowemu przy długości 80. Powód jest strukturalny, nie błąd treningu: każdy bit informacji, który zebrał enkoder, musi się zmieścić w jednym wektorze o ustalonej wielkości, a dekoder nigdy nie widzi niczego innego.
 
-Bahdanau, Cho, and Bengio published a three-line fix in 2014. Instead of giving the decoder only the final encoder state, keep every encoder state. At each decoder step, compute a weighted average of encoder states where the weights say "how much does the decoder need to look at encoder position `i` right now?" That weighted average is the context, and it changes every decoder step.
+Bahdanau, Cho i Bengio opublikowali trójlinijkową poprawkę w 2014 roku. Zamiast dawać dekoderowi tylko końcowy stan enkoderowy, zachowaj każdy stan enkoderowy. W każdym kroku dekodera oblicz średnią ważoną stanów enkoderowych, gdzie wagi mówią „ile dekoder musi spojrzeć na pozycję enkodera `i` właśnie teraz?". Ta średnia ważona to kontekst, i zmienia się w każdym kroku dekodera.
 
-That is the whole idea. Transformers extended it. Self-attention applied it to a single sequence. Multi-head attention ran it in parallel. But the 2014 version already broke the bottleneck, and once you have it, the pivot to transformers is engineering, not conceptual.
+To jest cała idea. Transformery ją rozszerzyły. Self-attention zastosowało ją do pojedynczej sekwencji. Multi-head attention uruchomiło ją równolegle. Ale wersja z 2014 roku już przełamała wąskie gardło, i gdy już ją masz, przejście do transformerów to inżynieria, nie koncepcja.
 
-## The Concept
+## Koncepcja
 
-![Bahdanau attention: decoder queries all encoder states](../assets/attention.svg)
+![Bahdanau attention: dekoder odpytuje wszystkie stany enkoderowe](../assets/attention.svg)
 
-At each decoder step `t`:
+W każdym kroku dekodera `t`:
 
-1. Use the previous decoder hidden state `s_{t-1}` as a **query**.
-2. Score it against every encoder hidden state `h_1, ..., h_T`. One scalar per encoder position.
-3. Softmax the scores to get attention weights `α_{t,1}, ..., α_{t,T}` that sum to 1.
-4. Context vector `c_t = Σ α_{t,i} * h_i`. Weighted average of encoder states.
-5. Decoder takes `c_t` plus the previous output token, produces the next token.
+1. Użyj poprzedniego stanu ukrytego dekodera `s_{t-1}` jako **query**.
+2. Porównaj go z każdym stanem ukrytym enkodera `h_1, ..., h_T`. Jeden skalarny wynik na pozycję enkodera.
+3. Przepuść wyniki przez softmax, aby uzyskać wagi attention `α_{t,1}, ..., α_{t,T}`, które sumują się do 1.
+4. Wektor kontekstowy `c_t = Σ α_{t,i} * h_i`. Średnia ważona stanów enkoderowych.
+5. Dekoder bierze `c_t` plus poprzedni token wyjściowy, generuje następny token.
 
-The weighted average is the point. When the decoder needs to translate "Je" to "I", it weights the encoder state over "Je" high and the others low. When it needs "not", it weights "pas" high. The context vector reshapes each step.
+Średnia ważona to sedno. Gdy dekoder potrzebuje przetłumaczyć „Je" na „I", wysoko waży stan enkoderowy nad „Je" i nisko pozostałe. Gdy potrzebuje „not", wysoko waży „pas". Wektor kontekstowy zmienia kształt przy każdym kroku.
 
-## Shapes (the thing that bites everyone)
+## Kształty (to, co każdego psuje na początku)
 
-This is where every attention implementation goes wrong the first time. Read slowly.
+To jest miejsce, gdzie każda implementacja attention idzie źle za pierwszym razem. Czytaj powoli.
 
-| Thing | Shape | Notes |
-|-------|-------|-------|
-| Encoder hidden states `H` | `(T_enc, d_h)` | If BiLSTM, `d_h = 2 * d_hidden` |
-| Decoder hidden state `s_{t-1}` | `(d_s,)` | One vector |
-| Attention score `e_{t,i}` | scalar | One per encoder position |
-| Attention weight `α_{t,i}` | scalar | After softmax over all `i` |
-| Context vector `c_t` | `(d_h,)` | Same shape as an encoder state |
+| Element | Kształt | Uwagi |
+|---------|---------|-------|
+| Stany ukryte enkodera `H` | `(T_enc, d_h)` | Jeśli BiLSTM, `d_h = 2 * d_hidden` |
+| Stan ukryty dekodera `s_{t-1}` | `(d_s,)` | Jeden wektor |
+| Wynik attention `e_{t,i}` | skalarny | Jeden na pozycję enkodera |
+| Waga attention `α_{t,i}` | skalarny | Po softmaxie względem wszystkich `i` |
+| Wektor kontekstowy `c_t` | `(d_h,)` | Taki sam kształt jak stan enkoderowy |
 
-**Bahdanau (additive) score.** `e_{t,i} = v_α^T * tanh(W_a * s_{t-1} + U_a * h_i)`.
+**Wynik Bahdanau (addytywny).** `e_{t,i} = v_α^T * tanh(W_a * s_{t-1} + U_a * h_i)`.
 
-- `s_{t-1}` has shape `(d_s,)`, `h_i` has shape `(d_h,)`.
-- `W_a` has shape `(d_attn, d_s)`. `U_a` has shape `(d_attn, d_h)`.
-- Their sum inside the tanh has shape `(d_attn,)`.
-- `v_α` has shape `(d_attn,)`. The inner product with `v_α` collapses to a scalar. **This is what `v_α` does.** It is not magic. It is the projection that turns an attention-dim vector into a scalar score.
+- `s_{t-1}` ma kształt `(d_s,)`, `h_i` ma kształt `(d_h,)`.
+- `W_a` ma kształt `(d_attn, d_s)`. `U_a` ma kształt `(d_attn, d_h)`.
+- Ich suma wewnątrz tanh ma kształt `(d_attn,)`.
+- `v_α` ma kształt `(d_attn,)`. Iloczyn skalarny z `v_α` redukuje do skalara. **To jest to, co robi `v_α`.** To nie jest magia. To jest projekcja, która zamienia wektor o wymiarze attention na skalarny wynik.
 
-**Luong (multiplicative) score.** Three variants:
+**Wynik Luong (multiplikatywny).** Trzy warianty:
 
-- `dot`: `e_{t,i} = s_t^T * h_i`. Requires `d_s == d_h`. Hard constraint. Skip if your encoder is bidirectional.
-- `general`: `e_{t,i} = s_t^T * W * h_i` with `W` shape `(d_s, d_h)`. Removes the equal-dim constraint.
-- `concat`: essentially the Bahdanau form. Rarely used since the first two are cheaper.
+- `dot`: `e_{t,i} = s_t^T * h_i`. Wymaga `d_s == d_h`. Trudne ograniczenie. Pomijaj, jeśli enkoder jest dwukierunkowy.
+- `general`: `e_{t,i} = s_t^T * W * h_i` gdzie `W` ma kształt `(d_s, d_h)`. Usuwa ograniczenie równych wymiarów.
+- `concat`: zasadniczo forma Bahdanau. Rzadko używana, bo dwa pierwsze są tańsze.
 
-**One Bahdanau / Luong gotcha worth naming.** Bahdanau uses `s_{t-1}` (the decoder state *before* generating the current word). Luong uses `s_t` (the state *after*). Mixing them up produces subtly wrong gradients that are extremely hard to debug. Pick one paper and stick to its convention.
+**Jedna pułapka Bahdanau/Luong, którą warto nazwać.** Bahdanau używa `s_{t-1}` (stan dekodera *przed* wygenerowaniem bieżącego słowa). Luong używa `s_t` (stan *po*). Pomylenie ich powoduje subtelnie błędne gradienty, które są niezwykle trudne do debugowania. Wybierz jedną pracę i trzymaj się jej konwencji.
 
-## Build It
+## Zbuduj to
 
-### Step 1: additive (Bahdanau) attention
+### Krok 1: addytywne (Bahdanau) attention
 
 ```python
 import numpy as np
@@ -80,9 +80,9 @@ def softmax(x):
     return e / e.sum()
 ```
 
-Check your shapes against the table above. `encoder_states` has shape `(T_enc, d_h)`. `projected_enc` has shape `(T_enc, d_attn)`. `projected_dec` has shape `(d_attn,)` and broadcasts. `combined` has shape `(T_enc, d_attn)`. `scores` has shape `(T_enc,)`. `weights` has shape `(T_enc,)`. `context` has shape `(d_h,)`. Ship it.
+Sprawdź swoje kształty względem tabeli powyżej. `encoder_states` ma kształt `(T_enc, d_h)`. `projected_enc` ma kształt `(T_enc, d_attn)`. `projected_dec` ma kształt `(d_attn,)` i się broadcastuje. `combined` ma kształt `(T_enc, d_attn)`. `scores` ma kształt `(T_enc,)`. `weights` ma kształt `(T_enc,)`. `context` ma kształt `(d_h,)`. Wysyłaj.
 
-### Step 2: Luong dot and general
+### Krok 2: Luong dot i general
 
 ```python
 def dot_attention(decoder_state, encoder_states):
@@ -98,11 +98,11 @@ def general_attention(decoder_state, encoder_states, W):
     return weights @ encoder_states, weights
 ```
 
-Three lines each. This is why Luong's paper landed. Same accuracy on most tasks, a lot less code.
+Trzy linie każda. Dlatego praca Luonga tak dobrze wylądowała. Ta sama dokładność na większości zadań, dużo mniej kodu.
 
-### Step 3: a worked numerical example
+### Krok 3: przeprowadzony przykład numeryczny
 
-Given three encoder states (roughly "cat", "sat", "mat") and a decoder state that aligns most with the first, the attention distribution concentrates on position 0. If the decoder state shifts to align with the last, attention moves to position 2. The context vector tracks.
+Mając trzy stany enkoderowe (mniej więcej „cat", „sat", „mat") i stan dekodera, który najbardziej wyrównuje się z pierwszym, rozkład attention koncentruje się na pozycji 0. Gdy stan dekodera przesunie się bliżej trzeciego stanu enkoderowego, attention przesunie się do pozycji 2. Wektor kontekstowy to śledzi.
 
 ```python
 H = np.array([
@@ -120,23 +120,23 @@ print("weights:", w.round(3))
 weights: [0.464 0.305 0.231]
 ```
 
-First row wins. Then move the decoder state closer to the third encoder state and watch the weights shift. That is it. Attention is explicit alignment.
+Pierwszy wiersz wygrywa. Potem przesuń stan dekodera bliżej trzeciego stanu enkoderowego i obserwuj przesunięcie wag. To jest to. Attention to jawny alignment.
 
-### Step 4: why this is the bridge to transformers
+### Krok 4: dlaczego to jest most do transformerów
 
-Translate the language above into Q/K/V:
+Przetłumacz język powyżej na Q/K/V:
 
-- **Query** = decoder state `s_{t-1}`
-- **Key** = encoder states (what we score against)
-- **Value** = encoder states (what we weight and sum)
+- **Query** = stan dekodera `s_{t-1}`
+- **Key** = stany enkoderowe (to, z czym porównujemy)
+- **Value** = stany enkoderowe (to, co wagujemy i sumujemy)
 
-In classical attention, keys and values are the same thing. Self-attention separates them: you can query a sequence against itself, with different learned projections for K and V. Multi-head attention runs it in parallel with different learned projections. Transformers stack the whole stage many times and drop RNNs.
+W klasycznym attention keys i values są tym samym. Self-attention je rozdziela: możesz odpytywać sekwencję względem siebie, z różnymi nauczonymi projekcjami dla K i V. Multi-head attention uruchamia to równolegle z różnymi nauczonymi projekcjami. Transformery stackują cały etap wiele razy i porzucają RNN-y.
 
-The math is the same. The shapes are the same. The pedagogical jump from Bahdanau attention to scaled dot-product attention is mostly notation.
+Matematyka jest ta sama. Kształty są takie same. Pedagogiczny skok od Bahdanau attention do scaled dot-product attention to głównie notacja.
 
-## Use It
+## Użyj tego
 
-PyTorch and TensorFlow ship attention directly.
+PyTorch i TensorFlow mają attention wbudowane bezpośrednio.
 
 ```python
 import torch
@@ -155,64 +155,64 @@ print(output.shape, weights.shape)
 torch.Size([2, 5, 128]) torch.Size([2, 5, 10])
 ```
 
-That is a transformer attention layer. Query batch of 5 positions, key/value batch of 10 positions, 128-dim each, 8 heads. `output` is the new context-augmented queries. `weights` is the 5x10 alignment matrix you can visualize.
+To jest warstwa attention transformera. Batch query 5 pozycji, klucz/wartość batch 10 pozycji, 128 wymiarów każdy, 8 heads. `output` to nowe query wzbogacone o kontekst. `weights` to macierz alignment 5x10, którą można zwizualizować.
 
-### When classical attention still matters
+### Kiedy klasyczne attention wciąż ma znaczenie
 
-- Pedagogy. The single-head, single-layer, RNN-based version makes every concept visible.
-- On-device sequence tasks where transformers do not fit.
-- Any paper from 2014-2017. You will misread it without knowing Bahdanau's convention.
-- Fine-grained alignment analysis in MT. Raw attention weights are an interpretability tool even on transformer models, and reading them requires knowing what they are.
+- Pedagogika. Wersja single-head, single-layer, oparta na RNN sprawia, że każda koncepcja jest widoczna.
+- Zadania sekwencyjne na urządzeniach, gdzie transformery się nie mieszczą.
+- Każda praca z lat 2014-2017. Bez znajomości konwencji Bahdanau ją źle odczytasz.
+- Szczegółowa analiza alignment w MT. Surowe wagi attention to narzędzie interpretowalności nawet na modelach transformerowych, a ich odczytywanie wymaga wiedzy, czym są.
 
-### The attention-weight-as-explanation trap
+### Pułapka wag attention jako wyjaśnienia
 
-Attention weights look interpretable. They are weights that sum to one across positions; you can plot them; high means "looked at this." Reviewers love them.
+Wagi attention wyglądają interpretowalnie. To wagi, które sumują się do jedności wzdłuż pozycji; można je wykreślić; wysokie znaczy „patrzyłem na to." Recenzenci je uwielbiają.
 
-They are not as interpretable as they look. Jain and Wallace (2019) showed that attention distributions can be permuted and replaced by arbitrary alternatives without changing model predictions for some tasks. Never report attention weights as evidence of reasoning without an ablation or counterfactual check.
+Nie są tak interpretowalne, jak wyglądają. Jain i Wallace (2019) wykazali, że rozkłady attention można permutować i zastępować dowolnymi alternatywami bez zmiany predykcji modelu dla niektórych zadań. Nigdy nie podawaj wag attention jako dowodu rozumowania bez ablacji lub sprawdzenia kontrfaktycznego.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/prompt-attention-shapes.md`:
+Zapisz jako `outputs/prompt-attention-shapes.md`:
 
 ```markdown
 ---
 name: attention-shapes
-description: Debug shape bugs in attention implementations.
+description: Debugowanie błędów kształtów w implementacjach attention.
 phase: 5
 lesson: 10
 ---
 
-Given a broken attention implementation, you identify the shape mismatch. Output:
+Mając zepsutą implementację attention, identyfikujesz niezgodność kształtów. Wyjście:
 
-1. Which matrix has the wrong shape. Name the tensor.
-2. What its shape should be, derived from (d_s, d_h, d_attn, T_enc, T_dec, batch_size).
-3. One-line fix. Transpose, reshape, or project.
-4. A test to catch regressions. Typically: assert `output.shape == (batch, T_dec, d_h)` and `weights.shape == (batch, T_dec, T_enc)` and `weights.sum(dim=-1) close to 1`.
+1. Która macierz ma zły kształt. Nazwij tensor.
+2. Jaki powinien być jej kształt, wyprowadzony z (d_s, d_h, d_attn, T_enc, T_dec, batch_size).
+3. Jednolinijkowa poprawka. Transponuj, zmień kształt lub zaprojektuj.
+4. Test wychwytujący regresje. Zwykle: assert `output.shape == (batch, T_dec, d_h)` oraz `weights.shape == (batch, T_dec, T_enc)` oraz `weights.sum(dim=-1)` bliskie 1.
 
-Refuse to recommend fixes that silently broadcast. Broadcast-hiding bugs surface later as silent accuracy degradation, the worst kind of attention bug.
+Odmawiaj polecania poprawek, które cicho broadcastują. Błędy ukryte przez broadcast ujawniają się później jako ciche pogorszenie dokładności, najgorszy rodzaj błędu attention.
 
-For Bahdanau confusion, insist the decoder input is `s_{t-1}` (pre-step state). For Luong, `s_t` (post-step state). For dot-product, flag dimension mismatch between query and key as the most common first-time error.
+Przy niejasnościach Bahdanau nalegaj, że wejście dekodera to `s_{t-1}` (stan przed krokiem). Przy Luong, `s_t` (stan po kroku). Przy dot-product, wskaż niezgodność wymiarów między query a key jako najczęstszy błąd przy pierwszym podejściu.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Implement `softmax` masking so padding tokens in the encoder get attention weight zero. Test on a batch with variable-length sequences.
-2. **Medium.** Add multi-head attention to the Luong `general` form. Split `d_h` into `n_heads` groups, run attention per head, concatenate. Verify the single-head case matches your earlier implementation.
-3. **Hard.** Train a GRU encoder-decoder with Bahdanau attention on the toy copy task from lesson 09. Plot accuracy vs sequence length. Compare against the no-attention baseline. You should see the gap widen as length grows, confirming attention lifts the bottleneck.
+1. **Łatwe.** Zaimplementuj maskowanie softmax, aby tokeny paddingu w enkoderze miały wagę attention zero. Testuj na batchu z sekwencjami o różnej długości.
+2. **Średnie.** Dodaj multi-head attention do formy general Luong. Podziel `d_h` na `n_heads` grup, uruchom attention per head, konkatenuj. Zweryfikuj, że przypadek single-head odpowiada twojej wcześniejszej implementacji.
+3. **Trudne.** Wytrenuj GRU encoder-decoder z Bahdanau attention na zadaniu kopiowania z lekcji 09. Wykreśl dokładność vs długość sekwencji. Porównaj z baseline bez attention. Powinieneś zobaczyć, że luka rośnie wraz z długością, potwierdzając że attention usuwa wąskie gardło.
 
-## Key Terms
+## Kluczowe Terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| Attention | Looking at things | Weighted average of a value sequence, weights computed from a query-key similarity. |
-| Query, Key, Value | QKV | Three projections: Q asks, K is what to match, V is what to return. |
-| Additive attention | Bahdanau | Feed-forward score: `v^T tanh(W q + U k)`. |
-| Multiplicative attention | Luong dot / general | Score is `q^T k` or `q^T W k`. Cheaper, same accuracy on most tasks. |
-| Alignment matrix | The pretty picture | Attention weights as a `(T_dec, T_enc)` grid. Read it to see what the model attended to. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|--------------------------|
+| Attention | Patrzenie na rzeczy | Średnia ważona sekwencji wartości, wagi obliczone z podobieństwa query-key. |
+| Query, Key, Value | QKV | Trzy projekcje: Q pyta, K jest tym, co dopasować, V jest tym, co zwrócić. |
+| Additive attention | Bahdanau | Wynik via feed-forward: `v^T tanh(W q + U k)`. |
+| Multiplicative attention | Luong dot / general | Wynik to `q^T k` lub `q^T W k`. Tańsze, ta sama dokładność na większości zadań. |
+| Alignment matrix | Ten ładny obrazek | Wagi attention jako siatka `(T_dec, T_enc)`. Czytaj ją, żeby zobaczyć, na co model patrzył. |
 
-## Further Reading
+## Dalsze Czytanie
 
-- [Bahdanau, Cho, Bengio (2014). Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473) — the paper.
-- [Luong, Pham, Manning (2015). Effective Approaches to Attention-based Neural Machine Translation](https://arxiv.org/abs/1508.04025) — the three score variants and their comparison.
-- [Jain and Wallace (2019). Attention is not Explanation](https://arxiv.org/abs/1902.10186) — the interpretability caveat.
-- [Dive into Deep Learning — Bahdanau Attention](https://d2l.ai/chapter_attention-mechanisms-and-transformers/bahdanau-attention.html) — runnable walkthrough with PyTorch.
+- Bahdanau, Cho, Bengio (2014). Neural Machine Translation by Jointly Learning to Align and Translate — oryginalna praca.
+- Luong, Pham, Manning (2015). Effective Approaches to Attention-based Neural Machine Translation — trzy warianty wyników i ich porównanie.
+- Jain and Wallace (2019). Attention is not Explanation — zastrzeżenie interpretowalności.
+- Dive into Deep Learning — Bahdanau Attention — uruchamialny przewodnik z PyTorch.

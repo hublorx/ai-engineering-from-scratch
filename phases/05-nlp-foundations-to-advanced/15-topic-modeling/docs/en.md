@@ -1,47 +1,47 @@
-# Topic Modeling — LDA and BERTopic
+# Topic Modeling — LDA i BERTopic
 
-> LDA: documents are mixtures of topics, topics are distributions over words. BERTopic: documents cluster in embedding space, clusters are topics. Same goal, different primitives.
+> LDA: dokumenty to mieszanki tematów, tematy to rozkłady nad słowami. BERTopic: dokumenty tworzą klastry w przestrzeni embeddingów, klastry to tematy. Ten sam cel, inne prymitywy.
 
-**Type:** Learn
-**Languages:** Python
-**Prerequisites:** Phase 5 · 02 (BoW + TF-IDF), Phase 5 · 03 (Word2Vec)
-**Time:** ~45 minutes
+**Typ:** Nauka
+**Języki:** Python
+**Wymagania wstępne:** Faza 5 · 02 (BoW + TF-IDF), Faza 5 · 03 (Word2Vec)
+**Szacowany czas:** ~45 minut
 
-## The Problem
+## Problem
 
-You have 10,000 customer support tickets, 50,000 news articles, or 200,000 tweets. You need to know what the collection is about without reading it. You do not have labeled categories. You do not even know how many categories exist.
+Masz 10 000 zgłoszeń obsługi klienta, 50 000 artykułów informacyjnych lub 200 000 tweetów. Musisz wiedzieć, o czym jest cała kolekcja, bez jej czytania. Nie masz oznaczonych kategorii. Nie wiesz nawet, ile kategorii istnieje.
 
-Topic modeling answers that without supervision. Give it a corpus, get back a small set of coherent topics and, for each document, a distribution over those topics.
+Topic modeling odpowiada na to bez nadzoru. Podajesz korpus, otrzymujesz niewielki zestaw spójnych tematów i dla każdego dokumentu rozkład prawdopodobieństwa nad tymi tematami.
 
-Two algorithmic families dominate. LDA (2003) treats each document as a mixture of latent topics and each topic as a distribution over words. Inference is Bayesian. It still ships in production where you need mixed-membership topic assignments and explainable word-level probability distributions.
+Dwie rodziny algorytmów dominują. LDA (2003) traktuje każdy dokument jako mieszankę ukrytych tematów, a każdy temat jako rozkład nad słowami. Wnioskowanie jest bayesowskie. Wciąż działa w produkcji, gdzie potrzebujesz przypisań tematów z mieszaną przynależnością i wyjaśnialnych rozkładów prawdopodobieństwa na poziomie słów.
 
-BERTopic (2020) encodes documents with BERT, reduces dimensionality with UMAP, clusters with HDBSCAN, and extracts topic words via class-based TF-IDF. It wins on short text, social media, and anything where semantic similarity matters more than word overlap. One document gets one topic, which is a limitation for long-form content.
+BERTopic (2020) koduje dokumenty za pomocą BERT, redukuje wymiarowość za pomocą UMAP, klastruje za pomocą HDBSCAN i wyodrębnia słowa tematyczne przez class-based TF-IDF. Wygrywa na krótkim tekście, mediach społecznościowych i wszystkim, gdzie podobieństwo semantyczne ma większe znaczenie niż nakładanie się słów. Jeden dokument otrzymuje jeden temat, co jest ograniczeniem dla treści długich.
 
-This lesson builds intuition for both and names which one to pick for a given corpus.
+Ta lekcja buduje intuicję dla obu podejść i wskazuje, które wybrać dla danego korpusu.
 
-## The Concept
+## Koncepcja
 
-![LDA mixture model vs BERTopic clustering](../assets/topic-modeling.svg)
+![Model mieszanki LDA a klastrowanie BERTopic](../assets/topic-modeling.svg)
 
-**LDA generative story.** Each topic is a distribution over words. Each document is a mixture of topics. To generate a word in a document, sample a topic from the document's mixture, then sample a word from that topic's distribution. Inference reverses this: given observed words, infer the topic distribution per document and the word distribution per topic. Collapsed Gibbs sampling or variational Bayes does the math.
+**Generatywna historia LDA.** Każdy temat to rozkład nad słowami. Każdy dokument to mieszanka tematów. Aby wygenerować słowo w dokumencie, próbkuj temat z mieszanki dokumentu, następnie próbkuj słowo z rozkładu tego tematu. Wnioskowanie odwraca to: mając obserwowane słowa, wnioskuj rozkład tematów na dokument i rozkład słów na temat. Collapsed Gibbs sampling lub variational Bayes robi matematykę.
 
-Key LDA output:
+Kluczowe wyniki LDA:
 
-- `doc_topic`: matrix `(n_docs, n_topics)`, each row sums to 1 (document's topic mixture).
-- `topic_word`: matrix `(n_topics, vocab_size)`, each row sums to 1 (topic's word distribution).
+- `doc_topic`: macierz `(n_docs, n_topics)`, każdy wiersz sumuje się do 1 (mieszanka tematów dokumentu).
+- `topic_word`: macierz `(n_topics, vocab_size)`, każdy wiersz sumuje się do 1 (rozkład słów tematu).
 
-**BERTopic pipeline.**
+**Pipeline BERTopic.**
 
-1. Encode each document with a sentence transformer (e.g., `all-MiniLM-L6-v2`). 384-dim vectors.
-2. Reduce dimensionality with UMAP to ~5 dimensions. BERT embeddings are too high-dim for clustering.
-3. Cluster with HDBSCAN. Density-based, produces variable-size clusters and an "outlier" label.
-4. For each cluster, compute class-based TF-IDF over the cluster's documents to extract top words.
+1. Koduj każdy dokument za pomocą sentence transformera (np. `all-MiniLM-L6-v2`). Wektory 384-wymiarowe.
+2. Redukuj wymiarowość za pomocą UMAP do ~5 wymiarów. Embeddingi BERT są zbyt wysokowymiarowe do klastrowania.
+3. Klastruj za pomocą HDBSCAN. Oparte na gęstości, tworzy klastry o zmiennej wielkości i etykietę „outlier".
+4. Dla każdego klastra oblicz class-based TF-IDF nad dokumentami klastra, aby wyodrębnić najważniejsze słowa.
 
-Output is one topic per document (plus a -1 outlier label). Optionally, a soft membership via HDBSCAN's probability vector.
+Wynikiem jest jeden temat na dokument (plus etykieta -1 dla outlierów). Opcjonalnie, miękka przynależność przez wektor prawdopodobieństwa HDBSCAN.
 
-## Build It
+## Zbuduj to
 
-### Step 1: LDA via scikit-learn
+### Krok 1: LDA przez scikit-learn
 
 ```python
 from sklearn.feature_extraction.text import CountVectorizer
@@ -75,9 +75,9 @@ def print_top_words(lda, feature_names, n_top=10):
         print(f"topic {idx}: {' '.join(words)}")
 ```
 
-Notice: stopwords removed, min_df and max_df filter rare and ubiquitous terms, CountVectorizer (not TfidfVectorizer) because LDA expects raw counts.
+Zwróć uwagę: stopwords usunięte, min_df i max_df filtrują rzadkie i wszechobecne terminy, CountVectorizer (nie TfidfVectorizer), ponieważ LDA oczekuje surowych zliczeń.
 
-### Step 2: BERTopic (production)
+### Krok 2: BERTopic (produkcja)
 
 ```python
 from bertopic import BERTopic
@@ -96,45 +96,45 @@ for topic_id in valid_topics[:5]:
     print(f"topic {topic_id}: {topic_model.get_topic(topic_id)[:10]}")
 ```
 
-The filter on `Topic != -1` drops BERTopic's outlier bucket (documents HDBSCAN could not cluster). `min_topic_size` controls HDBSCAN's minimum cluster size; BERTopic's library default is 10. This example sets it to 15 explicitly for the lesson's scale. For corpora over 10,000 documents, increase to 50 or 100.
+Filtr na `Topic != -1` usuwa bucket outlierów BERTopic (dokumenty, których HDBSCAN nie mógł sklastrować). `min_topic_size` kontroluje minimalny rozmiar klastra HDBSCAN; domyślna wartość biblioteki BERTopic to 10. W tym przykładzie ustawiono jawnie na 15 dla skali tej lekcji. Dla korpusów powyżej 10 000 dokumentów zwiększ do 50 lub 100.
 
-### Step 3: evaluation
+### Krok 3: ewaluacja
 
-Both methods output topic words. The question is whether those words cohere.
+Obie metody wyprowadzają słowa tematyczne. Pytanie brzmi, czy te słowa są spójne.
 
-- **Topic coherence (c_v).** Combines NPMI (normalized pointwise mutual information) of top-word pairs over sliding-window contexts, aggregates the scores into topic vectors, and compares those vectors via cosine similarity. Higher is better. Use `gensim.models.CoherenceModel` with `coherence="c_v"`.
-- **Topic diversity.** Fraction of unique words across all topics' top words. Higher is better (topics do not overlap).
-- **Qualitative inspection.** Read the top words of each topic. Do they name a real thing? Human judgment is still the last line of defense.
+- **Topic coherence (c_v).** Łączy NPMI (normalized pointwise mutual information) par najważniejszych słów w kontekście sliding-window, agreguje wyniki w wektory tematyczne i porównuje te wektory przez cosine similarity. Wyższy jest lepszy. Użyj `gensim.models.CoherenceModel` z `coherence="c_v"`.
+- **Topic diversity.** Ułamek unikalnych słów we wszystkich najważniejszych słowach tematów. Wyższy jest lepszy (tematy się nie nakładają).
+- **Inspekcja jakościowa.** Przeczytaj najważniejsze słowa każdego tematu. Czy nazywają prawdziwą rzecz? Ludzki osąd jest wciąż ostatnią linią obrony.
 
-## When to pick which
+## Kiedy wybrać które
 
-| Situation | Pick |
-|-----------|------|
-| Short text (tweets, reviews, headlines) | BERTopic |
-| Long documents with topic mixtures | LDA |
-| No GPU / limited compute | LDA or NMF |
-| Need document-level multi-topic distributions | LDA |
-| LLM integration for topic labeling | BERTopic (direct support) |
-| Resource-constrained edge deployment | LDA |
-| Max semantic coherence | BERTopic |
+| Sytuacja | Wybierz |
+|----------|---------|
+| Krótki tekst (tweety, recenzje, nagłówki) | BERTopic |
+| Długie dokumenty z mieszankami tematów | LDA |
+| Brak GPU / ograniczone zasoby obliczeniowe | LDA lub NMF |
+| Potrzebujesz rozkładów wielotematycznych na poziomie dokumentu | LDA |
+| Integracja z LLM do etykietowania tematów | BERTopic (bezpośrednie wsparcie) |
+| Deployment na ograniczonym urządzeniu brzegowym | LDA |
+| Maksymalna spójność semantyczna | BERTopic |
 
-The biggest practical consideration is document length. BERT embeddings truncate; LDA counts work on whatever length. For documents longer than the embedding model's context, either chunk + aggregate or use LDA.
+Najważniejsze praktyczne rozważanie to długość dokumentu. Embeddingi BERT obcinają; zliczenia LDA działają na dowolnej długości. Dla dokumentów dłuższych niż context window modelu embeddingów, albo chunkuj + agreguj, albo użyj LDA.
 
-## Use It
+## Użyj tego
 
-The 2026 stack:
+Stack 2026:
 
-- **BERTopic.** Default for short text and anything where semantics matter.
-- **`gensim.models.LdaModel`.** Classic LDA for production, mature, battle-tested.
-- **`sklearn.decomposition.LatentDirichletAllocation`.** Easy LDA for experiments.
-- **NMF.** Non-negative matrix factorization. Fast alternative to LDA, comparable quality on short text.
-- **Top2Vec.** Similar design to BERTopic. Smaller community but good on some benchmarks.
-- **FASTopic.** Newer, faster than BERTopic on very large corpora.
-- **LLM-based labeling.** Run any clustering, then prompt a model to name each cluster.
+- **BERTopic.** Domyślny wybór dla krótkiego tekstu i wszystkiego, gdzie liczy się semantyka.
+- **`gensim.models.LdaModel`.** Klasyczny LDA do produkcji, dojrzały, sprawdzony w boju.
+- **`sklearn.decomposition.LatentDirichletAllocation`.** Łatwy LDA do eksperymentów.
+- **NMF.** Non-negative matrix factorization. Szybka alternatywa dla LDA, porównywalna jakość na krótkim tekście.
+- **Top2Vec.** Podobny design do BERTopic. Mniejsza społeczność, ale dobre wyniki na niektórych benchmarkach.
+- **FASTopic.** Nowszy, szybszy niż BERTopic na bardzo dużych korpusach.
+- **LLM-based labeling.** Uruchom dowolne klastrowanie, następnie zapromptuj model, aby nazwał każdy klaster.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-topic-picker.md`:
+Zapisz jako `outputs/skill-topic-picker.md`:
 
 ```markdown
 ---
@@ -156,25 +156,25 @@ Given a corpus description (document count, avg length, domain, language, comput
 Refuse BERTopic on documents longer than the embedding model's context window without a chunking strategy. Refuse LDA on very short text (tweets, reviews under 10 tokens) as coherence collapses. Flag any n_topics choice below 5 as likely wrong; flag >200 on corpora under 40k docs as likely over-splitting.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Fit LDA with 5 topics on the 20 Newsgroups dataset. Print top 10 words per topic. Label each topic by hand. Did the algorithm find the real categories?
-2. **Medium.** Fit BERTopic on the same 20 Newsgroups subset. Compare the number of topics found, top words, and qualitative coherence against LDA. Which surfaces the real categories more cleanly?
-3. **Hard.** Compute c_v coherence for both LDA and BERTopic on your corpus. Run each with 5, 10, 20, 50 topics. Plot coherence vs topic count. Report which method is more stable across topic counts.
+1. **Łatwe.** Dopasuj LDA z 5 tematami na zbiorze 20 Newsgroups. Wydrukuj top 10 słów na temat. Oznacz każdy temat ręcznie. Czy algorytm znalazł prawdziwe kategorie?
+2. **Średnie.** Dopasuj BERTopic na tym samym podzbiorze 20 Newsgroups. Porównaj liczbę znalezionych tematów, najważniejsze słowa i spójność jakościową w porównaniu z LDA. Który bardziej czysto ujawnia prawdziwe kategorie?
+3. **Trudne.** Oblicz c_v coherence dla LDA i BERTopic na swoim korpusie. Uruchom każdy z 5, 10, 20, 50 tematami. Wykreśl coherence vs liczba tematów. Określ, która metoda jest bardziej stabilna wzdłuż liczby tematów.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| Topic | A thing the corpus is about | A probability distribution over words (LDA) or a cluster of similar documents (BERTopic). |
-| Mixed membership | Doc is multiple topics | LDA assigns each document a distribution over all topics. |
-| UMAP | Dimensionality reduction | Manifold learning that preserves local structure; used in BERTopic. |
-| HDBSCAN | Density clustering | Finds variable-size clusters; produces "noise" label (-1) for outliers. |
-| c_v coherence | Topic quality metric | Average pointwise mutual information of top topic words within sliding windows. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-------------------------|
+| Topic | Rzecz, o której jest korpus | Rozkład prawdopodobieństwa nad słowami (LDA) lub klaster podobnych dokumentów (BERTopic). |
+| Mixed membership | Dokument jest wieloma tematami | LDA przypisuje każdemu dokumentowi rozkład nad wszystkimi tematami. |
+| UMAP | Redukcja wymiarowości | Uczenie rozmaitości zachowujące lokalną strukturę; używane w BERTopic. |
+| HDBSCAN | Klastrowanie gęstości | Znajduje klastry o zmiennej wielkości; produkuje etykietę „szumu" (-1) dla outlierów. |
+| c_v coherence | Metryka jakości tematu | Średni pointwise mutual information najważniejszych słów tematu w sliding windows. |
 
-## Further Reading
+## Dalsza lektura
 
-- [Blei, Ng, Jordan (2003). Latent Dirichlet Allocation](https://www.jmlr.org/papers/volume3/blei03a/blei03a.pdf) — the LDA paper.
-- [Grootendorst (2022). BERTopic: Neural topic modeling with a class-based TF-IDF procedure](https://arxiv.org/abs/2203.05794) — the BERTopic paper.
-- [Röder, Both, Hinneburg (2015). Exploring the Space of Topic Coherence Measures](https://svn.aksw.org/papers/2015/WSDM_Topic_Evaluation/public.pdf) — the paper that introduced c_v and friends.
-- [BERTopic documentation](https://maartengr.github.io/BERTopic/) — the production reference. Excellent examples.
+- [Blei, Ng, Jordan (2003). Latent Dirichlet Allocation](https://www.jmlr.org/papers/volume3/blei03a/blei03a.pdf) — artykuł o LDA.
+- [Grootendorst (2022). BERTopic: Neural topic modeling with a class-based TF-IDF procedure](https://arxiv.org/abs/2203.05794) — artykuł o BERTopic.
+- [Röder, Both, Hinneburg (2015). Exploring the Space of Topic Coherence Measures](https://svn.aksw.org/papers/2015/WSDM_Topic_Evaluation/public.pdf) — artykuł, który wprowadził c_v i pokrewne miary.
+- [BERTopic documentation](https://maartengr.github.io/BERTopic/) — referencja produkcyjna. Świetne przykłady.

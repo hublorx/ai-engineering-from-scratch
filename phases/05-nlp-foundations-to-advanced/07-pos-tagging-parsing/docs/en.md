@@ -1,38 +1,38 @@
-# POS Tagging and Syntactic Parsing
+# Tagowanie POS i analizowanie składniowe
 
-> Grammar was unfashionable for a while. Then every LLM pipeline needed to validate structured extraction, and it came back.
+> Gramatyka była niemodna przez jakiś czas. Potem każdy pipeline LLM potrzebował walidacji strukturalnej ekstrakcji i wróciła.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 5 · 01 (Text Processing), Phase 2 · 14 (Naive Bayes)
-**Time:** ~45 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 5 · 01 (Text Processing), Phase 2 · 14 (Naive Bayes)
+**Szacowany czas:** ~45 minut
 
-## The Problem
+## Problem
 
-Lesson 01 promised that lemmatization needs a part-of-speech tag. Without knowing `running` is a verb, a lemmatizer cannot reduce it to `run`. Without knowing `better` is an adjective, it cannot reduce to `good`.
+Lekcja 01 obiecywała, że lematyzacja potrzebuje tagu części mowy. Bez wiedzy, że `running` jest czasownikiem, lematyzator nie może zredukować go do `run`. Bez wiedzy, że `better` jest przymiotnikiem, nie może zredukować do `good`.
 
-That promise hid a whole subfield. Part-of-speech tagging assigns grammatical categories. Syntactic parsing recovers the sentence's tree structure: which word modifies which, which verb governs which arguments. Classical NLP spent twenty years refining both. Then deep learning collapsed them into a token-classification task on top of a pretrained transformer, and the research community moved on.
+To obietnica ukrywała całą subdyscyplinę. Tagowanie części mowy (POS tagging) przypisuje kategorie gramatyczne. Analiza składniowa (syntactic parsing) odzyskuje drzewiastą strukturę zdania: które słowo modyfikuje które, który czasownik rządzi którymi argumentami. Klasyczne NLP spędziło dwadzieścia lat nad doskonaleniem obu. Potem deep learning zredukował je do zadania klasyfikacji tokenów na szczycie pretrained transformera, a społeczność badawcza poszła dalej.
 
-Not the applied community. Every structured-extraction pipeline still uses POS and dependency trees under the hood. LLM-generated JSON gets validated against grammatical constraints. Question-answering systems decompose queries using dependency parses. Machine translation quality evaluators check alignment of parse trees.
+Nie społeczność stosowana. Każdy pipeline strukturalnej ekstrakcji nadal używa tagów POS i drzew zależności pod maską. LLM-generowany JSON jest walidowany względem ograniczeń gramatycznych. Systemy odpowiadania na pytania rozkładają zapytania używając analiz zależności. Oceniające jakość tłumaczenia maszynowego sprawdzają wyrównanie drzew analizy.
 
-Worth knowing. This lesson introduces the tagsets, the baselines, and the point where you stop implementing from scratch and call spaCy.
+Warto wiedzieć. Ta lekcja wprowadza tagiesty, baseline'y i punkt, w którym przestajesz implementować od zera i wywołujesz spaCy.
 
-## The Concept
+## Koncepcja
 
-![POS tag + dependency parse example](./assets/pos-parse.svg)
+![Przykład tagu POS i analizy zależności](./assets/pos-parse.svg)
 
-**POS tagging** labels each token with a grammatical category. The **Penn Treebank (PTB)** tagset is the English default. 36 tags with distinctions the casual reader finds fussy: `NN` singular noun, `NNS` plural noun, `NNP` proper noun singular, `VBD` verb past tense, `VBZ` verb 3rd person singular present, and so on. The **Universal Dependencies (UD)** tagset is coarser (17 tags) and language-agnostic; it became the default for cross-lingual work.
+**Tagowanie POS** etykietuje każdy token kategorią gramatyczną. Tagesta **Penn Treebank (PTB)** to domyślna angielska. 36 tagów z rozróżnieniami, które laik uznaje za pedantyczne: `NN` rzeczownik singular, `NNS` rzeczownik plural, `NNP` rzeczownik własny singular, `VBD` czasownik czas przeszły, `VBZ` czasownik 3. osoba singular prezent, i tak dalej. Tagesta **Universal Dependencies (UD)** jest grubsza (17 tagów) i niezależna od języka; stała się domyślna dla pracy wielojęzycznej.
 
 ```
 The/DET cats/NOUN were/AUX running/VERB at/ADP 3pm/NOUN ./PUNCT
 ```
 
-**Syntactic parsing** produces a tree. Two major styles:
+**Analiza składniowa** produkuje drzewo. Dwa główne style:
 
-- **Constituency parsing.** Noun phrases, verb phrases, prepositional phrases nest inside each other. Output is a tree of non-terminal categories (NP, VP, PP) with words as leaves.
-- **Dependency parsing.** Each word has a single head word it depends on, labeled with a grammatical relation. Output is a tree where every edge is a (head, dependent, relation) triple.
+- **Analiza constituencujna.** Frazy rzeczownikowe, frazy czasownikowe, frazy przyimkowe zagnieżdżają się w sobie. Wynik to drzewo kategorii nie-terminalnych (NP, VP, PP) ze słowami jako liśćmi.
+- **Analiza zależnościowa.** Każde słowo ma jedno słowo-nadrzędne, od którego zależy, oznaczone relacją gramatyczną. Wynik to drzewo, gdzie każda krawędź jest trójką (head, dependent, relation).
 
-Dependency parsing won in the 2010s because it generalizes cleanly across languages, especially free-word-order ones.
+Analiza zależnościowa wygrała w latach 2010, ponieważ generalizuje się czysto między językami, szczególnie tymi z dowolnym porządkiem słów.
 
 ```
 running is ROOT
@@ -42,11 +42,11 @@ at is prep of running
 3pm is pobj of at
 ```
 
-## Build It
+## Zbuduj to
 
-### Step 1: most-frequent-tag baseline
+### Krok 1: baseline najczęstszego taga
 
-The dumbest POS tagger that works. For each word, predict the tag it had most often in training.
+Najgłupszy tagger POS, który działa. Dla każdego słowa przewiduj tag, który miało najczęściej podczas treningu.
 
 ```python
 from collections import Counter, defaultdict
@@ -68,17 +68,17 @@ def predict_mft(tokens, word_best, default_tag):
     return [word_best.get(t.lower(), default_tag) for t in tokens]
 ```
 
-On the Brown corpus, this baseline hits ~85% accuracy. Not good, but the floor below which no serious model should fall.
+Na korpusie Brown ten baseline osiąga ~85% dokładności. Nie dobrze, ale podłoga, poniżej której żaden poważny model nie powinien spaść.
 
-### Step 2: bigram HMM tagger
+### Krok 2: bigramowy tagger HMM
 
-Model the joint probability of the sequence:
+Modeluj prawdopodobieństwo łączne sekwencji:
 
 ```
 P(tags, words) = prod P(tag_i | tag_{i-1}) * P(word_i | tag_i)
 ```
 
-Two tables: transition probabilities (tag given previous tag), emission probabilities (word given tag). Estimate both from counts with Laplace smoothing. Decode with Viterbi (dynamic programming over the tag lattice).
+Dwie tablice: prawdopodobieństwa przejścia (tag przy danym poprzednim tagu), prawdopodobieństwa emisji (słowo przy danym tagu). Estymuj oba ze zliczeń z wygładzaniem Laplace'a. Dekoduj z Viterbi (programowanie dynamiczne nad kratą tagów).
 
 ```python
 import math
@@ -144,22 +144,22 @@ def viterbi(tokens, transitions, emissions, tags, vocab, alpha=0.01):
     return [tags_list[j] for j in reversed(path)]
 ```
 
-Bigram HMM on Brown hits ~93% accuracy. The jump from 85% to 93% is mostly transition probabilities — the model learns `DET NOUN` is common and `NOUN DET` is rare.
+Bigram HMM na Brown osiąga ~93% dokładności. Skok z 85% na 93% to głównie prawdopodobieństwa przejścia — model uczy się, że `DET NOUN` jest częste, a `NOUN DET` rzadkie.
 
-### Step 3: why modern taggers beat this
+### Krok 3: dlaczego nowoczesne taggery to biją
 
-Transition + emission probabilities are local. They cannot capture that `saw` is a noun in "I bought a saw" but a verb in "I saw the movie." A CRF with arbitrary features (suffix, word shape, word before and after, word itself) hits ~97%. A BiLSTM-CRF or transformer hits ~98%+.
+Prawdopodobieństwa przejścia i emisji są lokalne. Nie mogą uchwycić, że `saw` jest rzeczownikiem w "I bought a saw", ale czasownikiem w "I saw the movie." CRF z dowolnymi cechami (suffix, kształt słowa, słowo przed i po, samo słowo) osiąga ~97%. BiLSTM-CRF lub transformer osiąga ~98%+.
 
-The ceiling on this task is set by annotator disagreement. Human annotators agree about 97% of the time on Penn Treebank. Models past 98% are probably overfitting the test set.
+Pułap tego zadania jest ustawiony przez niezgodę annotatorów. Ludzcy annotatorzy zgadzają się w ~97% przypadków na Penn Treebank. Modele powyżej 98% prawdopodobnie przeuczają się na zbiorze testowym.
 
-### Step 4: dependency parsing sketch
+### Krok 4: zarys analizy zależności
 
-Full dependency parsing from scratch is out of scope; the canonical textbook treatment is in Jurafsky and Martin. Two classical families to know:
+Pełna analiza zależności od zera jest poza zakresem; kanoniczna behandling w podręczniku jest w Jurafsky i Martin. Dwie klasyczne rodziny, które warto znać:
 
-- **Transition-based** parsers (arc-eager, arc-standard) act like a shift-reduce parser: they read tokens, shift them onto a stack, and apply reduce actions that create arcs. Greedy decoding is fast. Classic implementation is MaltParser. Modern neural version: Chen and Manning's transition-based parser.
-- **Graph-based** parsers (Eisner's algorithm, Dozat-Manning biaffine) score every possible head-dependent edge and pick the maximum spanning tree. Slower but more accurate.
+- **Parsery oparte na przejściach** (arc-eager, arc-standard) działają jak parser shift-reduce: czytają tokeny, przesuwają je na stos i stosują akcje redukcji, które tworzą łuki. Zachłanne dekodowanie jest szybkie. Klasyczna implementacja to MaltParser. Nowoczesna wersja neuronowa: parser oparty na przejściach Chen i Manning.
+- **Parsery oparte na grafach** (algorytm Eisnera, biaffine Dozat-Manning) oceniają każdą możliwą krawędź head-dependent i wybierają maximum spanning tree. Wolniejsze, ale dokładniejsze.
 
-For most applied work, call spaCy:
+Dla większości pracy stosowanej, wywołaj spaCy:
 
 ```python
 import spacy
@@ -180,34 +180,34 @@ at         tag=IN    pos=ADP    dep=prep       head=running
 .          tag=.     pos=PUNCT  dep=punct      head=running
 ```
 
-Read the `dep` column bottom to top and the sentence's grammatical structure falls out.
+Czytaj kolumnę `dep` od dołu do góry, a struktura gramatyczna zdania się uwypukli.
 
-## Use It
+## Użyj tego
 
-Every production NLP library ships POS and dependency parsers as part of a standard pipeline.
+Każda produkcyjna biblioteka NLP wysyła tagery POS i parsery zależności jako część standardowego pipeline.
 
-- **spaCy** (`en_core_web_sm` / `md` / `lg` / `trf`). Fast, accurate, integrated with tokenization + NER + lemmatization. `token.tag_` (Penn), `token.pos_` (UD), `token.dep_` (dependency relation).
-- **Stanford NLP (stanza)**. Stanford's successor to CoreNLP. State-of-the-art on 60+ languages.
-- **trankit**. Transformer-based, good UD accuracy.
-- **NLTK**. `pos_tag`. Usable, slow, older. Fine for teaching.
+- **spaCy** (`en_core_web_sm` / `md` / `lg` / `trf`). Szybkie, dokładne, zintegrowane z tokenizacją + NER + lematyzacją. `token.tag_` (Penn), `token.pos_` (UD), `token.dep_` (relacja zależności).
+- **Stanford NLP (stanza)**. Następca Stanford CoreNLP. Stan techniki na 60+ językach.
+- **trankit**. Oparte na transformerze, dobra dokładność UD.
+- **NLTK**. `pos_tag`. Używalne, wolne, starsze. Dobre do nauczania.
 
-### Where this still matters in 2026
+### Gdzie to nadal ma znaczenie w 2026
 
-- **Lemmatization.** Lesson 01 needs POS to lemmatize correctly. Always.
-- **Structured extraction from LLM outputs.** Validate that a generated sentence respects grammatical constraints (e.g., subject-verb agreement, required modifiers).
-- **Aspect-based sentiment.** Dependency parses tell you which adjective modifies which noun.
-- **Query understanding.** "movies directed by Wes Anderson starring Bill Murray" decomposes into structured constraints via the parse.
-- **Cross-lingual transfer.** UD tags and dependency relations are language-agnostic, enabling zero-shot structured analysis of new languages.
-- **Low-compute pipelines.** If you cannot ship a transformer, POS + dependency parse + gazetteer gets you surprisingly far.
+- **Lematyzacja.** Lekcja 01 potrzebuje POS do poprawnej lematyzacji. Zawsze.
+- **Strukturalna ekstrakcja z wyjść LLM.** Waliduj, że wygenerowane zdanie respektuje ograniczenia gramatyczne (np. zgodność podmiotu z orzeczeniem, wymagane modyfikatory).
+- **Sentiment oparty na aspektach.** Analizy zależności mówią ci, który przymiotnik modyfikuje który rzeczownik.
+- **Rozumienie zapytań.** "movies directed by Wes Anderson starring Bill Murray" rozkłada się na strukturalne ograniczenia przez parse.
+- **Transfer wielojęzyczny.** Tagi UD i relacje zależności są niezależne od języka, umożliwiając zero-shot strukturalną analizę nowych języków.
+- **Pipeline niskich obliczeń.** Jeśli nie możesz dostarczyć transformera, POS + parse zależności + gazetteer daje ci zaskakująco daleko.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-grammar-pipeline.md`:
+Zapisz jako `outputs/skill-grammar-pipeline.md`:
 
 ```markdown
 ---
 name: grammar-pipeline
-description: Design a classical POS + dependency pipeline for a downstream NLP task.
+description: Zaprojektuj klasyczny pipeline POS + zależności dla downstream NLP task.
 version: 1.0.0
 phase: 5
 lesson: 07
@@ -224,25 +224,25 @@ Given a downstream task (information extraction, rewrite validation, query decom
 Refuse to recommend rolling your own parser. Building parsers from scratch is a research project, not an application task. Flag any pipeline that consumes POS tags without handling lowercase/uppercase variants as fragile.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Using the most-frequent-tag baseline on a small tagged corpus (e.g., NLTK's Brown subset), measure accuracy on held-out sentences. Verify the ~85% result.
-2. **Medium.** Train the bigram HMM above and report per-tag precision/recall. Which tags does the HMM confuse most?
-3. **Hard.** Use spaCy's dependency parse to extract subject-verb-object triples from a 1000-sentence sample. Evaluate on 50 manually labeled triples. Document where extraction fails (often passives, coordinations, and elided subjects).
+1. **Łatwe.** Używając baseline najczęstszego taga na małym korpusie z tagami (np. podzbiór Browna z NLTK), zmierz dokładność na zdaniach hold-out. Zweryfikuj wynik ~85%.
+2. **Średnie.** Wytrenuj powyższy bigramowy HMM i raportuj precision/recall per tag. Które tagi HMM myli najbardziej?
+3. **Trudne.** Użyj analizy zależności spaCy do ekstrakcji trójek subject-verb-object ze 1000 zdaniowej próbki. Ewaluuj na 50 ręcznie oznakowanych trójkach. Udokumentuj, gdzie ekstrakcja zawodzi (często passiwa, koordynacje i eliptyczne podmioty).
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| POS tag | Word's type | Grammatical category. PTB has 36; UD has 17. |
-| Penn Treebank | Standard tagset | English-specific. Fine-grained verb tenses and noun number. |
-| Universal Dependencies | Multilingual tagset | Coarser than PTB; language-neutral; defaults for cross-lingual work. |
-| Dependency parse | Sentence tree | Each word has one head, each edge has a grammatical relation. |
-| Viterbi | Dynamic programming | Finds the highest-probability tag sequence given emissions and transitions. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|--------------------------|
+| POS tag | Typ słowa | Kategoria gramatyczna. PTB ma 36; UD ma 17. |
+| Penn Treebank | Standardowy tagset | Specyficzny dla angielskiego. Drobnostkowe czasy czasowników i liczba rzeczowników. |
+| Universal Dependencies | Wielojęzyczny tagset | Grubszy niż PTB; neutralny językowo; domyślny dla pracy międzyjęzykowej. |
+| Dependency parse | Drzewo zdania | Każde słowo ma jedno head; każda krawędź ma relację gramatyczną. |
+| Viterbi | Programowanie dynamiczne | Znajduje sekwencję tagów o najwyższym prawdopodobieństwie przy danych emisjach i przejściach. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Jurafsky and Martin — Speech and Language Processing, chapters 8 and 18](https://web.stanford.edu/~jurafsky/slp3/) — the canonical textbook treatment of POS and parsing.
-- [Universal Dependencies project](https://universaldependencies.org/) — the cross-lingual tagset and treebank collection used by every multilingual parser.
-- [spaCy linguistic features guide](https://spacy.io/usage/linguistic-features) — practical reference for every attribute exposed on `Token`.
-- [Chen and Manning (2014). A Fast and Accurate Dependency Parser using Neural Networks](https://nlp.stanford.edu/pubs/emnlp2014-depparser.pdf) — the paper that brought neural parsers into the mainstream.
+- [Jurafsky i Martin — Speech and Language Processing, rozdziały 8 i 18](https://web.stanford.edu/~jurafsky/slp3/) — kanoniczna behandling podręcznikowa POS i parsowania.
+- [Universal Dependencies project](https://universaldependencies.org/) — międzyjęzykowy tagset i kolekcja treebank używane przez każdy wielojęzyczny parser.
+- [spaCy linguistic features guide](https://spacy.io/usage/linguistic-features) — praktyczne odniesienie dla każdego atrybutu eksponowanego na `Token`.
+- [Chen and Manning (2014). A Fast and Accurate Dependency Parser using Neural Networks](https://nlp.stanford.edu/pubs/emnlp2014-depparser.pdf) — paper który wprowadził neural parsery do mainstreamu.

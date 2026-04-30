@@ -1,37 +1,37 @@
-# Chatbots — Rule-Based to Neural to LLM Agents
+# Chatboty — Od regułowych do neuronowych do agentów LLM
 
-> ELIZA replied with pattern matches. DialogFlow mapped intents. GPT answered from weights. Claude runs tools and verifies. Each era solved the previous one's worst failure.
+> ELIZA odpowiadała przez dopasowywanie wzorców. DialogFlow mapował intencje. GPT odpowiadał z wag. Claude uruchamia narzędzia i weryfikuje. Każra era rozwiązywała najgorszy błąd poprzedniej.
 
-**Type:** Learn
-**Languages:** Python
-**Prerequisites:** Phase 5 · 13 (Question Answering), Phase 5 · 14 (Information Retrieval)
-**Time:** ~75 minutes
+**Typ:** Nauka
+**Języki:** Python
+**Wymagania wstępne:** Faza 5 · 13 (Question Answering), Faza 5 · 14 (Information Retrieval)
+**Szacowany czas:** ~75 minut
 
-## The Problem
+## Problem
 
-A user says "I want to change my flight." The system has to figure out what they want, what information is missing, how to get it, and how to complete the action. Then the user says "wait, what if I cancel instead?" and the system has to remember the context, switch tasks, and preserve state.
+Użytkownik mówi „Chcę zmienić mój lot." System musi ustalić, czego chce, jakich informacji brakuje, jak je zdobyć i jak ukończyć działanie. Potem użytkownik mówi „poczekaj, a co jeśli zamiast tego anuluję?" i system musi pamiętać kontekst, przełączyć zadanie i zachować stan.
 
-Conversation is hard for an ML system. The input is open-ended. The output has to be coherent over many turns. The system may need to act on the world (change a flight, charge a card). Every wrong step is visible to the user.
+Konwersacja jest trudna dla systemu ML. Wejście jest otwarte. Wyjście musi być spójne przez wiele tur. System może potrzebować działać na świecie (zmienić lot, obciążyć kartę). Każdy błędny krok jest widoczny dla użytkownika.
 
-Chatbot architectures have cycled through four paradigms, each introduced because the previous one failed too visibly. This lesson walks them in order. The 2026 production landscape is a hybrid of the last two.
+Architektury chatbotów przeszły przez cztery paradygmaty, z których każdy został wprowadzony, ponieważ poprzedni zawodził zbyt widocznie. Ta lekcja przechodzi je po kolei. Krajobraz produkcyjny 2026 to hybryda dwóch ostatnich.
 
-## The Concept
+## Koncepcja
 
-![Chatbot evolution: rule-based → retrieval → neural → agent](../assets/chatbot.svg)
+![Ewolucja chatbotów: regułowe → retrieval → neuronowe → agent](../assets/chatbot.svg)
 
-**Rule-based (ELIZA, AIML, DialogFlow).** Hand-authored patterns match user input and produce responses. Intent classifiers route to predefined flows. Slot-filling state machines collect required info. Works brilliantly inside the narrow scope it was designed for. Fails immediately outside it. Still ships in safety-critical domains (banking authentication, airline booking) where hallucination is not tolerated.
+**Regułowe (ELIZA, AIML, DialogFlow).** Ręcznie tworzone wzorce dopasowują dane wejściowe użytkownika i produkują odpowiedzi. Klasyfikatory intencji kierują do predefiniowanych przepływów. Automaty stanów z wypełnianiem slotów zbierają wymagane informacje. Działa doskonale w wąskim zakresie, dla którego zostało zaprojektowane. Natychmiast zawodzi poza nim. Wciąż trafia do krytycznych domen bezpieczeństwa (uwierzytelnianie bankowe, rezerwacja linii lotniczych), gdzie halucynacje nie są tolerowane.
 
-**Retrieval-based.** A FAQ-style system. Encode every pair of (utterance, response). At runtime, encode the user's message and retrieve the nearest stored response. Think Zendesk's classic "similar articles" feature. Handles paraphrases better than rules. No generation, so no hallucination.
+**Oparte na retrieval.** System typu FAQ. Koduje każdą parę (wypowiedź, odpowiedź). W czasie wykonywania koduje wiadomość użytkownika i pobiera najbliższą zapisaną odpowiedź. Pomyśl o klasycznej funkcji „podobnych artykułów" w Zendesk. Lepiej radzi sobie z parafrazami niż reguły. Brak generacji, więc brak halucynacji.
 
-**Neural (seq2seq).** Encoder-decoder trained on conversation logs. Generates responses from scratch. Fluent but prone to generic outputs ("I don't know") and factual drift. Never reliably on topic. The reason Google, Facebook, and Microsoft all had disappointing chatbots in 2016-2019.
+**Neuronowe (seq2seq).** Enkoder-dekoder trenowany na logach konwersacji. Generuje odpowiedzi od zera. Płynne, ale podatne na generyczne wyniki („Nie wiem") i dryf faktów. Nigdy niezawodnie na temat. Powód, dla którego Google, Facebook i Microsoft mieli rozczarowujące chatboty w 2016-2019.
 
-**LLM agents.** A language model wrapped in a loop that plans, calls tools, and verifies outcomes. Not a chatbot with a long prompt. An agent loop: plan → call tool → observe result → decide next step. Retrieval-first grounding (RAG) keeps it from hallucinating. Tool calls let it actually do things. This is the 2026 architecture.
+**Agenci LLM.** Model językowy opakowany w pętlę, która planuje, wywołuje narzędzia i weryfikuje wyniki. To nie chatbot z długim promptem. To pętla agenta: plan → wywołaj narzędzie → obserwuj wynik → zdecyduj o następnym kroku. Retrieval-first grounding (RAG) zapobiega halucynacjom. Wywołania narzędzi pozwalają mu faktycznie wykonywać działania. To architektura 2026.
 
-The four paradigms are not sequential replacements. A 2026 production chatbot routes through all four: rule-based for authentication and destructive actions, retrieval for FAQ, neural generation for natural phrasing, LLM agent for ambiguous open-ended queries.
+Cztery paradygmaty nie są sekwencyjnymi zastąpieniami. Chatbot produkcyjny 2026 kieruje przez wszystkie cztery: regułowe do uwierzytelniania i destrukcyjnych działań, retrieval do FAQ, generację neuronową do naturalnego formułowania, agenta LLM do niejasnych otwartych zapytań.
 
-## Build It
+## Zbuduj to
 
-### Step 1: rule-based pattern matching
+### Krok 1: regułowe dopasowywanie wzorców
 
 ```python
 import re
@@ -59,11 +59,11 @@ def rule_based_respond(user_input):
     return "I don't understand."
 ```
 
-ELIZA in 20 lines. The reflection trick ("I feel sad" → "Why do you feel sad") is the canonical psychotherapist demo from Weizenbaum 1966. Still instructive.
+ELIZA w 20 liniach. Trik z refleksją („I feel sad" → „Why do you feel sad") to kanoniczna demonstracja psychoterapeuty z Weizenbaum 1966. Wciąż instruktywna.
 
-### Step 2: retrieval-based (FAQ)
+### Krok 2: oparte na retrieval (FAQ)
 
-This illustrative snippet requires `pip install sentence-transformers` (which pulls in torch). The runnable `code/main.py` for this lesson uses a stdlib Jaccard similarity instead, so the lesson runs without external dependencies.
+Ten ilustracyjny fragment wymaga `pip install sentence-transformers` (co ściąga torch). Uruchamialny `code/main.py` dla tej lekcji używa zamiast tego similarity Jaccard ze stdlib, więc lekcja działa bez zewnętrznych zależności.
 
 ```python
 from sentence_transformers import SentenceTransformer
@@ -91,11 +91,11 @@ def faq_respond(user_input, threshold=0.5):
     return FAQ[best][1]
 ```
 
-Threshold-based refusal is the key design choice. If the best match is not close enough, return `None` and let the system escalate.
+Odcięcie na podstawie progu to kluczowy wybór projektowy. Jeśli najlepsze dopasowanie nie jest wystarczająco bliskie, zwróć `None` i pozwól systemowi eskalować.
 
-### Step 3: neural generation (baseline)
+### Krok 3: generacja neuronowa (baseline)
 
-Use a small instruction-tuned encoder-decoder (FLAN-T5) or a fine-tuned conversational model. Production-unusable on its own in 2026 (contradiction, off-topic drift, factual nonsense), but ships inside hybrid systems for natural phrasing. DialoGPT-style decoder-only models need explicit turn separators and EOS handling to produce coherent replies; a FLAN-T5 text2text pipeline works out of the box for a teaching example.
+Użyj małego instrukcjowo dostrojonego enkodera-dekodera (FLAN-T5) lub dostrojonego modelu konwersacyjnego. W 2026 nie nadaje się do użytku produkcyjnego samodzielnie (sprzeczności, dryf poza temat, faktyczny bezsens), ale trafia do hybrydowych systemów do naturalnego formułowania. Modele decoder-only w stylu DialoGPT wymagają jawnych separatorów tur i obsługi EOS do produkcji spójnych odpowiedzi; pipeline text2text FLAN-T5 działa out of the box jako przykład dydaktyczny.
 
 ```python
 from transformers import pipeline
@@ -106,9 +106,9 @@ response = chatbot("Respond politely to: Hi there!", max_new_tokens=40)
 print(response[0]["generated_text"])
 ```
 
-### Step 4: LLM agent loop
+### Krok 4: pętla agenta LLM
 
-The 2026 production shape:
+Produkcyjny kształt 2026:
 
 ```python
 def agent_loop(user_message, tools, llm, max_steps=5):
@@ -135,11 +135,11 @@ def agent_loop(user_message, tools, llm, max_steps=5):
     return "I could not complete the task in the step budget."
 ```
 
-Three things to name. Tools are callable functions the LLM can invoke. The loop terminates when the LLM returns a final answer instead of a tool call. The step budget prevents infinite loops on ambiguous tasks.
+Trzy rzeczy do nazwania. Narzędzia to wywoływalne funkcje, które LLM może wywołać. Pętla kończy się, gdy LLM zwraca ostateczną odpowiedź zamiast wywołania narzędzia. Budżet kroków zapobiega nieskończonym pętlom przy niejasnych zadaniach.
 
-Real production adds: retrieval-first grounding (inject relevant docs before each LLM call), guardrails (refuse destructive actions without confirmation), observability (log every step), and evaluations (automated checks that agent behavior stays on-spec).
+Prawdziwa produkcja dodaje: retrieval-first grounding (wstrzykiwanie odpowiednich dokumentów przed każdym wywołaniem LLM), guardrails (odmowa destrukcyjnych działań bez potwierdzenia), observability (logowanie każdego kroku) i ewaluacje (zautomatyzowane sprawdzanie, że zachowanie agenta pozostaje zgodne ze specyfikacją).
 
-### Step 5: hybrid routing
+### Krok 5: hybrydowe routingowanie
 
 ```python
 def hybrid_chat(user_input):
@@ -158,39 +158,39 @@ def is_destructive_action(text):
     return any(w in text.lower() for w in danger_words)
 ```
 
-The pattern: deterministic rules for anything destructive, retrieval for canned FAQs, LLM agents for everything else. This is what ships in 2026 customer-support systems.
+Wzorzec: deterministyczne reguły dla wszystkiego destrukcyjnego, retrieval dla gotowych FAQ, agenci LLM dla wszystkiego innego. To jest to, co trafia do produkcyjnych systemów obsługi klienta 2026.
 
-## Use It
+## Użyj tego
 
-The 2026 stack:
+Stack 2026:
 
-| Use case | Architecture |
-|---------|---------------|
-| Booking, payment, authentication | Rule-based state machines + slot filling |
-| Customer support FAQs | Retrieval over curated answers |
-| Open-ended help chat | LLM agent with RAG + tool calls |
-| Internal tools / IDE assistants | LLM agent with tool calls (search, read, write) |
-| Companion / character chatbots | Tuned LLM with persona system prompt, retrieval on knowledge |
+| Przypadek użycia | Architektura |
+|-----------------|--------------|
+| Rezerwacja, płatność, uwierzytelnianie | Regułowe automaty stanów + wypełnianie slotów |
+| FAQ obsługi klienta | Retrieval na wyselekcjonowanych odpowiedziach |
+| Otwarta pomoc czatowa | Agent LLM z RAG + wywołaniami narzędzi |
+| Wewnętrzne narzędzia / asystenci IDE | Agent LLM z wywołaniami narzędzi (wyszukiwanie, czytanie, pisanie) |
+| Chatboty towarzyszące / postaciowe | Dostrojony LLM z systemowym promptem persony, retrieval na wiedzy |
 
-Always use hybrid routing in production. No single architecture handles every request well. The routing layer itself is typically a small intent classifier.
+Zawsze używaj hybrydowego routingowania w produkcji. Żadna pojedyncza architektura nie obsługuje dobrze każdego żądania. Sama warstwa routingowania to typowo mały klasyfikator intencji.
 
-## Failure modes that still ship
+## Tryby awarii, które wciąż trafiają do produkcji
 
-- **Confident fabrication.** LLM agent claims it completed an action it did not. Mitigation: verify outcomes, log tool calls, never let the LLM claim to have done something without a successful tool return.
-- **Prompt injection.** User inserts text that overrides the system prompt. Ranked LLM01 in the OWASP Top 10 for LLM Applications 2025. Two flavors: direct injection (pasted into the chat) and indirect injection (hidden in documents, emails, or tool outputs the agent reads).
+- **Pewna fabrykacja.** Agent LLM twierdzi, że ukończył działanie, którego nie wykonał. Łagodzenie: weryfikuj wyniki, loguj wywołania narzędzi, nigdy nie pozwalaj LLM twierdzić, że coś zrobił bez pomyślnego zwrotu z narzędzia.
+- **Prompt injection.** Użytkownik wstawia tekst, który nadpisuje system prompt. Sklasyfikowany LLM01 w OWASP Top 10 for LLM Applications 2025. Dwa smaki: bezpośrednia iniekcja (wklejona do czatu) i pośrednia iniekcja (ukryta w dokumentach, e-mailach lub wynikach narzędzi, które agent czyta).
 
-  Attack rates vary by scenario. Measured success rates range ~0.5-8.5% across frontier models in general tool-use and coding benchmarks. Specific high-risk setups (adaptive attacks against AI coding agents, vulnerable orchestration) have reached ~84%. Production CVEs include EchoLeak (CVE-2025-32711, CVSS 9.3) — a zero-click data-exfiltration flaw in Microsoft 365 Copilot triggered by an attacker-controlled email.
+  Wskaźniki ataków różnią się w zależności od scenariusza. Zmierzone wskaźniki sukcesu wahają się od ~0,5-8,5% wśród frontier models w ogólnych benchmarkach użycia narzędzi i kodowania. Konkretne wysokiego ryzyka konfiguracje (adaptacyjne ataki na AI coding agents, podatna orkiestracja) osiągnęły ~84%. Produkcyjne CVE obejmują EchoLeak (CVE-2025-32711, CVSS 9.3) — lukę w zabezpieczeniach typu zero-click umożliwiającą eksfiltrację danych w Microsoft 365 Copilot wyzwalaną przez e-mail kontrolowany przez atakującego.
 
-  Mitigations: treat user input as untrusted throughout the loop; sanitize before tool calls; isolate tool outputs from the main prompt; use the Plan-Verify-Execute (PVE) pattern where the agent plans first, then verifies each action against that plan before executing (this stops tool results from injecting new unplanned actions); require user confirmation for destructive actions; apply least-privilege to tool scopes.
+  Łagodzenia: traktuj dane wejściowe użytkownika jako niezaufane przez całą pętlę; sanityzuj przed wywołaniami narzędzi; izoluj wyniki narzędzi od głównego prompta; używaj wzorca Plan-Verify-Execute (PVE), gdzie agent najpierw planuje, następnie weryfikuje każde działanie względem tego planu przed wykonaniem (to powstrzymuje wyniki narzędzi przed wstrzykiwaniem nowych nieplanowanych działań); wymagaj potwierdzenia użytkownika dla destrukcyjnych działań; stosuj least-privilege do zakresów narzędzi.
 
-  No amount of prompt engineering fully eliminates this risk. External runtime defense layers (LLM Guard, allowlist validation, semantic anomaly detection) are required.
-- **Scope creep.** Agent goes off-task because a tool call returned tangentially related info. Mitigation: narrow tool contracts; keep the system prompt focused; add evaluations for off-task rate.
-- **Infinite loops.** Agent keeps calling the same tool. Mitigation: step budget, tool-call deduplication, LLM judge on "are we making progress."
-- **Context window exhaustion.** Long conversations push the earliest turns out of context. Mitigation: summarize older turns, retrieve relevant past turns by similarity, or use a long-context model.
+  Żadna ilość prompt engineeringu nie eliminuje całkowicie tego ryzyka. Zewnętrzne warstwy obrony runtime (LLM Guard, walidacja allowlist, wykrywanie semantycznych anomalii) są wymagane.
+- **Rozrost zakresu.** Agent schodzi z zadania, bo wywołanie narzędzia zwróciło pobocznie powiązane informacje. Łagodzenie: zawężaj kontrakty narzędzi; utrzymuj system prompt skoncentrowany; dodawaj ewaluacje na wskaźnik zejścia z tematu.
+- **Nieskończone pętle.** Agent ciągle wywołuje to samo narzędzie. Łagodzenie: budżet kroków, deduplikacja wywołań narzędzi, sędzia LLM na „czy robimy postępy."
+- **Wycieńczenie okna kontekstowego.** Długie rozmowy wypychają najwcześniejsze tury poza kontekst. Łagodzenie: podsumowuj starsze tury, pobieraj pasujące przeszłe tury przez podobieństwo lub używaj long-context model.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-chatbot-architect.md`:
+Zapisz jako `outputs/skill-chatbot-architect.md`:
 
 ```markdown
 ---
@@ -212,30 +212,30 @@ Given a product context (user need, compliance constraints, available tools, dat
 Refuse to recommend a pure-LLM agent for any destructive action (payments, account deletion, data modification) without a structured confirmation flow. Refuse to skip the prompt-injection audit if the agent has write access to anything.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Implement the rule-based respond above with 10 patterns for a coffee-shop ordering bot. Test edge cases: double orders, modifications, cancellation, unclear intent.
-2. **Medium.** Build a hybrid FAQ + LLM fallback. 50 canned FAQ entries for a SaaS product, LLM fallback with retrieval over the docs site. Measure refusal rate and accuracy on 100 real support questions.
-3. **Hard.** Implement the agent loop above with three tools (search, read-user-data, send-email). Run an evaluation with 50 test scenarios including prompt injection attempts. Report off-task rate, failed task rate, and any injection success.
+1. **Łatwe.** Zaimplementuj regułową odpowiedź powyżej z 10 wzorcami dla chatbota zamawiania w kawiarni. Przetestuj przypadki brzegowe: podwójne zamówienia, modyfikacje, anulowanie, niejasna intencja.
+2. **Średnie.** Zbuduj hybrydowe FAQ + fallback LLM. 50 puszkowych wpisów FAQ dla produktu SaaS, fallback LLM z retrieval na stronie dokumentacji. Zmierz wskaźnik odmów i dokładność na 100 prawdziwych pytaniach wsparcia.
+3. **Trudne.** Zaimplementuj pętlę agenta powyżej z trzema narzędziami (search, read-user-data, send-email). Uruchom ewaluację z 50 scenariuszami testowymi w tym próbami prompt injection. Raportuj wskaźnik zejścia z tematu, wskaźnik nieudanych zadań i sukces jakiejkolwiek iniekcji.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| Intent | What the user wants | Categorical label (book_flight, reset_password). Routed to a handler. |
-| Slot | A piece of info | Parameter the bot needs (date, destination). Slot filling is the sequence of asks. |
-| RAG | Retrieval plus generation | Retrieve relevant docs, then ground the LLM's response. |
-| Tool call | Function invocation | LLM emits a structured call with name + args. Runtime executes, returns result. |
-| Agent loop | Plan, act, verify | Controller that runs LLM calls interleaved with tool calls until task complete. |
-| Prompt injection | User attacks prompt | Malicious input that tries to override the system prompt. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-------------------------|
+| Intencja | Czego użytkownik chce | Etykieta kategorialna (book_flight, reset_password). Kierowana do handlera. |
+| Slot | Kawałek informacji | Parametr, którego bot potrzebuje (data, destynacja). Wypełnianie slotów to sekwencja zapytań. |
+| RAG | Retrieval plus generation | Pobierz odpowiednie dokumenty, następnie uziemiń odpowiedź LLM. |
+| Tool call | Wywołanie funkcji | LLM emituje ustrukturyzowane wywołanie z nazwą + argumentami. Runtime wykonuje, zwraca wynik. |
+| Agent loop | Planuj, działaj, weryfikuj | Kontroler, który uruchamia wywołania LLM przeplatane wywołaniami narzędzi aż do ukończenia zadania. |
+| Prompt injection | Użytkownik atakuje prompt | Złośliwy input, który próbuje nadpisać system prompt. |
 
-## Further Reading
+## Dalsza lektura
 
-- [Weizenbaum (1966). ELIZA — A Computer Program For the Study of Natural Language Communication](https://web.stanford.edu/class/cs124/p36-weizenabaum.pdf) — the original rule-based chatbot paper.
-- [Thoppilan et al. (2022). LaMDA: Language Models for Dialog Applications](https://arxiv.org/abs/2201.08239) — Google's late neural-chatbot paper, just before LLM agents took over.
-- [Yao et al. (2022). ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — the paper that named the agent loop pattern.
-- [Anthropic's guide on building effective agents](https://www.anthropic.com/research/building-effective-agents) — 2024 production guidance that still holds in 2026.
-- [Greshake et al. (2023). Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173) — the prompt-injection paper.
-- [OWASP Top 10 for LLM Applications 2025 — LLM01 Prompt Injection](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) — the ranking that made prompt injection the top security concern.
-- [AWS — Securing Amazon Bedrock Agents against Indirect Prompt Injections](https://aws.amazon.com/blogs/machine-learning/securing-amazon-bedrock-agents-a-guide-to-safeguarding-against-indirect-prompt-injections/) — practical orchestration-layer defenses including Plan-Verify-Execute and user-confirmation flows.
-- [EchoLeak (CVE-2025-32711)](https://www.vectra.ai/topics/prompt-injection) — the canonical zero-click data-exfiltration CVE from indirect prompt injection. Reference case for why write-access agents need runtime defenses.
+- [Weizenbaum (1966). ELIZA — A Computer Program For the Study of Natural Language Communication](https://web.stanford.edu/class/cs124/p36-weizenabaum.pdf) — oryginalny regułowy artykuł o chatbotach.
+- [Thoppilan et al. (2022). LaMDA: Language Models for Dialog Applications](https://arxiv.org/abs/2201.08239) — późny neuronowy artykuł o chatbotach Google, tuż przed przejęciem przez agentów LLM.
+- [Yao et al. (2022). ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — artykuł, który nazwał wzorzec pętli agenta.
+- [Anthropic's guide on building effective agents](https://www.anthropic.com/research/building-effective-agents) — produkcyjne wskazówki z 2024, które wciąż obowiązują w 2026.
+- [Greshake et al. (2023). Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173) — artykuł o prompt injection.
+- [OWASP Top 10 for LLM Applications 2025 — LLM01 Prompt Injection](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) — ranking, który uczynił prompt injection największym problemem bezpieczeństwa.
+- [AWS — Securing Amazon Bedrock Agents against Indirect Prompt Injections](https://aws.amazon.com/blogs/machine-learning/securing-amazon-bedrock-agents-a-guide-to-safeguarding-against-indirect-prompt-injections/) — praktyczna obrona warstwy orkiestracji, w tym Plan-Verify-Execute i przepływy potwierdzenia użytkownika.
+- [EchoLeak (CVE-2025-32711)](https://www.vectra.ai/topics/prompt-injection) — kanoniczne CVE typu zero-click eksfiltracji danych z pośredniego prompt injection. Przypadek referencyjny, dlaczego agenci z dostępem do zapisu potrzebują obrony runtime.

@@ -1,35 +1,35 @@
-# Text Summarization
+# Streszczanie tekstu
 
-> Extractive systems tell you what the document said. Abstractive systems tell you what the author meant. Different tasks, different pitfalls.
+> Systemy ekstrakcyjne mówią ci, co dokument powiedział. Systemy abstrakcyjne mówią ci, co autor miał na myśli. Różne zadania, różne pułapki.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 5 · 02 (BoW + TF-IDF), Phase 5 · 11 (Machine Translation)
-**Time:** ~75 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Faza 5 · 02 (BoW + TF-IDF), Faza 5 · 11 (Machine Translation)
+**Szacowany czas:** ~75 minut
 
-## The Problem
+## Problem
 
-A 2,000-word news article lands in your feed. You need 120 words that capture it. You can either pick the three most important sentences from the article (extractive) or rewrite the content in your own words (abstractive). Both are called summarization. They are completely different problems.
+Artykuł informacyjny o 2000 słowach trafia do twojego feeda. Potrzebujesz 120 słów, które go opiszą. Możesz albo wybrać trzy najważniejsze zdania z artykułu (ekstrakcyjne), albo przepisać treść własnymi słowami (abstrakcyjne). Oba nazywają się streszczaniem. To są całkowicie różne problemy.
 
-Extractive summarization is a ranking problem. Score every sentence, return the top-`k`. The output is always grammatical because it is lifted verbatim. The risk is missing content that is distributed across the article.
+Streszczanie ekstrakcyjne to problem rankingowy. Ocenasz każde zdanie, zwracasz top-`k`. Wynik zawsze jest gramatyczny, bo pochodzi wprost ze źródła. Ryzyko polega na tym, że możesz przeoczyć treść rozproszoną w całym artykule.
 
-Abstractive summarization is a generation problem. A transformer produces new text conditioned on the input. The output is fluent and compressive but may hallucinate facts that were not in the source. The risk is confident fabrication.
+Streszczanie abstrakcyjne to problem generacyjny. Transformer produkuje nowy tekst warunkowany na podstawie danych wejściowych. Wynik jest płynny i kompresyjny, ale może halucynować fakty, których nie było w źródle. Ryzyko polega na pewnym fabricowaniu.
 
-This lesson builds both, with the failure mode each one owns.
+Ta lekcja buduje oba podejścia, wraz z trybem awarii, jaki każde z nich posiada.
 
-## The Concept
+## Koncepcja
 
 ![Extractive TextRank vs abstractive transformer](../assets/summarization.svg)
 
-**Extractive.** Treat the article as a graph where nodes are sentences and edges are similarities. Run PageRank (or something like it) over the graph to score sentences by how connected they are to everything else. Highest-scoring sentences are the summary. The canonical implementation is **TextRank** (Mihalcea and Tarau, 2004).
+**Ekstrakcyjne.** Traktuj artykuł jako graf, gdzie węzłami są zdania, a krawędziami podobieństwa. Uruchom PageRank (lub coś podobnego) na grafie, aby ocenić zdania na podstawie tego, jak połączone są z wszystkim innym. Zdania z najwyższą punktacją stanowią podsumowanie. Kanoniczna implementacja to **TextRank** (Mihalcea and Tarau, 2004).
 
-**Abstractive.** Fine-tune a transformer encoder-decoder (BART, T5, Pegasus) on document-summary pairs. At inference, the model reads the document and generates the summary token-by-token via cross-attention. Pegasus in particular uses a gap-sentence pretraining objective that makes it excellent at summarization without much fine-tuning.
+**Abstrakcyjne.** Dostrój transformer encoder-decoder (BART, T5, Pegasus) na parach dokument-podsumowanie. Podczas inference, model czyta dokument i generuje podsumowanie token po tokenie poprzez cross-attention. Pegasus w szczególności używa pretraining objective gap-sentence, co czyni go doskonałym w streszczaniu bez dużego dostrajania.
 
-Evaluation with **ROUGE** (Recall-Oriented Understudy for Gisting Evaluation). ROUGE-1 and ROUGE-2 score unigram and bigram overlap. ROUGE-L scores longest common subsequence. Higher is better but 40 ROUGE-L is "good" and 50 is "exceptional." Every paper reports all three. Use the `rouge-score` package.
+Ewaluacja za pomocą **ROUGE** (Recall-Oriented Understudy for Gisting Evaluation). ROUGE-1 i ROUGE-2 oceniają overlap unigramów i bigramów. ROUGE-L ocenia longest common subsequence. Wyższy wynik jest lepszy, ale 40 ROUGE-L to "dobry" wynik, a 50 to "wyjątkowy." Każda praca raportuje wszystkie trzy. Użyj pakietu `rouge-score`.
 
-## Build It
+## Zbuduj to
 
-### Step 1: TextRank (extractive)
+### Krok 1: TextRank (ekstrakcyjny)
 
 ```python
 import math
@@ -81,9 +81,9 @@ def textrank(text, top_k=3, damping=0.85, iterations=50, epsilon=1e-4):
     return [sentences[i] for i in ranked]
 ```
 
-Two things worth naming. The similarity function uses log-normalized word overlap, which is the original TextRank variant. Cosine of TF-IDF vectors works too. The damping factor 0.85 and iteration count are the PageRank defaults.
+Dwie rzeczy warte nazwania. Funkcja podobieństwa używa log-normalized word overlap, co jest oryginalnym wariantem TextRank. Cosine TF-IDF vectors też działa. Damping factor 0.85 i liczba iteracji to domyślne wartości PageRank.
 
-### Step 2: abstractive with BART
+### Krok 2: abstrakcyjny z BART
 
 ```python
 from transformers import pipeline
@@ -96,9 +96,9 @@ summary = summarizer(article, max_length=120, min_length=60, do_sample=False)
 print(summary[0]["summary_text"])
 ```
 
-BART-large-CNN is fine-tuned on the CNN/DailyMail corpus. It produces news-style summaries out of the box. For other domains (scientific papers, dialog, legal), use the corresponding Pegasus checkpoint or fine-tune on your target data.
+BART-large-CNN jest dostrojony na korpusie CNN/DailyMail. Produkuje podsumowania w stylu newsowym out of the box. Dla innych domen (dokumenty naukowe, dialog, prawo), użyj odpowiedniego Pegasus checkpoint lub dostrój na swoich danych docelowych.
 
-### Step 3: ROUGE evaluation
+### Krok 3: ewaluacja ROUGE
 
 ```python
 from rouge_score import rouge_scorer
@@ -108,56 +108,56 @@ scores = scorer.score(reference_summary, generated_summary)
 print({k: round(v.fmeasure, 3) for k, v in scores.items()})
 ```
 
-Always use stemming. Without it, "running" and "run" count as different words and ROUGE undercounts.
+Zawsze używaj stemming. Bez niego "running" i "run" liczą się jako różne słowa, a ROUGE niedoszacowuje.
 
-### Beyond ROUGE (2026 summarization eval)
+### Poza ROUGE (ewaluacja streszczania 2026)
 
-ROUGE has been the dominant summarization metric for twenty years and it is insufficient on its own in 2026. A large-scale meta-analysis of NLG papers showed:
+ROUGE był dominującą metryką streszczania przez dwadzieścia lat i sam w sobie jest niewystarczający w 2026. Dużej skali meta-analiza prac NLG pokazała:
 
-- **BERTScore** (contextual embedding similarity) gained ground through 2023 and is now reported alongside ROUGE in most summarization papers.
-- **BARTScore** treats evaluation as generation: score the summary by how likely a pretrained BART assigns it given the source.
-- **MoverScore** (Earth Mover's Distance over contextual embeddings) reached the top spot in 2025 summarization benchmarks because it captures semantic overlap better than ROUGE.
-- **FactCC** and **QA-based faithfulness** were common 2021-2023, now often replaced by **G-Eval** (a GPT-4 prompt chain that scores coherence, consistency, fluency, relevance with chain-of-thought reasoning).
-- **G-Eval** and similar LLM-judge approaches match human judgment ~80% of the time when rubrics are well-designed.
+- **BERTScore** (similarity kontekstowych embeddingów) zyskał popularność przez 2023 i jest teraz raportowany obok ROUGE w większości prac o streszczaniu.
+- **BARTScore** traktuje ewaluację jako generację: ocenia podsumowanie na podstawie tego, jak bardzo prawdopodobne jest, że pretrained BART przypisze mu przy danym źródle.
+- **MoverScore** (Earth Mover's Distance na kontekstowych embeddingach) osiągnął top spot w benchmarkach streszczania w 2025, ponieważ capture semantic overlap lepiej niż ROUGE.
+- **FactCC** i **QA-based faithfulness** były popularne w 2021-2023, teraz często zastępowane przez **G-Eval** (łańcuch promptów GPT-4, który ocenia spójność, consistency, fluency, relevance z chain-of-thought reasoning).
+- **G-Eval** i podobne podejścia LLM-judge pasują do ludzkiego osądu ~80% czasu, gdy rubryki są dobrze zaprojektowane.
 
-Production recommendation: report ROUGE-L for legacy comparison, BERTScore for semantic overlap, G-Eval for coherence and factuality. Calibrate against 50-100 human-labeled summaries.
+Production recommendation: raportuj ROUGE-L dla legacy comparison, BERTScore dla semantic overlap, G-Eval dla spójności i faktuarności. Kalibruj na 50-100 podsumowaniach oznaczonych przez ludzi.
 
-### Step 4: the factuality problem
+### Krok 4: problem faktuarności
 
-Abstractive summaries are prone to hallucination. Extractive summaries carry a much lower hallucination risk because the output is lifted verbatim from the source, though they can still mislead if source sentences are decontextualized, outdated, or quoted out of order. This is the single biggest reason production systems still prefer extractive methods for compliance-adjacent content.
+Abstrakcyjne podsumowania są podatne na halucynacje. Streszczenia ekstrakcyjne mają znacznie niższe ryzyko halucynacji, bo wynik jest liftowany wprost ze źródła, choć mogą nadal wprowadzać w błąd, jeśli zdania źródłowe są decontextualized, outdated, lub cytowane poza kolejnością. To jest największy powód, dla którego systemy produkcyjne nadal preferują metody ekstrakcyjne dla treści compliance-adjacent.
 
-Hallucination types to name:
+Typy halucynacji do nazwania:
 
-- **Entity swap.** Source says "John Smith." Summary says "John Brown."
-- **Number drift.** Source says "25,000." Summary says "25 million."
-- **Polarity flip.** Source says "rejected the offer." Summary says "accepted the offer."
-- **Fact invention.** Source does not mention the CEO. Summary says the CEO approved.
+- **Entity swap.** Źródło mówi "John Smith." Podsumowanie mówi "John Brown."
+- **Number drift.** Źródło mówi "25,000." Podsumowanie mówi "25 million."
+- **Polarity flip.** Źródło mówi "odrzucił ofertę." Podsumowanie mówi "przyjął ofertę."
+- **Fact invention.** Źródło nie wspomina o CEO. Podsumowanie mówi, że CEO approve'ował.
 
-Evaluation approaches that work:
+Podejścia ewaluacyjne, które działają:
 
-- **FactCC.** A binary classifier trained on entailment between source sentence and summary sentence. Predicts factual/not-factual.
-- **QA-based factuality.** Ask a QA model questions whose answers are in the source. If the summary supports different answers, flag.
-- **Entity-level F1.** Compare named entities in source vs summary. Entities present only in the summary are suspect.
+- **FactCC.** Binarny klasyfikator trenowany na entailment między zdaniem źródłowym a zdaniem podsumowania. Przewiduje factual/not-factual.
+- **QA-based factuality.** Zadaj modelowi QA pytania, których odpowiedzi są w źródle. Jeśli podsumowanie wspiera inne odpowiedzi, flaguj.
+- **Entity-level F1.** Porównaj named entities w źródle vs podsumowaniu. Entities obecne tylko w podsumowaniu są suspect.
 
-For anything user-facing where factuality matters (news, medical, legal, financial), extractive is the safer default. Abstractive needs a factuality check in the loop.
+Dla wszystkiego user-facing, gdzie faktuarność ma znaczenie (news, medycyna, prawo, finanse), ekstrakcyjne jest bezpieczniejszym domyślnym wyborem. Abstrakcyjne potrzebuje factuality check w pętli.
 
-## Use It
+## Użyj tego
 
-The 2026 stack:
+Stack 2026:
 
-| Use case | Recommended |
-|---------|-------------|
-| News, 3-5 sentence summary, English | `facebook/bart-large-cnn` |
-| Scientific papers | `google/pegasus-pubmed` or a tuned T5 |
-| Multi-document, long-form | Any LLM with 32k+ context, prompted |
-| Dialog summarization | `philschmid/bart-large-cnn-samsum` |
-| Extractive, low hallucination risk by construction | TextRank or `sumy`'s LSA / LexRank |
+| Przypadek użycia | Polecane |
+|-----------------|----------|
+| Newsy, 3-5 sentence summary, angielski | `facebook/bart-large-cnn` |
+| Dokumenty naukowe | `google/pegasus-pubmed` lub dostrojony T5 |
+| Multi-document, long-form | Dowolny LLM z 32k+ context, prompted |
+| Streszczanie dialogów | `philschmid/bart-large-cnn-samsum` |
+| Ekstrakcyjne, niskie ryzyko halucynacji by design | TextRank lub `sumy`'s LSA / LexRank |
 
-LLMs with long context often beat specialized models in 2026 when compute is not a constraint. The tradeoff is cost and reproducibility; specialized models give more consistent outputs.
+LLMy z długim kontekstem często pokonują specjalizowane modele w 2026, gdy compute nie jest ograniczeniem. Tradeoff to koszt i reproducibility; specjalizowane modele dają bardziej spójne wyniki.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/skill-summary-picker.md`:
+Zapisz jako `outputs/skill-summary-picker.md`:
 
 ```markdown
 ---
@@ -179,27 +179,27 @@ Given a task (document type, compliance requirement, length, compute budget), ou
 Refuse abstractive summarization for medical, legal, financial, or regulated content without a factuality gate. Flag input over the model's context window as needing chunked map-reduce summarization (not just truncation).
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Run TextRank on 5 news articles. Compare the top-3 sentences to a reference summary. Measure ROUGE-L. You should see 30-45 ROUGE-L on CNN/DailyMail-style articles.
-2. **Medium.** Implement entity-level factuality: extract named entities from source and summary (spaCy), compute recall of source entities in summary and precision of summary entities against source. High precision and low recall mean safe but terse; low precision means hallucinated entities.
-3. **Hard.** Compare BART-large-CNN against an LLM (Claude or GPT-4) on 50 CNN/DailyMail articles. Report ROUGE-L, factuality (by entity F1), and cost per summary. Document where each wins.
+1. **Łatwe.** Uruchom TextRank na 5 artykułach informacyjnych. Porównaj top-3 zdania do referencyjnego podsumowania. Zmierz ROUGE-L. Powinieneś zobaczyć 30-45 ROUGE-L na artykułach w stylu CNN/DailyMail.
+2. **Średnie.** Zaimplementuj entity-level factuality: wyekstruuj named entities ze źródła i podsumowania (spaCy), oblicz recall source entities w podsumowaniu i precision summary entities przeciwko źródłu. Wysoka precision i niski recall oznaczają bezpieczne ale terse; niska precision oznacza halucynowane entities.
+3. **Trudne.** Porównaj BART-large-CNN przeciwko LLM (Claude lub GPT-4) na 50 artykułach CNN/DailyMail. Raportuj ROUGE-L, factuality (przez entity F1), i koszt per summary. Udokumentuj, gdzie każdy wygrywa.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| Extractive | Pick sentences | Return sentences verbatim from the source. Never hallucinates. |
-| Abstractive | Rewrite | Generate new text conditioned on source. Can hallucinate. |
-| ROUGE | Summary metric | N-gram / LCS overlap between system output and reference. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-----------------------|
+| Extractive | Pick sentences | Zwracaj zdania wprost ze źródła. Nigdy nie halucynuje. |
+| Abstractive | Rewrite | Generuj nowy tekst warunkowany na źródle. Może halucynować. |
+| ROUGE | Summary metric | N-gram / LCS overlap między outputem systemu a referencją. |
 | TextRank | Graph-based extractive | PageRank over sentence similarity graph. |
-| Factuality | Is it right | Whether summary claims are supported by the source. |
-| Hallucination | Made-up content | Content in the summary that the source does not support. |
+| Factuality | Is it right | Czy twierdzenia podsumowania są wspierane przez źródło. |
+| Hallucination | Made-up content | Treść w podsumowaniu, której źródło nie wspiera. |
 
-## Further Reading
+## Dalsze czytanie
 
-- [Mihalcea and Tarau (2004). TextRank: Bringing Order into Texts](https://aclanthology.org/W04-3252/) — the extractive canonical paper.
-- [Lewis et al. (2019). BART: Denoising Sequence-to-Sequence Pre-training](https://arxiv.org/abs/1910.13461) — the BART paper.
-- [Zhang et al. (2019). PEGASUS: Pre-training with Extracted Gap-sentences](https://arxiv.org/abs/1912.08777) — Pegasus and the gap-sentence objective.
-- [Lin (2004). ROUGE: A Package for Automatic Evaluation of Summaries](https://aclanthology.org/W04-1013/) — ROUGE paper.
-- [Maynez et al. (2020). On Faithfulness and Factuality in Abstractive Summarization](https://arxiv.org/abs/2005.00661) — the factuality landscape paper.
+- [Mihalcea and Tarau (2004). TextRank: Bringing Order into Texts](https://aclanthology.org/W04-3252/) — kanoniczny artykuł o ekstrakcyjnym podejściu.
+- [Lewis et al. (2019). BART: Denoising Sequence-to-Sequence Pre-training](https://arxiv.org/abs/1910.13461) — artykuł o BART.
+- [Zhang et al. (2019). PEGASUS: Pre-training with Extracted Gap-sentences](https://arxiv.org/abs/1912.08777) — Pegasus i gap-sentence objective.
+- [Lin (2004). ROUGE: A Package for Automatic Evaluation of Summaries](https://aclanthology.org/W04-1013/) — artykuł o ROUGE.
+- [Maynez et al. (2020). On Faithfulness and Factuality in Abstractive Summarization](https://arxiv.org/abs/2005.00661) — artykuł o krajobrazie faktuarności.

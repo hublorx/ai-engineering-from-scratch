@@ -1,41 +1,41 @@
-# CNNs and RNNs for Text
+# CNNy i RNN-y dla tekstu
 
-> Convolutions learn n-grams. Recurrences remember. Both are superseded by attention. Both still matter on constrained hardware.
+> Konwolucje uczą się n-gramów. Rekurencje pamiętają. Oba zostały zastąpione przez atencję. Oba nadal mają znaczenie na ograniczonym sprzęcie.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 3 · 11 (PyTorch Intro), Phase 5 · 03 (Word Embeddings), Phase 4 · 02 (Convolutions from Scratch)
-**Time:** ~75 minutes
+**Typ:** Buduj
+**Języki:** Python
+**Wymagania wstępne:** Faza 3 · 11 (Wprowadzenie do PyTorch), Faza 5 · 03 (Osadzenia słów), Faza 4 · 02 (Konwolucje od zera)
+**Czas:** około 75 minut
 
-## The Problem
+## Problem
 
-TF-IDF and Word2Vec produced flat vectors that ignored word order. A classifier built on them could not tell `dog bites man` from `man bites dog`. Word order sometimes carries the signal.
+TF-IDF i Word2Vec produkowały płaskie wektory, które ignorowały kolejność słów. Klasyfikator zbudowany na nich nie potrafił rozróżnić `dog bites man` od `man bites dog`. Kolejność słów czasami niesie sygnał.
 
-Two families of architectures filled that gap before transformers arrived.
+Dwie rodziny architektur wypełniły tę lukę, zanim pojawiły się transformery.
 
-**Convolutional nets for text (TextCNN).** Apply 1D convolutions over sequences of word embeddings. A filter of width 3 is a learnable trigram detector: it spans three words and outputs a score. Stack different widths (2, 3, 4, 5) to detect multi-scale patterns. Max-pool to a fixed-size representation. Flat, parallel, fast.
+**Splotowe sieci dla tekstu (TextCNN).** Stosuj sploty 1D nad sekwencjami osadzeń słów. Filtr o szerokości 3 to wyuczalny detektor trigramów: obejmuje trzy słowa i emituje wynik. Ułóż różne szerokości (2, 3, 4, 5), aby wykrywać wzorce na wielu skalach. Max-pool do reprezentacji o stałym rozmiarze. Płaskie, równoległe, szybkie.
 
-**Recurrent nets (RNN, LSTM, GRU).** Process tokens one at a time, maintaining a hidden state that carries information forward. Sequential, memory-bearing, flexible input lengths. Dominated sequence modeling from 2014 to 2017, then attention happened.
+**Rekurencyjne sieci (RNN, LSTM, GRU).** Przetwarzają tokeny jeden po drugim, utrzymując stan ukryty, który niesie informację do przodu. Sekwencyjne, z pamięcią, elastyczne długości wejściowe. Dominowały modelowanie sekwencji od 2014 do 2017, potem pojawiła się atencja.
 
-This lesson builds both, then names the failure that motivated attention.
+Ta lekcja buduje obie, potem nazywa porażkę, która zmotywowala atencję.
 
-## The Concept
+## Koncepcja
 
-![TextCNN filters vs. RNN hidden state unrolling](./assets/cnn-rnn.svg)
+![Filtry TextCNN vs. rozwinięcie stanu ukrytego RNN](./assets/cnn-rnn.svg)
 
-**TextCNN** (Kim, 2014). Tokens get embedded. A width-`k` 1D convolution slides a filter over consecutive `k`-grams of embeddings, producing a feature map. Global max-pooling over that map picks the strongest activation. Concatenate max-pooled outputs from several filter widths. Feed to a classifier head.
+**TextCNN** (Kim, 2014). Tokeny są osadzane. Splot 1D o szerokości `k` przesuwa filtr nad kolejnymi k-gramami osadzeń, produkując mapę cech. Global max-pooling nad tą mapą wybiera najsilniejszą aktywację. Połącz wyjścia max-pool z kilku szerokości filtrów. Przekaż do głowy klasyfikatora.
 
-Why it works. A filter is a learnable n-gram. Max-pooling is position-invariant, so "not good" fires the same feature at the start or middle of a review. Three filter widths with 100 filters each gives you 300 learned n-gram detectors. Training is parallel; no sequential dependency.
+Dlaczego to działa. Filtr to wyuczalny n-gram. Max-pooling jest niezmienniczy pozycyjnie, więc "not good" wyzwala tę samą cechę na początku lub w środku recenzji. Trzy szerokości filtrów ze 100 filtrami każdy daje 300 wyuczonych detektorów n-gramów. Uczenie jest równoległe; brak zależności sekwencyjnej.
 
-**RNN.** At each time step `t`, the hidden state `h_t = f(W * x_t + U * h_{t-1} + b)`. Share `W`, `U`, `b` across time. The hidden state at time `T` is a summary of the entire prefix. For classification, pool across `h_1 ... h_T` (max, mean, or last).
+**RNN.** W każdym kroku czasowym `t`, stan ukryty `h_t = f(W * x_t + U * h_{t-1} + b)`. Współdziel `W`, `U`, `b` w czasie. Stan ukryty w czasie `T` to podsumowanie całego prefiksu. Dla klasyfikacji, agreguj跨越 `h_1 ... h_T` (max, mean, lub last).
 
-Plain RNNs suffer vanishing gradients. The **LSTM** adds gates that decide what to forget, what to store, and what to output, stabilizing gradients through long sequences. The **GRU** simplifies LSTM to two gates; performs similarly with fewer parameters.
+Plain RNN-y cierpią z powodu zanikających gradientów. **LSTM** dodaje bramki, które decydują co zapomnieć, co przechować i co wyemitować, stabilizując gradienty przez długie sekwencje. **GRU** upraszcza LSTM do dwóch bramek; osiąga podobne wyniki z mniejszą liczbą parametrów.
 
-**Bidirectional RNNs** run one RNN forward and another backward, concatenating hidden states. Every token's representation sees both left and right context. Essential for tagging tasks.
+**Dwukierunkowe RNN-y** uruchamiają jeden RNN do przodu i drugi do tyłu, łącząc stany ukryte. Reprezentacja każdego tokena widzi zarówno lewy, jak i prawy kontekst. Niezbędne dla zadań tagowania.
 
-## Build It
+## Zbuduj to
 
-### Step 1: TextCNN in PyTorch
+### Krok 1: TextCNN w PyTorch
 
 ```python
 import torch
@@ -65,9 +65,9 @@ class TextCNN(nn.Module):
         return self.fc(self.dropout(h))
 ```
 
-The `transpose(1, 2)` reshapes `[batch, seq_len, embed_dim]` to `[batch, embed_dim, seq_len]` because `nn.Conv1d` treats the middle axis as channels. The pooled output is fixed-size regardless of input length.
+Transpozycja `transpose(1, 2)` przekształca `[batch, seq_len, embed_dim]` w `[batch, embed_dim, seq_len]`, bo `nn.Conv1d` traktuje środkową oś jako kanały. Wynik pooled ma stały rozmiar niezależnie od długości wejścia.
 
-### Step 2: LSTM classifier
+### Krok 2: Klasyfikator LSTM
 
 ```python
 class LSTMClassifier(nn.Module):
@@ -86,11 +86,11 @@ class LSTMClassifier(nn.Module):
         return self.fc(self.dropout(pooled))
 ```
 
-Max-pool over the sequence, not last-state pool. For classification, max-pooling usually beats taking the last hidden state because information at the end of a long sequence tends to dominate the last state.
+Max-pool nad sekwencją, nie ostatni stan. Dla klasyfikacji, max-pooling zwykle bije branie ostatniego stanu ukrytego, bo informacja na końcu długiej sekwencji dominuje ostatni stan.
 
-### Step 3: the vanishing gradient demo (intuition)
+### Krok 3: demo zanikającego gradientu (intuicja)
 
-A plain RNN without gating cannot learn long-range dependencies. Consider a toy task: predict whether token `A` appeared anywhere in a sequence. If `A` is at position 1 and the sequence is 100 tokens long, the gradient from the loss has to flow back through 99 multiplications of the recurrent weight. If the weight is less than 1, the gradient vanishes. If more than 1, it explodes.
+Plain RNN bez bramek nie może nauczyć się dalekosiężnych zależności. Rozważ zadanie: przewiduj, czy token `A` pojawił się gdziekolwiek w sekwencji. Jeśli `A` jest na pozycji 1, a sekwencja ma 100 tokenów, gradient z loss musi przepłynąć wstecz przez 99 mnożeń rekurencyjnej wagi. Jeśli waga jest mniejsza niż 1, gradient znika. Jeśli większa niż 1, eksploduje.
 
 ```python
 def vanishing_gradient_sim(seq_len, recurrent_weight=0.9):
@@ -98,28 +98,28 @@ def vanishing_gradient_sim(seq_len, recurrent_weight=0.9):
     return math.pow(recurrent_weight, seq_len)
 
 
-# At weight=0.9 over 100 steps:
+# Przy wadze=0.9 przez 100 kroków:
 #   0.9 ^ 100 ≈ 2.7e-5
-# The gradient from step 100 to step 1 is effectively zero.
+# Gradient od kroku 100 do kroku 1 jest efektywnie zero.
 ```
 
-LSTMs fix this with a **cell state** that runs through the network with only additive interactions (the forget gate scales it multiplicatively, but gradients still flow along the "highway"). GRUs do something similar with fewer parameters. Both give you stable training through 100+ step sequences.
+LSTM-y to naprawiają za pomocą **stanu komórki**, który biegnie przez sieć tylko z interakcjami addytywnymi (bramka zapomnienia skaluje go mnożeniowo, ale gradienty nadal płyną przez "autostradę"). GRU robią coś podobnego z mniejszą liczbą parametrów. Oba dają stabilne uczenie przez sekwencje 100+ kroków.
 
-### Step 4: why this still was not enough
+### Krok 4: dlaczego to nadal nie wystarczyło
 
-Three problems persisted even with LSTMs.
+Trzy problemy persistowały nawet z LSTM.
 
-1. **Sequential bottleneck.** Training an RNN on a sequence of length 1000 requires 1000 serial forward/backward steps. Cannot parallelize across time.
-2. **Fixed-size context vector in encoder-decoder setups.** The decoder sees only the final hidden state of the encoder, compressed over the entire input. Long inputs lose detail. Lesson 09 covers this directly.
-3. **Distant-dependency accuracy ceiling.** LSTMs outperform plain RNNs but still struggle to propagate specific information across 200+ steps.
+1. **Wąskie gardło sekwencyjne.** Uczenie RNN na sekwencji długości 1000 wymaga 1000 seryjnych kroków forward/backward. Nie można zrównoleglić w czasie.
+2. **Stały wektor kontekstowy w ustawieniach encoder-decoder.** Decoder widzi tylko finalny stan ukryty encodera, skompresowany nad całym wejściem. Długie wejścia tracą detale. Lekcja 09 omawia to bezpośrednio.
+3. **Sufit dokładności dla odległych zależności.** LSTM-y przewyższają plain RNN-y, ale nadal walczą z propagacją specyficznych informacji przez 200+ kroków.
 
-Attention solved all three. Transformers dropped recurrence entirely. Lesson 10 is the pivot.
+Atencja rozwiązała wszystkie trzy. Transformery porzuciły rekurencję całkowicie. Lekcja 10 to punkt zwrotny.
 
-## Use It
+## Użyj tego
 
-PyTorch's `nn.LSTM`, `nn.GRU`, and `nn.Conv1d` are production-ready. Training code is standard.
+`nn.LSTM`, `nn.GRU` i `nn.Conv1d` z PyTorch są gotowe do produkcji. Kod uczenia jest standardowy.
 
-Hugging Face ships pretrained embeddings you plug in as the input layer:
+Hugging Face dostarcza pretrained embeddings, które podłączasz jako warstwę wejściową:
 
 ```python
 from transformers import AutoModel
@@ -144,18 +144,18 @@ class BertCNN(nn.Module):
         return self.fc(torch.cat(pooled, dim=1))
 ```
 
-Use-when-it-fits-the-constraint checklist.
+Lista kontrolna: użyj, gdy pasuje do ograniczeń.
 
-- **Edge / on-device inference.** TextCNN with GloVe embeddings is 10-100x smaller than a transformer. If your deploy target is a phone, this is the stack.
-- **Streaming / online classification.** RNN processes one token at a time; transformers need the full sequence. For real-time incoming text, LSTMs still win.
-- **Tiny models for baselines.** Fast iteration on a new task. Train a TextCNN in 5 minutes on a CPU.
-- **Sequence labeling with limited data.** BiLSTM-CRF (lesson 06) is still a production-grade NER architecture for 1k-10k labeled sentences.
+- **Edge / inference na urządzeniu.** TextCNN z osadzeniami GloVe jest 10-100x mniejszy niż transformer. Jeśli cel wdrożenia to telefon, to jest ten stack.
+- **Strumieniowanie / klasyfikacja online.** RNN przetwarza jeden token na raz; transformery potrzebują pełnej sekwencji. Dla tekstu przychodzącego w czasie rzeczywistym, LSTM-y nadal wygrywają.
+- **Male modele dla baseline'ów.** Szybka iteracja na nowym zadaniu. Naucz TextCNN w 5 minut na CPU.
+- **Tagowanie sekwencji z ograniczonymi danymi.** BiLSTM-CRF (lekcja 06) to nadal produkcyjna architektura NER dla 1k-10k oznakowanych zdań.
 
-Everything else goes to a transformer.
+Wszystko inne idzie do transformera.
 
-## Ship It
+## Wyślij to
 
-Save as `outputs/prompt-text-encoder-picker.md`:
+Zapisz jako `outputs/prompt-text-encoder-picker.md`:
 
 ```markdown
 ---
@@ -175,25 +175,19 @@ Given constraints (task, data volume, latency budget, deploy target, compute bud
 Refuse to recommend fine-tuning a transformer when data is under ~500 labeled examples without showing that a TextCNN / BiLSTM baseline has plateaued. Flag edge deployment as needing architecture-before-everything.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Train a TextCNN on a 3-class toy dataset (you invent the data). Verify that filter widths (2, 3, 4) outperform a single width (3) on average F1.
-2. **Medium.** Implement max-pool, mean-pool, and last-state pooling for the LSTM classifier. Compare on a small dataset; document which pooling wins and hypothesize why.
-3. **Hard.** Build a BiLSTM-CRF NER tagger (combine lesson 06 and this one). Train on CoNLL-2003. Compare to the CRF-alone baseline from lesson 06 and to a BERT fine-tune. Report training time, memory, and F1.
+1. **Łatwe.** Naucz TextCNN na 3-klasowym zbiorze (wymyśl dane). Sprawdź, czy filtry o szerokościach (2, 3, 4) przewyższają pojedynczą szerokość (3) w średnim F1.
+2. **Średnie.** Zaimplementuj max-pool, mean-pool i last-state pooling dla klasyfikatora LSTM. Porównaj na małym zbiorze; udokumentuj, który pooling wygrywa i zaproponuj hipotezę dlaczego.
+3. **Trudne.** Zbuduj tagger NER BiLSTM-CRF (połącz lekcję 06 i tę). Naucz na CoNLL-2003. Porównaj do baseline'u CRF z lekcji 06 i do BERT fine-tune. Raportuj czas uczenia, pamięć i F1.
 
-## Key Terms
+## Kluczowe terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| TextCNN | CNN for text | Stack of 1D convolutions over word embeddings with global max-pool. Kim (2014). |
-| RNN | Recurrent net | Hidden state updated at each time step: `h_t = f(W x_t + U h_{t-1})`. |
-| LSTM | Gated RNN | Adds input / forget / output gates + a cell state. Trains stably through long sequences. |
-| GRU | Simpler LSTM | Two gates instead of three. Similar accuracy, fewer parameters. |
-| Bidirectional | Both directions | Forward + backward RNN concatenated. Every token sees both sides of its context. |
-| Vanishing gradient | Training signal dies | Repeated multiplication by <1 weights in plain RNNs makes early-step gradients effectively zero. |
-
-## Further Reading
-
-- [Kim, Y. (2014). Convolutional Neural Networks for Sentence Classification](https://arxiv.org/abs/1408.5882) — the TextCNN paper. Eight pages. Readable.
-- [Hochreiter, S. and Schmidhuber, J. (1997). Long Short-Term Memory](https://www.bioinf.jku.at/publications/older/2604.pdf) — the LSTM paper. Unexpectedly lucid.
-- [Olah, C. (2015). Understanding LSTM Networks](https://colah.github.io/posts/2015-08-Understanding-LSTMs/) — the diagrams that made LSTMs accessible to everyone.
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|--------------------------|
+| TextCNN | CNN for text | Stos splotów 1D na osadzeniach słów z globalnym max-poolingiem. Kim (2014). |
+| RNN | Recurrent net | Stan ukryty aktualizowany w każdym kroku czasowym: `h_t = f(W x_t + U h_{t-1})`. |
+| LSTM | Gated RNN | Dodaje bramki wejścia / zapomnienia / wyjścia + stan komórki. Uczy się stabilnie przez długie sekwencje. |
+| GRU | Simpler LSTM | Dwie bramki zamiast trzech. Podobna dokładność, mniej parametrów. |
+| Bidirectional | Oba kierunki | Przód + tył RNN połączone. Każdy token widzi obie strony kontekstu. |
+| Vanishing gradient | Sygnał uczenia się umiera | Powtarzane mnożenie przez wagi <1 w plain RNN sprawia, że gradienty wczesnych kroków są efektywnie zero. |

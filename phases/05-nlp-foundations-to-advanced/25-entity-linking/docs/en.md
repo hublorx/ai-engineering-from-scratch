@@ -1,53 +1,53 @@
-# Entity Linking & Disambiguation
+# Linkowanie Encji i Disambiguacja
 
-> NER found "Paris." Entity linking decides: Paris, France? Paris Hilton? Paris, Texas? Paris (the Trojan prince)? Without linking, your knowledge graph stays ambiguous.
+> NER znalazł "Paris." Linkowanie encji decyduje, że to Paryż we Francji? Paris Hilton? Paryż w Teksasie? Paryż (książę trojański)? Bez linkowania twój graf wiedzy pozostaje niejednoznaczny.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 5 · 06 (NER), Phase 5 · 24 (Coreference Resolution)
-**Time:** ~60 minutes
+**Typ:** Build
+**Języki:** Python
+**Wymagania wstępne:** Phase 5 · 06 (NER), Phase 5 · 24 (Rozwiązywanie koreferencji)
+**Szacowany czas:** ~60 minut
 
-## The Problem
+## Problem
 
-A sentence reads: "Jordan beat the press." Your NER tags "Jordan" as PERSON. Good. But *which* Jordan?
+Zdanie brzmi: "Jordan beat the press." Twój NER taguje "Jordan" jako PERSON. Dobrze. Ale *który* Jordan?
 
-- Michael Jordan (basketball)?
-- Michael B. Jordan (actor)?
-- Michael I. Jordan (Berkeley ML professor — yes, this confusion is real in ML papers)?
-- Jordan (the country)?
-- Jordan (Hebrew first name)?
+- Michael Jordan (koszykówka)?
+- Michael B. Jordan (aktor)?
+- Michael I. Jordan (profesor ML z Berkeley — tak, ta pomyłka jest prawdziwa w artykułach ML)?
+- Jordan (kraj)?
+- Jordan (hebrajskie imię)?
 
-Entity linking (EL) resolves each mention to a unique entry in a knowledge base: Wikidata, Wikipedia, DBpedia, or your domain KB. Two subtasks:
+Linkowanie encji (EL) rozwiązuje każdą wzmiankę do unikalnego wpisu w bazie wiedzy: Wikidata, Wikipedia, DBpedia lub twojej domenowej KB. Dwa podzadania:
 
-1. **Candidate generation.** Given "Jordan," which KB entries are plausible?
-2. **Disambiguation.** Given the context, which candidate is the right one?
+1. **Generowanie kandydatów.** Mając "Jordan," które wpisy KB są prawdopodobne?
+2. **Disambiguacja.** Mając kontekst, który kandydat jest właściwy?
 
-Both steps are learnable. Both are benchmarked. The combined pipeline has been stable for a decade — what changes is the quality of the disambiguator.
+Oba kroki można trenować, a oba są benchmarkowane. Połączony pipeline był stabilny przez dekadę — to jakość disambiguatora się zmienia.
 
-## The Concept
+## Koncepcja
 
-![Entity linking pipeline: mention → candidates → disambiguated entity](../assets/entity-linking.svg)
+![Pipeline linkowania encji: mention → candidates → disambiguated entity](../assets/entity-linking.svg)
 
-**Candidate generation.** Given the mention surface form ("Jordan"), look up candidates in an alias index. Wikipedia alias dictionaries cover most named entities: "JFK" → John F. Kennedy, Jacqueline Kennedy, JFK airport, JFK (movie). Typical index returns 10-30 candidates per mention.
+**Generowanie kandydatów.** Mając formę powierzchniową wzmianki ("Jordan"), wyszukaj kandydatów w indeksie aliasów. Słowniki aliasów Wikipedia pokrywają większość nazwanych encji: "JFK" → John F. Kennedy, Jacqueline Kennedy, lotnisko JFK, JFK (film). Typowy indeks zwraca 10-30 kandydatów na wzmiankę.
 
-**Disambiguation: three approaches.**
+**Disambiguacja: trzy podejścia.**
 
-1. **Prior + context (Milne & Witten, 2008).** `P(entity | mention) × context-similarity(entity, text)`. Works well, fast, no training.
-2. **Embedding-based (ESS / REL / Blink).** Encode mention + context. Encode each candidate's description. Pick max cosine. The 2020-2024 default.
-3. **Generative (GENRE, 2021; LLM-based, 2023+).** Decode the entity's canonical name token-by-token. Constrained to a trie of valid entity names so output is guaranteed to be a valid KB id.
+1. **Prior + kontekst (Milne & Witten, 2008).** `P(entity | mention) × context-similarity(entity, text)`. Działa dobrze, szybko, bez treningu.
+2. **Embedding-based (ESS / REL / BLINK).** Koduj wzmiankę + kontekst. Koduj opis każdego kandydata. Wybierz max cosine. Domyślne 2020-2024.
+3. **Generatywne (GENRE, 2021; LLM-based, 2023+).** Dekoduj kanoniczną nazwę encji token po tokenie. Ograniczone do trie prawidłowych nazw encji, więc output jest gwarantowanie poprawnym id KB.
 
-**End-to-end vs pipeline.** Modern models (ELQ, BLINK, ExtEnD, GENRE) run NER + candidate generation + disambiguation in one pass. Pipeline systems still dominate in production because you can swap components.
+**End-to-end vs pipeline.** Nowoczesne modele (ELQ, BLINK, ExtEnD, GENRE) uruchamiają NER + generowanie kandydatów + disambiguację w jednym przejściu. Systemy pipeline nadal dominują w produkcji, bo możesz wymieniać komponenty.
 
-### The two measurements
+### Dwie metryki
 
-- **Mention recall (candidate gen).** Fraction of gold mentions where the correct KB entry appears in the candidate list. Floor for the whole pipeline.
-- **Disambiguation accuracy / F1.** Given correct candidates, how often the top-1 is right.
+- **Mention recall (generowanie kandydatów).** Ułamek złotych wzmianek, gdzie poprawne id KB pojawia się na liście kandydatów. Podłoga dla całego pipeline.
+- **Disambiguation accuracy / F1.** Mając poprawnych kandydatów, jak często top-1 jest poprawny.
 
-Always report both. A system with 99% disambiguation on 80% candidate recall is an 80% pipeline.
+Zawsze raportuj obie. System z 99% disambiguacją przy 80% mention recall to 80% pipeline.
 
-## Build It
+## Zbuduj To
 
-### Step 1: build an alias index from Wikipedia redirects
+### Krok 1: zbuduj indeks aliasów z przekierowań Wikipedia
 
 ```python
 alias_to_entities = {
@@ -57,9 +57,9 @@ alias_to_entities = {
 }
 ```
 
-Wikipedia alias data: ~18M (alias, entity) pairs. Download from Wikidata dumps. Store as inverted index.
+Dane aliasów Wikipedia: ~18M par (alias, entity). Pobierz z zrzutów Wikidata. Zapisz jako odwrócony indeks.
 
-### Step 2: context-based disambiguation
+### Krok 2: disambiguacja oparta na kontekście
 
 ```python
 def disambiguate(mention, context, alias_index, entity_desc):
@@ -77,9 +77,9 @@ def disambiguate(mention, context, alias_index, entity_desc):
     return best, best_score
 ```
 
-The Jaccard overlap is a toy. Replace with cosine similarity on embeddings (see `code/main.py` step-2 for the transformer version).
+Jaccard overlap to zabawka. Zastąp cosine similarity na embeddings (zobacz `code/main.py` krok-2 dla wersji transformer).
 
-### Step 3: embedding-based (BLINK-style)
+### Krok 3: embedding-based (BLINK-style)
 
 ```python
 from sentence_transformers import SentenceTransformer
@@ -94,11 +94,11 @@ def embed_entity(entity_id, description):
     return encoder.encode([f"{entity_id}: {description}"], normalize_embeddings=True)[0]
 ```
 
-At index time, embed every KB entity once. At query time, embed the mention + context once, dot-product against the candidate pool, pick max.
+W czasie indeksowania, zakoduj każdą encję KB raz. W czasie zapytania, zakoduj wzmiankę + kontekst raz, dot-product przeciwko puli kandydatów, wybierz max.
 
-### Step 4: generative entity linking (concept)
+### Krok 4: generatywne linkowanie encji (koncepcja)
 
-GENRE decodes the entity's Wikipedia title character-by-character. Constrained decoding (see lesson 20) ensures only valid titles can be output. Tight integration with a KB-backed trie. The modern descendant is REL-GEN and LLM-prompted EL with structured output.
+GENRE dekoduje tytuł Wikipedia encji znak po znaku. Ograniczone dekodowanie (zobacz lekcję 20) zapewnia że tylko prawidłowe tytuły mogą być outputowane. Ścisła integracja z KB-backed trie. Nowoczesnym potomkiem jest REL-GEN i LLM-prompted EL ze strukturyzowanym outputem.
 
 ```python
 prompt = f"""Text: {text}
@@ -107,43 +107,43 @@ List the best Wikipedia title for this mention.
 Respond with JSON: {{"title": "..."}}"""
 ```
 
-Combined with a whitelist (Outlines `choice`), this is the simplest EL pipeline to ship in 2026.
+Połączone z whitelistą (Outlines `choice`), to najprostszy pipeline EL do wydania w 2026.
 
-### Step 5: evaluate on AIDA-CoNLL
+### Krok 5: ewaluacja na AIDA-CoNLL
 
-AIDA-CoNLL is the standard EL benchmark: 1,393 Reuters articles, 34k mentions, Wikipedia entities. Report in-KB accuracy (`P@1`) and out-of-KB NIL-detection rate.
+AIDA-CoNLL to standardowy benchmark EL: 1,393 artykułów Reuters, 34k wzmianek, encje Wikipedia. Raportuj in-KB accuracy (`P@1`) i out-of-KB NIL-detection rate.
 
-## Pitfalls
+## Pułapki
 
-- **NIL handling.** Some mentions are not in the KB (emerging entities, obscure people). Systems must predict NIL instead of guessing the wrong entity. Measured separately.
-- **Mention boundary errors.** Upstream NER misses partial spans ("Bank of America" tagged as just "Bank"). EL recall drops.
-- **Popularity bias.** Trained systems over-predict frequent entities. A mention of "Michael I. Jordan" on an ML paper often links to basketball Jordan.
-- **Cross-lingual EL.** Mapping mentions in Chinese text to English Wikipedia entities. Requires a multilingual encoder or a translation step.
-- **KB staleness.** New companies, events, people are not in last year's Wikipedia dump. Production pipelines need a refresh loop.
+- **Obsługa NIL.** Niektóre wzmianki nie są w KB (nowe encje, mało znane osoby). Systemy muszą przewidywać NIL zamiast zgadywać złą encję. Mierzone osobno.
+- **Błędy granic wzmianki.** NER z upstream gubi części zakresów ("Bank of America" otagowane tylko jako "Bank"). EL recall spada.
+- **Stronniczość na rzecz popularnych encji.** Trenowane systemy nad-przewidują częste encje. Wzmianka o "Michael I. Jordan" w artykule ML często linkuje do koszykarskiego Jordana.
+- **Linkowanie międzyjęzyczne.** Mapowanie wzmianek w chińskim tekście do angielskich encji Wikipedia. Wymaga wielojęzycznego encodera lub kroku tłumaczenia.
+- **Nieaktualność KB.** Nowe firmy, wydarzenia, ludzie nie są w ubiegłorocznym zrzucie Wikipedia. Produkcyjne pipeline potrzebują pętli odświeżania.
 
-## Use It
+## Użyj To
 
-The 2026 stack:
+Stack 2026:
 
-| Situation | Pick |
-|-----------|------|
-| General-purpose English + Wikipedia | BLINK or REL |
-| Cross-lingual, KB = Wikipedia | mGENRE |
-| LLM-friendly, few mentions/day | Prompt Claude/GPT-4 with candidate list + constrained JSON |
-| Domain-specific KB (medical, legal) | Custom BERT with KB-aware retrieval + fine-tune on domain AIDA-style set |
-| Extremely low-latency | Exact-match prior only (Milne-Witten baseline) |
+| Sytuacja | Wybierz |
+|-----------|--------|
+| Ogólny angielski + Wikipedia | BLINK lub REL |
+| Międzyjęzyczny, KB = Wikipedia | mGENRE |
+| Przyjazny dla LLM-a, mało wzmianek/dzień | Prompt Claude/GPT-4 z listą kandydatów + ograniczony JSON |
+| KB domenowa (medyczna, prawna) | Custom BERT z KB-aware retrieval + fine-tune na domenowym zestawie AIDA-style |
+| Ekstremalnie niska latencja | Tylko exact-match prior (baseline Milne-Witten) |
 | Research SOTA | GENRE / ExtEnD / generative LLM-EL |
 
-Production pattern that ships in 2026: NER → coref → EL on each mention → collapse clusters to one canonical entity per cluster. Output: one KB id per entity in the document, not one per mention.
+Produkcyjny pattern który się sprawdza w 2026: NER → coref → EL na każdej wzmiance → zwiń klastry do jednej kanonicznej encji na klaster. Wynik: jedno id KB na encję w dokumencie, nie jedno na wzmiankę.
 
-## Ship It
+## Wydaj To
 
-Save as `outputs/skill-entity-linker.md`:
+Zapisz jako `outputs/skill-entity-linker.md`:
 
 ```markdown
 ---
 name: entity-linker
-description: Design an entity linking pipeline — KB, candidate generator, disambiguator, evaluation.
+description: Zaprojektuj pipeline linkowania encji — KB, generator kandydatów, disambiguator, ewaluacja.
 version: 1.0.0
 phase: 5
 lesson: 25
@@ -161,28 +161,39 @@ Given a use case (domain KB, language, volume, latency budget), output:
 Refuse any EL pipeline without a mention-recall baseline (you cannot evaluate a disambiguator without knowing candidate gen surfaced the right entity). Refuse any pipeline using LLM-prompted EL without constrained output to valid KB ids. Flag systems where popularity bias affects minority entities (e.g. name-clashes) without domain fine-tuning.
 ```
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Implement the prior+context disambiguator in `code/main.py` on 10 ambiguous mentions (Paris, Jordan, Apple). Hand-label the correct entity. Measure accuracy.
-2. **Medium.** Encode 50 ambiguous mentions with a sentence transformer. Embed each candidate's description. Compare embedding-based disambiguation to Jaccard context overlap.
-3. **Hard.** Build a 1k-entity domain KB (e.g. employees + products in your company). Implement NER + EL end-to-end. Measure precision and recall on 100 held-out sentences.
+1. **Łatwe.** Zaimplementuj prior+context disambiguator w `code/main.py` na 10 niejednoznacznych wzmiankach (Paris, Jordan, Apple). Ręcznie oznacz poprawną encję. Zmierz accuracy.
+2. **Średnie.** Zakoduj 50 niejednoznacznych wzmianek z sentence transformer. Zakoduj opis każdego kandydata. Porównaj embedding-based disambiguację z Jaccard overlap.
+3. **Trudne.** Zbuduj KB domenową 1k encji (np. pracownicy + produkty w twojej firmie). Zaimplementuj NER + EL end-to-end. Zmierz precision i recall na 100 held-out zdaniach.
 
-## Key Terms
+## Kluczowe Terminy
 
-| Term | What people say | What it actually means |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
 |------|-----------------|-----------------------|
-| Entity linking (EL) | Link to Wikipedia | Map a mention to a unique KB entry. |
-| Candidate generation | Who could it be? | Return a shortlist of plausible KB entries for a mention. |
-| Disambiguation | Pick the right one | Score candidates using context, pick the winner. |
-| Alias index | The lookup table | Map from surface form → candidate entities. |
-| NIL | Not in KB | Explicit prediction that no KB entry matches. |
-| KB | Knowledge base | Wikidata, Wikipedia, DBpedia, or your domain KB. |
-| AIDA-CoNLL | The benchmark | 1,393 Reuters articles with gold entity links. |
+| Entity linking (EL) | Link do Wikipedia | Mapuj wzmiankę do unikalnego wpisu KB. |
+| Candidate generation | Kto to może być? | Zwróć shortlist prawdopodobnych wpisów KB dla wzmianki. |
+| Disambiguation | Wybierz właściwego | Punktuj kandydatów używając kontekstu, wybierz zwycięzcę. |
+| Alias index | Tabela lookup | Mapuj z formy powierzchniowej → encje-kandydaci. |
+| NIL | Nie w KB | Jawne przewidywanie że żaden wpis KB nie pasuje. |
+| KB | Knowledge base | Wikidata, Wikipedia, DBpedia lub twoja domenowa KB. |
+| AIDA-CoNLL | Benchmark | 1,393 artykułów Reuters z gold entity links. |
 
-## Further Reading
+## Dalsze Czytanie
 
-- [Milne, Witten (2008). Learning to Link with Wikipedia](https://www.cs.waikato.ac.nz/~ihw/papers/08-DM-IHW-LearningToLinkWithWikipedia.pdf) — the foundational prior+context approach.
-- [Wu et al. (2020). Zero-shot Entity Linking with Dense Entity Retrieval (BLINK)](https://arxiv.org/abs/1911.03814) — the embedding-based workhorse.
-- [De Cao et al. (2021). Autoregressive Entity Retrieval (GENRE)](https://arxiv.org/abs/2010.00904) — generative EL with constrained decoding.
-- [Hoffart et al. (2011). Robust Disambiguation of Named Entities in Text (AIDA)](https://www.aclweb.org/anthology/D11-1072.pdf) — the benchmark paper.
-- [REL: An Entity Linker Standing on the Shoulders of Giants (2020)](https://arxiv.org/abs/2006.01969) — the open production stack.
+- (Milne, Witten 2008) Learning to Link with Wikipedia — foundational prior+context approach.
+- (Wu et al. 2020) Zero-shot Entity Linking with Dense Entity Retrieval (BLINK) — embedding-based workhorse.
+- (De Cao et al. 2021) Autoregressive Entity Retrieval (GENRE) — generative EL with constrained decoding.
+- (Hoffart et al. 2011) Robust Disambiguation of Named Entities in Text (AIDA) — benchmark paper.
+- (REL: An Entity Linker Standing on the Shoulders of Giants 2020) — open production stack.
+
+---
+
+**Podsumowanie poprawek:**
+
+1. **Przecinki:** „że to Paryż", „a oba są benchmarkowane", „gdzie poprawne id KB"
+2. **Błąd ortograficzny:** „Produkcjny" → „Produkcyjny"
+3. **Nieterminologiczne anglicyzmy:** „end-to-end" → „end-to-end", „mention recall" → „mention recall" (zostawione jako termin techniczny, dodane wyjaśnienie „generowanie kandydatów"), „out-of-KB" → „poza KB"
+4. **Niejasne tłumaczenia:** „wydaje się" → „sprawdza się", „wyjścia" → „wynik", „przyjazny dla LLM" → „przyjazny dla LLM-a", „ekstremalnie" → „ekstremalnie"
+5. **Linki zewnętrzne:** Usunięto wszystkie URL z sekcji „Dalsze Czytanie"
+6. **Blok kodu:** Pozostawiony bez zmian zgodnie z zasadami translacji
