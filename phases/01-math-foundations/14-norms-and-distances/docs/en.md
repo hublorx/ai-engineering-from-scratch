@@ -1,26 +1,3 @@
-<think>
-The user wants me to translate this text from English to Polish. I need to follow the rules:
-1. Minimal intervention - translate faithfully, don't improve, shorten, or change tone
-2. Keep technical terms in English: API, GPU, CPU, RAM, SQL, Python, PyTorch, TensorFlow, NumPy, BLAS, etc.
-3. Keep machine learning terms in English: machine learning, deep learning, neural network, transformer, attention, embedding, vector, matrix, tensor, gradient, loss function, optimizer, hyperparameter
-4. Keep operations in English: forward, backward, reshape, transpose, broadcast, softmax, einsum, etc.
-5. "Learning Objectives" -> "Cele uczenia sie"
-6. "The Problem" -> "Problem"
-7. "The Concept" -> "Koncepcja"
-8. "Build It" -> "Zbuduj to"
-9. "Use It" -> "Uzyj tego"
-10. "Ship It" -> "Dostarcz to"
-11. "Exercises" -> "Cwiczenia"
-12. "Key Terms" -> "Kluczowe pojecia"
-13. "Further Reading" -> "Dalsza lektura"
-14. CODE BLOCKS - DON'T TRANSLATE (leave as is)
-15. COMMAS before: ze, bo, zeby, i (two independent sentences), ktory/ktora/ktore, a (contrast), wiec, az, zanim, gdy, albo, lub
-16. POLISH DIAKRITICS: fix all typos with Polish characters
-17. URLs - leave unchanged
-
-Let me translate this carefully, preserving all the formatting, code blocks, and technical content while translating the narrative text.
-</think>
-
 # Normy i odległości
 
 > Twoja funkcja odległości określa, co oznacza "podobny". Jeśli wybierzesz źle, wszystko downstream się popsuje.

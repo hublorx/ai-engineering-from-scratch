@@ -1,44 +1,32 @@
-<think>The user wants me to translate this technical document about tensor operations from English to Polish. I need to follow the rules provided:
-
-1. MINIMAL INTERVENTION - translate faithfully, don't improve, shorten, or change tone
-2. Keep technical terms in English: API, GPU, CPU, RAM, SQL, Python, PyTorch, TensorFlow, NumPy, BLAS, machine learning, deep learning, neural network, transformer, attention, embedding, vector, matrix, tensor, gradient, loss function, optimizer, hyperparameter, forward, backward, reshape, transpose, broadcast, softmax, einsum, etc.
-3. Translate specific phrases: "Learning Objectives" -> "Cele uczenia sie", "The Problem" -> "Problem", "The Concept" -> "Koncepcja", "Build It" -> "Zbuduj to", "Use It" -> "Uzyj tego", "Ship It" -> "Dostarcz to", "Exercises" -> "Cwiczenia", "Key Terms" -> "Kluczowe pojecia", "Further Reading" -> "Dalsza lektura"
-4. Keep code blocks as-is (don't translate)
-5. Polish commas before: ze, bo, zeby, i (two independent sentences), ktory/ktora/ktore, a (contrast), wiec, az, zanim, gdy, albo, lub
-6. Polish diacritics - fix typos in Polish characters
-7. Keep URLs unchanged
-
-Let me translate this carefully.</think>
-
 # Operacje na tensorach
 
-> Tensory sa wspolnym jezykiem pomiedzy danymi a deep learning. Kazdy obraz, kazde zdanie, kazdy gradient przeplywa przez nie.
+> Tensory są wspólnym językiem między danymi a deep learning. Każdy obraz, każde zdanie, każdy gradient przepływa przez nie.
 
 **Typ:** Zbuduj
 **Jezyk:** Python
-**Wymagania wstepne:** Phase 1, Lesson 01 (Intuicja algebry liniowej), 02 (Wektory, Macierze i Operacje)
+**Wymagania wstępne:** Phase 1, Lesson 01 (Intuicja algebry liniowej), 02 (Wektory, Macierze i Operacje)
 **Czas:** ~90 minut
 
-## Cele uczenia sie
+## Cele uczenia się
 
-- Zaimplementuj klase tensor z ksztaltem, skokami, reshape, transpose i operacjami elementowym od zera
-- Zastosuj reguly broadcastingu do operowania na tensorach roznych ksztaltow bez kopiowania danych
-- Napisz wyrazenia einsum dla iloczynow skalarnych, mnozenia macierzy, produktow zewnetrznych i operacji wsadowych
-- Sledz dokladne ksztalty tensorow przez kazdy krok multi-head attention
+- Zaimplementuj klasę tensor z kształtem, skokami, reshape, transpose i operacjami elementowymi od zera
+- Zastosuj reguły broadcastingu do operowania na tensorach różnych kształtów bez kopiowania danych
+- Napisz wyrażenia einsum dla iloczynów skalarnych, mnożenia macierzy, produktów zewnętrznych i operacji wsadowych
+- Śledź dokładne kształty tensorów przez każdy krok multi-head attention
 
 ## Problem
 
-Budujesz transformer. Forward pass wyglada czysto. Uruchamiasz i dostajesz: `RuntimeError: mat1 and mat2 shapes cannot be multiplied (32x768 and 512x768)`. Wpatrujesz sie w ksztalty. Probujesz transpose. Teraz mowi `Expected 4D input (got 3D input)`. Dodajesz unsqueeze. Cos innego sie psuje.
+Budujesz transformer. Forward pass wygląda czysto. Uruchamiasz i dostajesz: `RuntimeError: mat1 and mat2 shapes cannot be multiplied (32x768 and 512x768)`. Wpatrujesz się w kształty. Próbujesz transpose. Teraz mówi `Expected 4D input (got 3D input)`. Dodajesz unsqueeze. Coś innego się psuje.
 
-Bledy ksztaltow to najczestsze bugi w kodzie deep learning. Nie sa trudne koncepcyjnie -- kazda operacja ma kontrakt ksztaltu -- ale mnoza sie szybko. Transformer ma dziesiatki reshape, transpose i broadcastow wsiazanych ze soba. Jeden zly axis i blad sie kaskaduje. Co gorsza, niektore bledy ksztaltow w ogole nie rzucaja bledow. Cicho produkuj smieci przez broadcasting po zlym wymiarze lub sumowanie po zlym axis.
+Błędy kształtów to najczęstsze bugi w kodzie deep learning. Nie są trudne koncepcyjnie -- każda operacja ma kontrakt kształtu -- ale mnożą się szybko. Transformer ma dziesiątki reshape, transpose i broadcastów związanych ze sobą. Jeden zły axis i błąd się kaskaduje. Co gorsza, niektóre błędy kształtów w ogóle nie rzucają błędów. Cicho produkują śmieci przez broadcasting po złym wymiarze lub sumowanie po złym axis.
 
-Macierze obsluguja parewise relationships miedzy dwoma zbiorami rzeczy. Rzeczywiste dane nie mieszcza sie w dwoch wymiarach. Batch 32 obrazow RGB w 224x224 to tensor 4D: `(32, 3, 224, 224)`. Self-attention z 12 heads to tez 4D: `(batch, heads, seq_len, head_dim)`. Potrzebujesz struktury danych, ktora uogolnia sie na dowolna liczbe wymiarow, z operacjami, ktore skladaja sie czysto przez wszystkie. Ta struktura to tensor. Zapanuj nad jego operacjami i bledy ksztaltow staja sie trywialnie debugowalne.
+Macierze obsługują pairwise relationships między dwoma zbiorami rzeczy. Rzeczywiste dane nie mieszczą się w dwóch wymiarach. Batch 32 obrazów RGB w 224x224 to tensor 4D: `(32, 3, 224, 224)`. Self-attention z 12 heads to też 4D: `(batch, heads, seq_len, head_dim)`. Potrzebujesz struktury danych, która uogólnia się na dowolną liczbę wymiarów, z operacjami, które składają się czysto przez wszystkie. Ta struktura to tensor. Zapanuj nad jego operacjami i błędy kształtów stają się trywialnie debugowalne.
 
 ## Koncepcja
 
 ### Czym jest tensor
 
-Tensor to wielowymiarowa tablica liczb o jednolitym typie danych. Liczba wymiarow to **rank** (lub **order**). Kazdy wymiar to **axis**. **Shape** to krotka okreslajaca rozmiar wzdluz kazdego axis.
+Tensor to wielowymiarowa tablica liczb o jednolitym typie danych. Liczba wymiarów to **rank** (lub **order**). Każdy wymiar to **axis**. **Shape** to krotka określająca rozmiar wzdłuż każdego axis.
 
 ```mermaid
 graph LR
@@ -48,7 +36,7 @@ graph LR
     T3 --> T4["4D Tensor<br/>rank 4<br/>shape: (B,C,H,W)"]
 ```
 
-Calkowita liczba elementow = iloczyn wszystkich rozmiarow. Shape `(2, 3, 4)` trzyma `2 * 3 * 4 = 24` elementow.
+Całkowita liczba elementów = iloczyn wszystkich rozmiarów. Shape `(2, 3, 4)` trzyma `2 * 3 * 4 = 24` elementów.
 
 ### Ksztalty tensorow w deep learning
 
@@ -70,11 +58,11 @@ graph TD
     end
 ```
 
-PyTorch uzywa NCHW (channels-first). TensorFlow domyslnie NHWC (channels-last). Niezgodne layouty powoduja ciche spowolnienia lub bledy.
+PyTorch używa NCHW (channels-first). TensorFlow domyślnie NHWC (channels-last). Niezgodne layouty powodują ciche spowolnienia lub błędy.
 
-### Jak dziala pamiec layout
+### Jak działa pamięć layout
 
-Tablica 2D w pamieci to 1D sekwencja bajtow. **Strides** mowia ile elementow przeskoczyc, zeby przesunac sie o jeden krok wzdluz kazdego axis.
+Tablica 2D w pamięci to 1D sekwencja bajtów. **Strides** mówią ile elementów przeskoczyć, żeby przesunąć się o jeden krok wzdłuż każdego axis.
 
 ```mermaid
 graph LR
@@ -86,11 +74,11 @@ graph LR
     end
 ```
 
-Transpose nie przesuwa danych. Zamienia strides, co czyni tensor **non-contiguous** -- elementy wiersza nie sa juz przylegle w pamieci.
+Transpose nie przesuwa danych. Zamienia strides, co czyni tensor **non-contiguous** -- elementy wiersza nie są już przyległe w pamięci.
 
 ### Reguly broadcastingu
 
-Broadcasting pozwala operowac na tensorach roznych ksztaltow bez kopiowania danych. Wyrównaj ksztalty od prawej. Dwa wymiary sa kompatybilne gdy sa rowne lub jeden to 1. Mniej wymiarow dostaje padding z 1 po lewej.
+Broadcasting pozwala operować na tensorach różnych kształtów bez kopiowania danych. Wyrównaj kształty od prawej. Dwa wymiary są kompatybilne gdy są równe lub jeden to 1. Mniej wymiarów dostaje padding z 1 po lewej.
 
 ```
 Tensor A:     (8, 1, 6, 1)
@@ -101,7 +89,7 @@ Result:       (8, 7, 6, 5)
 
 ### Einsum: uniwersalna operacja tensorowa
 
-Einstein summation etykietuje kazdy axis litera. Axes w input ale nie w output sa sumowane. Axes w obu sa zachowane.
+Einstein summation etykietuje każdy axis literą. Axes w input ale nie w output są sumowane. Axes w obu są zachowane.
 
 ```mermaid
 graph LR
@@ -157,7 +145,7 @@ Dla shape `(3, 4)`, strides to `(4, 1)` -- przeskocz 4 elementy, zeby przesunac 
 
 ### Krok 2: Reshape, squeeze, unsqueeze
 
-Reshape zmienia shape bez zmiany kolejnosci elementow. Calkowita liczba elementow musi pozostac ta sama. Uzyj `-1` dla jednego wymiaru, zeby wywnioskowac jego rozmiar.
+Reshape zmienia shape bez zmiany kolejności elementów. Całkowita liczba elementów musi pozostać ta sama. Użyj `-1` dla jednego wymiaru, żeby wywnioskować jego rozmiar.
 
 ```python
 t = Tensor(list(range(12)), shape=(2, 6))
@@ -176,7 +164,7 @@ u = v.unsqueeze(0)
 
 ### Krok 3: Transpose i permute
 
-Transpose zamienia dwa axes. Permute zmienia kolejnosc wszystkich axes. To jak konwertujesz miedzy NCHW a NHWC.
+Transpose zamienia dwa axes. Permute zmienia kolejność wszystkich axes. To jak konwertujesz między NCHW a NHWC.
 
 ```python
 mat = Tensor(list(range(6)), shape=(2, 3))
@@ -186,11 +174,11 @@ t4d = Tensor(list(range(24)), shape=(1, 2, 3, 4))
 perm = t4d.permute((0, 2, 3, 1))
 ```
 
-Po transpose lub permute tensor jest non-contiguous w pamieci. W PyTorch `view` failuje na non-contiguous tensorach -- uzyj `reshape` lub wywolaj `.contiguous()` najpierw.
+Po transpose lub permute tensor jest non-contiguous w pamięci. W PyTorch `view` failuje na non-contiguous tensorach -- użyj `reshape` lub wywołaj `.contiguous()` najpierw.
 
 ### Krok 4: Operacje elementowe i redukcje
 
-Operacje elementowe (add, multiply, subtract) stosuja sie niezaleznie do kazdego elementu i preservuja shape. Redukcje (sum, mean, max) kolapsuja jeden lub wiecej axes.
+Operacje elementowe (add, multiply, subtract) stosuja sie niezaleznie do kazdego elementu i zachowuja shape. Redukcje (sum, mean, max) kolapsuja jeden lub wiecej axes.
 
 ```python
 a = Tensor([[1, 2], [3, 4]])
@@ -224,7 +212,7 @@ Pairwise distance przez broadcasting: reshape `(M, 2)` do `(M, 1, 2)` i `(N, 2)`
 
 ### Krok 6: Operacje einsum
 
-Funkcje `demo_einsum()` i `demo_einsum_gallery()` przechodza przez kazdy common pattern.
+Funkcje `demo_einsum()` i `demo_einsum_gallery()` przechodzą przez każdy common pattern.
 
 ```python
 a = np.array([1.0, 2.0, 3.0])
@@ -240,7 +228,7 @@ batch_B = np.random.randn(4, 5, 2)
 batch_mm = np.einsum("bij,bjk->bik", batch_A, batch_B)
 ```
 
-Koszt obliczeniowy kontraacji to iloczyn wszystkich rozmiarow indeksow (kept i summed). Dla `bij,bjk->bik` z B=32, I=128, J=64, K=128: `32 * 128 * 64 * 128 = 33,554,432` mnozen-dodawan.
+Koszt obliczeniowy kontracji to iloczyn wszystkich rozmiarów indeksów (kept i summed). Dla `bij,bjk->bik` z B=32, I=128, J=64, K=128: `32 * 128 * 64 * 128 = 33,554,432` mnożeń-dodawań.
 
 ### Krok 7: Mechanizm attention przez einsum
 
@@ -264,7 +252,7 @@ concat = attn_output.transpose(0, 2, 1, 3).reshape(B, T, E)
 output = np.einsum("bte,ek->btk", concat, W_o)
 ```
 
-Kazdy krok to operacja tensorowa: projekcja (matmul przez einsum), head splitting (reshape + transpose), attention scores (batch matmul przez einsum), weighted sum (batch matmul przez einsum), head merging (transpose + reshape), output projekcja (matmul przez einsum).
+Każdy krok to operacja tensorowa: projekcja (matmul przez einsum), head splitting (reshape + transpose), attention scores (batch matmul przez einsum), weighted sum (batch matmul przez einsum), head merging (transpose + reshape), output projekcja (matmul przez einsum).
 
 ## Uzyj tego
 
@@ -297,9 +285,9 @@ t.transpose(0, 1).contiguous()
 torch.einsum("ik,kj->ij", A, B)
 ```
 
-PyTorch dodaje autograd, GPU support i zoptymalizowane jadra BLAS. Semantyka ksztaltow jest identyczna. Jesli rozumiesz wersje scratch, bledy ksztaltow PyTorch staja sie czytelne.
+PyTorch dodaje autograd, GPU support i zoptymalizowane jądra BLAS. Semantyka kształtów jest identyczna. Jeśli rozumiesz wersje scratch, błędy kształtów PyTorch stają się czytelne.
 
-### Kazda warstwa sieci neuronowej jako operacja tensorowa
+### Każda warstwa sieci neuronowej jako operacja tensorowa
 
 | Operacja | Forma Tensor | Einsum |
 |---|---|---|
@@ -314,39 +302,39 @@ PyTorch dodaje autograd, GPU support i zoptymalizowane jadra BLAS. Semantyka ksz
 
 Ta lekcja produkuje dwa reusable prompts:
 
-1. **`outputs/prompt-tensor-shapes.md`** -- Systematyczny prompt do debugowania niezgodnosci ksztaltow tensorow. Zawiera tabele decyzyjne dla kazdej common operacji (matmul, broadcast, cat, Linear, Conv2d, BatchNorm, softmax) i tabele lookup poprawek.
+1. **`outputs/prompt-tensor-shapes.md`** -- Systematyczny prompt do debugowania niezgodności kształtów tensorów. Zawiera tabele decyzyjne dla każdej common operacji (matmul, broadcast, cat, Linear, Conv2d, BatchNorm, softmax) i tabele lookup poprawek.
 
-2. **`outputs/prompt-tensor-debugger.md`** -- Krok po kroku debugging prompt, ktory wklejasz do dowolnego AI assistant gdy blad ksztaltu cie blokuje. Wrzuć komunikat bledu i ksztalty tensorow, dostan z powrotem dokladna poprawke.
+2. **`outputs/prompt-tensor-debugger.md`** -- Krok po kroku debugging prompt, który wklejasz do dowolnego AI assistant gdy błąd kształtu cię blokuje. Wrzuć komunikat błędu i kształty tensorów, dostan z powrotem dokładną poprawkę.
 
-## Cwiczenia
+## Ćwiczenia
 
-1. **Latwe -- Reshape round-trip.** Wez tensor shape `(2, 3, 4)`. Zreshapeuj do `(6, 4)`, potem do `(24,)`, potem z powrotem do `(2, 3, 4)`. Zweryfikuj ze kolejnosc elementow jest preservowana w kazdym kroku przez wydrukowanie plaskich danych.
+1. **Łatwe -- Reshape round-trip.** Weź tensor shape `(2, 3, 4)`. Zreshapeuj do `(6, 4)`, potem do `(24,)`, potem z powrotem do `(2, 3, 4)`. Zweryfikuj że kolejność elementów jest zachowana w każdym kroku przez wydrukowanie płaskich danych.
 
-2. **Srednie -- Zaimplementuj broadcasting.** Rozszerz klase `Tensor` o metode `broadcast_to(shape)` ktora rozszerza wymiary rozmiaru 1 zeby dopasowac docelowy shape. Potem zmodyfikuj `_elementwise_op` zeby automatic broadcast przed operacja. Testuj z ksztaltami `(3, 1)` i `(1, 4)` produkujac `(3, 4)`.
+2. **Średnie -- Zaimplementuj broadcasting.** Rozszerz klasę `Tensor` o metodę `broadcast_to(shape)` która rozszerza wymiary rozmiaru 1 żeby dopasować docelowy shape. Potem zmodyfikuj `_elementwise_op` żeby automatic broadcast przed operacją. Testuj z kształtami `(3, 1)` i `(1, 4)` produkując `(3, 4)`.
 
-3. **Trudne -- Zbuduj einsum od zera.** Zaimplementuj podstawowa funkcje `einsum(subscripts, *tensors)` ktora obsluguje co najmniej: iloczyn skalarny (`i,i->`), mnozenie macierzy (`ij,jk->ik`), produkt zewnetrzny (`i,j->ij`) i transpose (`ij->ji`). Parsuj string subscript, zidentyfikuj contracted indices i petlaj przez wszystkie kombinacje indeksow. Porownaj wyniki z `np.einsum`.
+3. **Trudne -- Zbuduj einsum od zera.** Zaimplementuj podstawową funkcję `einsum(subscripts, *tensors)` która obsługuje co najmniej: iloczyn skalarny (`i,i->`), mnożenie macierzy (`ij,jk->ik`), produkt zewnętrzny (`i,j->ij`) i transpose (`ij->ji`). Parsuj string subscript, zidentyfikuj contracted indices i pętlaj przez wszystkie kombinacje indeksów. Porównaj wyniki z `np.einsum`.
 
-4. **Trudne -- Attention shape tracker.** Napisz funkcje ktora przyjmuje `batch_size`, `seq_len`, `embed_dim` i `num_heads` jako inputs i drukuje dokladny shape w kazdym kroku multi-head attention: input, Q/K/V projekcja, head split, attention scores, softmax weights, weighted sum, head merge, output projekcja. Zweryfikuj przeciwko output `demo_attention_einsum()`.
+4. **Trudne -- Attention shape tracker.** Napisz funkcję która przyjmuje `batch_size`, `seq_len`, `embed_dim` i `num_heads` jako inputs i drukuje dokładny shape w każdym kroku multi-head attention: input, Q/K/V projekcja, head split, attention scores, softmax weights, weighted sum, head merge, output projekcja. Zweryfikuj przeciwko output `demo_attention_einsum()`.
 
-## Kluczowe pojecia
+## Kluczowe pojęcia
 
-| Termin | Co ludzie mowia | Co to faktycznie znaczy |
+| Termin | Co ludzie mówią | Co to faktycznie znaczy |
 |---|---|---|
-| Tensor | "Macierz ale wiecej wymiarow" | Wielowymiarowa tablica z jednolitym typem i zdefiniowanym shape, strides i operacjami |
-| Rank | "Liczba wymiarow" | Liczba axes. Macierz ma rank 2, nie rank rowny jej matrix rank |
-| Shape | "Rozmiar tensora" | Krotka listujaca rozmiar wzdluz kazdego axis. `(2, 3)` oznacza 2 wiersze, 3 kolumny |
-| Stride | "Jak pamiec jest ulozona" | Liczba elementow do przeskoczenia zeby przesunac sie o jedna pozycje wzdluz kazdego axis |
-| Broadcasting | "To po prostu dziala gdy ksztalty sie roznia" | Scisly zbior reguł: wyrównaj od prawej, wymiary musza byc rowne lub jeden musi byc 1 |
-| Contiguous | "Tensor jest normalny" | Elementy przechowywane sekwencyjnie w pamieci bez przerw lub zmiany kolejnosci z logical layout |
-| Einsum | "Fajny sposob na napisanie matmul" | Generalna notacja ktora wyraza dowolna kontraacje tensora, produkt zewnetrzny, trace lub transpose w jednej linii |
-| View | "To samo co reshape" | Tensor dzielacy ten sam bufor pamieci ale z inna shape/stride metadata. Failuje na non-contiguous danych |
-| Contraction | "Sumowanie po indeksie" | Generalna operacja gdzie wspolny indeks miedzy tensorami jest mnozony i sumowany, produkujac wynik nizszego ranku |
-| NCHW / NHWC | "Format PyTorch vs TensorFlow" | Konwencje layout pamieci dla obrazow tensorow. NCHW wklada kanały przed spatial dims, NHWC po |
+| Tensor | "Macierz ale więcej wymiarów" | Wielowymiarowa tablica z jednolitym typem i zdefiniowanym shape, strides i operacjami |
+| Rank | "Liczba wymiarów" | Liczba axes. Macierz ma rank 2, nie rank równy jej matrix rank |
+| Shape | "Rozmiar tensora" | Krotka listująca rozmiar wzdłuż każdego axis. `(2, 3)` oznacza 2 wiersze, 3 kolumny |
+| Stride | "Jak pamięć jest ułożona" | Liczba elementów do przeskoczenia żeby przesunąć się o jedną pozycję wzdłuż każdego axis |
+| Broadcasting | "To po prostu działa gdy kształty się różnią" | Ścisły zbiór reguł: wyrównaj od prawej, wymiary muszą być równe lub jeden musi być 1 |
+| Contiguous | "Tensor jest normalny" | Elementy przechowywane sekwencyjnie w pamięci bez przerw lub zmiany kolejności z logical layout |
+| Einsum | "Fajny sposób na napisanie matmul" | Ogólna notacja która wyraża dowolną kontrakcję tensora, produkt zewnętrzny, trace lub transpose w jednej linii |
+| View | "To samo co reshape" | Tensor dzielący ten sam bufor pamięci ale z inną shape/stride metadata. Failuje na non-contiguous danych |
+| Contraction | "Sumowanie po indeksie" | Ogólna operacja gdzie wspólny indeks między tensorami jest mnożony i sumowany, produkując wynik niższego ranku |
+| NCHW / NHWC | "Format PyTorch vs TensorFlow" | Konwencje layout pamięci dla obrazów tensorów. NCHW wkłada kanały przed spatial dims, NHWC po |
 
 ## Dalsza lektura
 
-- [NumPy Broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html) -- Kanoniczne reguly z wizualnymi przykladami
-- [PyTorch Tensor Views](https://pytorch.org/docs/stable/tensor_view.html) -- Kiedy views dzialaja a kiedy kopiuja
-- [einops](https://github.com/arogozhnikov/einops) -- Biblioteka ktora czyni tensor reshaping czytelnym i bezpiecznym
-- [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) -- Wizualizuje ksztalty tensorow przeplywajace przez attention
-- [Einstein Summation in NumPy](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) -- Pelna dokumentacja einsum z przykladami
+- [NumPy Broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html) -- Kanoniczne reguły z wizualnymi przykładami
+- [PyTorch Tensor Views](https://pytorch.org/docs/stable/tensor_view.html) -- Kiedy views działają a kiedy kopiuja
+- [einops](https://github.com/arogozhnikov/einops) -- Biblioteka która czyni tensor reshaping czytelnym i bezpiecznym
+- [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) -- Wizualizuje kształty tensorów przepływające przez attention
+- [Einstein Summation in NumPy](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) -- Pełna dokumentacja einsum z przykładami

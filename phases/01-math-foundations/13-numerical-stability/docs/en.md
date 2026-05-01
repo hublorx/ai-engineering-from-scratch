@@ -1,25 +1,3 @@
-<think>The user wants me to translate this technical article about numerical stability in machine learning from English to Polish. Let me follow the rules carefully:
-
-1. MINIMAL INTERVENTION - translate faithfully, do NOT improve, shorten, or change tone
-2. Keep API, GPU, CPU, RAM, SQL, Python, PyTorch, TensorFlow, NumPy, BLAS, etc. in English
-3. Keep machine learning, deep learning, neural network, transformer, attention, embedding, vector, matrix, tensor, gradient, loss function, optimizer, hyperparameter in English
-4. Keep forward, backward, reshape, transpose, broadcast, softmax, einsum, etc. in English
-5. "Learning Objectives" -> "Cele uczenia sie"
-6. "The Problem" -> "Problem"
-7. "The Concept" -> "Koncepcja"
-8. "Build It" -> "Zbuduj to"
-9. "Use It" -> "Uzyj tego"
-10. "Ship It" -> "Dostarcz to"
-11. "Exercises" -> "Cwiczenia"
-12. "Key Terms" -> "Kluczowe pojecia"
-13. "Further Reading" -> "Dalsza lektura"
-14. CODE BLOCKS - DO NOT TRANSLATE (leave as is)
-15. COMMAS before: ze, bo, zeby, i (two independent sentences), ktory/ktora/ktore, a (contrast), wiec, az, zanim, gdy, albo, lub
-16. POLISH DIACRITICS: fix all typos in Polish characters
-17. URL links - leave unchanged
-
-Let me start translating carefully, section by section.</think>
-
 # Stabilnosc numeryczna
 
 > Floating point to przeciekawa abstrakcja. Ugryzie cie podczas treningu i nie zobaczysz tego nadchodzacego.
@@ -599,7 +577,7 @@ Te stabilne implementacje powracaja w Fazie 3 przy budowaniu treningowego loopa 
 ## Kluczowe pojecia
 
 | Pojecie | Co ludzie mowia | Co to faktycznie oznacza |
-|------|----------------|----------------------|
+|---------|-----------------|----------------------|
 | IEEE 754 | "Standard floatow" | Miedzynarodowy standard definiujacy binarne formaty floating point, reguly zaokraglania i wartosci specjalne (inf, nan). Kazdy nowoczesny CPU i GPU go implementuje. |
 | Machine epsilon | "Limit precyzji" | Najmniejsza wartosc e taka, ze 1.0 + e != 1.0 w danym formacie float. Dla float32, to okolo 1.19e-7. |
 | Katastrofalna cancelation | "Utrata precyzji z odejmowania" | Gdy odejmujemy niemal rowne liczby floating point, istotne cyfry sie znosza i szum zaokraglenia dominuje wynik. |

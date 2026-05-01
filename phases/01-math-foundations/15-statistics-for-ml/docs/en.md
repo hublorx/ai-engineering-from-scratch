@@ -1,27 +1,3 @@
-<think>The user wants me to translate this English text about Statistics for Machine Learning into Polish, following specific rules. Let me go through the text carefully and translate it while following all the rules:
-
-1. Minimal intervention - translate faithfully, don't improve, shorten, or change tone
-2. Keep technical terms in English as specified
-3. Translate section headers according to the rules provided
-4. Don't translate code blocks
-5. Use Polish commas before specific words
-6. Use proper Polish diacritics
-
-Let me translate this section by section.
-
-Key translations:
-- "Learning Objectives" -> "Cele uczenia sie"
-- "The Problem" -> "Problem"
-- "The Concept" -> "Koncepcja"
-- "Build It" -> "Zbuduj to"
-- "Use It" -> "Uzyj tego"
-- "Ship It" -> "Dostarcz to"
-- "Exercises" -> "Cwiczenia"
-- "Key Terms" -> "Kluczowe pojecia"
-- "Further Reading" -> "Dalsza lektura"
-
-Let me translate each section carefully, maintaining all formatting.</think>
-
 # Statystyka dla uczenia maszynowego
 
 > Statystyka to sposób, zeby dowiedziec sie, czy twoj model faktycznie dziala, czy po prostu mial szczescie.
@@ -289,7 +265,7 @@ Testowanie A/B w ML to nie to samo co webowe testowanie A/B. Porownanie modeli m
                               aby oszacowac wariancje kazdej metryki, nie tylko oszacowania punktowe.
 
 4. Wyciek danych:           Jesli zbior testowy byl uzywany podczas wyboru modelu,
-                              twoje porownanie jest obciazone. Odłoz ostateczny zbior testowy.
+                              twoje porownanie jest obciazone. Odłóż ostateczny zbior testowy.
 ```
 
 **Procedura:**
@@ -516,7 +492,7 @@ Wszystko od zera, uzywajac tylko `math` i `random`. Bez numpy, bez scipy.
 ## Kluczowe pojecia
 
 | Termin | Definicja |
-|---|---|
+|--------|-----------|
 | Srednia | Suma wartosci podzielona przez liczbe. Wrazliwa na wartosci odstajace. |
 | Mediana | Srodkowa wartosc posortowanych danych. Odporna na wartosci odstajace. |
 | Odchylenie standardowe | Pierwiastek kwadratowy z wariancji. Mierzy rozproszenie w oryginalnych jednostkach. |

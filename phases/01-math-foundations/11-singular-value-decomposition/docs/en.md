@@ -1,25 +1,3 @@
-<think>The user wants me to translate this markdown document about Singular Value Decomposition (SVD) from English to Polish. I need to follow the strict rules provided:
-
-1. Minimal intervention - translate faithfully, don't improve, don't shorten, don't change tone
-2. Keep English: API, GPU, CPU, RAM, SQL, Python, PyTorch, TensorFlow, NumPy, BLAS, etc.
-3. Keep English: machine learning, deep learning, neural network, transformer, attention, embedding, vector, matrix, tensor, gradient, loss function, optimizer, hyperparameter
-4. Keep English: forward, backward, reshape, transpose, broadcast, softmax, einsum, etc.
-5. "Learning Objectives" -> "Cele uczenia się"
-6. "The Problem" -> "Problem"
-7. "The Concept" -> "Koncepcja"
-8. "Build It" -> "Zbuduj to"
-9. "Use It" -> "Użyj tego"
-10. "Ship It" -> "Dostarcz to"
-11. "Exercises" -> "Ćwiczenia"
-12. "Key Terms" -> "Kluczowe pojęcia"
-13. "Further Reading" -> "Dalsza lektura"
-14. CODE BLOCKS - DON'T TRANSLATE (leave as they are)
-15. COMMAS before: że, bo, żeby, i (two independent sentences), który/która/które, a (contrast), więc, aż, zanim, gdy, albo, lub
-16. POLISH DIACRITICS: fix all typos in Polish characters
-17. URLs - leave unchanged
-
-Let me translate this document carefully, maintaining all formatting and following the rules.</think>
-
 # Rozkład według wartości osobliwych
 
 > SVD to szwajcarski scyzoryk algebry liniowej. Każda macierz go ma. Każdy data scientist go potrzebuje.
@@ -86,9 +64,9 @@ gdzie r = rząd(A)
 
 Kolumny U nazywamy lewymi wektorami osobliwymi. Kolumny V nazywamy prawymi wektorami osobliwymi. Elementy diagonalne Sigmy nazywamy wartościami osobliwymi. Zawsze są nieujemne i konwencjonalnie posortowane w kolejności malejącej.
 
-### Lewwe wektory osobliwe, wartości osobliwe, prawe wektory osobliwe
+### Lewe wektory osobliwe, wartości osobliwe, prawe wektory osobliwe
 
-Każda składowa SVD ma distinct geometryczne znaczenie.
+Każda składowa SVD ma odrębne geometryczne znaczenie.
 
 **Prawe wektory osobliwe (kolumny V):** Te tworzą bazę ortonormalną przestrzeni wejściowej (R^n). To są kierunki w przestrzeni wejściowej, które macierz odwzorowuje na ortogonalne kierunki w przestrzeni wyjściowej. Myśl o nich jako o naturalnym układzie współrzędnych dla dziedziny.
 
@@ -564,5 +542,5 @@ Ta lekcja wytwarza:
 - [3Blue1Brown: But what is the SVD?](https://www.youtube.com/watch?v=vSczTbgc8Rc) - geometryczna intuicja SVD
 - [We Recommend a Singular Value Decomposition](https://www.ams.org/publicoutreach/feature-column/fcarc-svd) - przystępny przegląd od American Mathematical Society
 - [Netflix Prize and Matrix Factorization](https://sifter.org/~simon/journal/20061211.html) - oryginalny post blogowy Simona Funka o SVD dla rekomendacji
-- [Latent Semantic Analysis](https://en.wikipedia.org/wiki/Latent_semantic_analysis) - oryginalne zastosowanie SVD w NLP
+- [Latent Semantic Analysis](https://en.wikipedia.org/wiki/latent_semantic_analysis) - oryginalne zastosowanie SVD w NLP
 - [Numerical Linear Algebra by Trefethen and Bau](https://people.maths.ox.ac.uk/trefethen/text.html) - złoty standard dla zrozumienia algorytmów SVD i ich właściwości numerycznych
