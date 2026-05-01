@@ -1,71 +1,71 @@
 # BERT — Masked Language Modeling
 
-> GPT predicts the next word. BERT predicts a missing word. One sentence of difference — and half a decade of everything embedding-shaped.
+> GPT przewiduje następne słowo. BERT przewiduje brakujące słowo. Jedno zdanie różnicy — i pół dekady wszystkiego w kształcie embeddingów.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 7 · 05 (Full Transformer), Phase 5 · 02 (Text Representation)
-**Time:** ~45 minutes
+**Typ:** Buduj
+**Języki:** Python
+**Wymagania wstępne:** Faza 7 · 05 (Pełny Transformer), Faza 5 · 02 (Text Representation)
+**Czas:** ~45 minut
 
-## The Problem
+## Problem
 
-In 2018 every NLP task — sentiment, NER, QA, entailment — trained its own model from scratch on its own labeled data. There was no pre-trained "understand English" checkpoint you could fine-tune. ELMo (2018) showed you could pre-train contextual embeddings with a bidirectional LSTM; it helped but did not generalize.
+W 2018 każde NLP task — sentiment, NER, QA, entailment — trenowało własny model od zera na własnych oznaczonych danych. Nie było pre-trained "rozumiej angielski" checkpoint, który mogłeś fine-tune. ELMo (2018) pokazał, że można pre-train contextual embeddings z bidirectional LSTM; to pomagało, ale nie uogólniało.
 
-BERT (Devlin et al. 2018) asked: what if we took a transformer encoder, trained it on every sentence on the internet, and forced it to predict missing words from context on both sides? Then you fine-tune one head on your downstream task. Parameter efficiency was a revelation.
+BERT (Devlin et al. 2018) zapytał: co gdybyśmy wzięli transformer encoder, trenowali na każdym zdaniu w internecie i zmusili go do przewidywania brakujących słów z kontekstu z obu stron? Potem fine-tune jeden head na swoim downstream task. Parameter efficiency była objawieniem.
 
-The result: within 18 months BERT and its variants (RoBERTa, ALBERT, ELECTRA) dominated every NLP leaderboard that existed. By 2020 every search engine, content moderation pipeline, and semantic-search system on earth had a BERT inside.
+Wynik: w ciągu 18 miesięcy BERT i jego warianty (RoBERTa, ALBERT, ELECTRA) zdominowały każdy NLP leaderboard, który istniał. Do 2020 każda wyszukiwarka, pipeline moderacji treści i system semantic-search na ziemi miał BERT inside.
 
-In 2026 encoder-only models are still the right tool for classification, retrieval, and structured extraction — they run 5–10× faster per token than decoders and their embeddings are the backbone of every modern retrieval stack. ModernBERT (Dec 2024) pushed the architecture to 8K context with Flash Attention + RoPE + GeGLU.
+W 2026 encoder-only models wciąż są właściwym narzędziem dla classification, retrieval i structured extraction — działają 5–10× szybciej per token niż decodery, a ich embeddings są backbone każdego nowoczesnego retrieval stack. ModernBERT (Dec 2024) popchnął architekturę do 8K kontekstu z Flash Attention + RoPE + GeGLU.
 
-## The Concept
+## Koncepcja
 
 ![Masked language modeling: pick tokens, mask them, predict originals](../assets/bert-mlm.svg)
 
-### The training signal
+### Sygnał treningowy
 
-Take a sentence: `the quick brown fox jumps over the lazy dog`.
+Weź zdanie: `the quick brown fox jumps over the lazy dog`.
 
-Mask 15% of tokens randomly:
+Zamaskuj 15% tokenów losowo:
 
 ```
 input:  the [MASK] brown fox jumps [MASK] the lazy dog
 target: the  quick brown fox jumps  over  the lazy dog
 ```
 
-Train the model to predict the original tokens at masked positions. Because the encoder is bidirectional, predicting `[MASK]` at position 1 can use `brown fox jumps` at positions 2+. That is the thing GPT cannot do.
+Trenuj model, żeby przewidywał oryginalne tokeny na zamaskowanych pozycjach. Bo encoder jest bidirectional, przewidywanie `[MASK]` na pozycji 1 może użyć `brown fox jumps` na pozycjach 2+. To jest to, czego GPT nie może zrobić.
 
-### The BERT mask rules
+### Zasady maskowania BERT
 
-Of the 15% of tokens selected for prediction:
+Z 15% tokenów wybranych do przewidywania:
 
-- 80% are replaced with `[MASK]`.
-- 10% are replaced with a random token.
-- 10% are left unchanged.
+- 80% jest zastąpionych `[MASK]`.
+- 10% jest zastąpionych losowym tokenem.
+- 10% pozostaje niezmienionych.
 
-Why not always `[MASK]`? Because `[MASK]` never appears at inference time. Training the model to expect `[MASK]` at 100% of masked positions would create a distribution shift between pretraining and fine-tuning. The 10% random + 10% unchanged keeps the model honest.
+Dlaczego nie zawsze `[MASK]`? Bo `[MASK]` nigdy nie pojawia się w czasie inferencji. Trenowanie modelu, żeby oczekiwał `[MASK]` na 100% zamaskowanych pozycji stworzyłoby distribution shift między pretraining a fine-tuning. 10% random + 10% unchanged utrzymuje model honest.
 
-### Next Sentence Prediction (NSP) — and why it was dropped
+### Next Sentence Prediction (NSP) — i dlaczego została upuszczona
 
-Original BERT also trained on NSP: given two sentences A and B, predict if B follows A. RoBERTa (2019) ablated it and showed NSP hurt, not helped. Modern encoders skip it.
+Oryginalny BERT trenował też na NSP: przy dwóch zdaniach A i B, przewiduj czy B następuje po A. RoBERTa (2019) to abladowała i pokazała, że NSP szkodzi, nie pomaga. Nowoczesne encodery to pomijają.
 
-### What changed in 2026: ModernBERT
+### Co się zmieniło w 2026: ModernBERT
 
-The 2024 ModernBERT paper rebuilt the block with 2026 primitives:
+Artykuł ModernBERT z 2024 przebudował block z 2026 primitives:
 
-| Component | Original BERT (2018) | ModernBERT (2024) |
+| Komponent | Oryginalny BERT (2018) | ModernBERT (2024) |
 |-----------|----------------------|-------------------|
-| Positional | Learned absolute | RoPE |
-| Activation | GELU | GeGLU |
-| Normalization | LayerNorm | Pre-norm RMSNorm |
-| Attention | Full dense | Alternating local (128) + global |
-| Context length | 512 | 8192 |
+| Pozycyjne | Learned absolute | RoPE |
+| Aktywacja | GELU | GeGLU |
+| Normalizacja | LayerNorm | Pre-norm RMSNorm |
+| Attention | Full dense | Naprzemienne local (128) + global |
+| Długość kontekstu | 512 | 8192 |
 | Tokenizer | WordPiece | BPE |
 
-And unlike the 2018 stack, it is Flash-Attention-native. Inference is 2–3× faster at sequence length 8K than DeBERTa-v3 with better GLUE scores.
+I w przeciwieństwie do stacka z 2018, jest Flash-Attention-native. Inferencja jest 2–3× szybsza przy długości sekwencji 8K niż DeBERTa-v3 z lepszymi GLUE scores.
 
-### Use cases that still pick an encoder in 2026
+### Przypadki użycia, które wciąż wybierają encoder w 2026
 
-| Task | Why encoder beats decoder |
+| Task | Dlaczego encoder bije decoder |
 |------|---------------------------|
 | Retrieval / semantic search embeddings | Bidirectional context = better embedding quality per token |
 | Classification (sentiment, intent, toxicity) | One forward pass; no generation overhead |
@@ -73,11 +73,11 @@ And unlike the 2018 stack, it is Flash-Attention-native. Inference is 2–3× fa
 | Zero-shot entailment (NLI) | Classifier head on top of encoder |
 | Reranker for RAG | Cross-encoder scoring, 10x faster than LLM rerankers |
 
-## Build It
+## Zbuduj to
 
-### Step 1: masking logic
+### Krok 1: logika maskowania
 
-See `code/main.py`. The function `create_mlm_batch` takes a list of token IDs, a vocab size, and a mask probability. Returns input IDs (with masks applied) and labels (only at masked positions, -100 elsewhere — PyTorch's ignore index convention).
+Zobacz `code/main.py`. Funkcja `create_mlm_batch` przyjmuje listę token IDs, rozmiar vocab i mask probability. Zwraca input IDs (z maskami applied) i labels (tylko na zamaskowanych pozycjach, -100 gdzie indziej — konwencja ignore index PyTorch).
 
 ```python
 def create_mlm_batch(tokens, vocab_size, mask_prob=0.15, rng=None):
@@ -95,19 +95,19 @@ def create_mlm_batch(tokens, vocab_size, mask_prob=0.15, rng=None):
     return input_ids, labels
 ```
 
-### Step 2: run MLM prediction on a tiny corpus
+### Krok 2: uruchom MLM prediction na tiny corpus
 
-Train a 2-layer encoder + MLM head on a vocabulary of 20 words, 200 sentences. No gradient — we do forward-pass sanity checks. Full training needs PyTorch.
+Trenuj 2-warstwowy encoder + MLM head na vocabularzu 20 słów, 200 zdań. Bez gradientu — robimy forward-pass sanity checks. Pełny trening potrzebuje PyTorch.
 
-### Step 3: compare mask types
+### Krok 3: porównaj typy mask
 
-Show how the three-way rule keeps the model usable without `[MASK]`. Predict on an unmasked sentence and on a masked sentence. Both should produce reasonable token distributions because the model saw both patterns in training.
+Pokaż jak trój-drogowa zasada utrzymuje model usable bez `[MASK]`. Przewiduj na niezamaskowanym zdaniu i na zamaskowanym zdaniu. Oba powinny produkować rozsądne rozkłady tokenów, bo model widział oba patterny w treningu.
 
-### Step 4: fine-tune head
+### Krok 4: fine-tune head
 
-Replace the MLM head with a classification head on a toy sentiment dataset. Only the head trains; the encoder is frozen. This is the pattern every BERT application follows.
+Zamień MLM head na classification head na toy sentiment dataset. Tylko head się trenuje; encoder jest zamrożony. To jest pattern, który każdy BERT application followuje.
 
-## Use It
+## Użyj tego
 
 ```python
 from transformers import AutoModel, AutoTokenizer
@@ -120,39 +120,39 @@ inputs = tok(text, return_tensors="pt")
 out = model(**inputs).last_hidden_state   # (1, N, 768)
 ```
 
-**Embedding models are fine-tuned BERT.** `sentence-transformers` models like `all-MiniLM-L6-v2` are BERTs trained with contrastive loss. The encoder is the same. The loss changed.
+**Embedding models to fine-tuned BERT.** `sentence-transformers` models jak `all-MiniLM-L6-v2` to BERTs trenowane z contrastive loss. Encoder jest ten sam. Loss się zmienił.
 
-**Cross-encoder rerankers are also fine-tuned BERT.** Pair-classification on `[CLS] query [SEP] doc [SEP]`. The bidirectional attention between query and doc is exactly what gives cross-encoders their quality edge over biencoders.
+**Cross-encoder rerankers to też fine-tuned BERT.** Pair-classification na `[CLS] query [SEP] doc [SEP]`. Bidirectional attention między query i doc jest dokładnie tym, co daje cross-encoderom ich jakościową przewagę nad biencoders.
 
-**When not to pick BERT in 2026.** Anything generative. The encoder has no sensible way to autoregressively produce tokens. Also: anything under 1B params where a small decoder can match quality with more flexibility (Phi-3-Mini, Qwen2-1.5B).
+**Kiedy nie wybierać BERT w 2026.** Cokolwiek generacyjnego. Encoder nie ma sensible sposobu na autoregressive produkowanie tokenów. Też: cokolwiek poniżej 1B params gdzie small decoder może match quality z większą flexibility (Phi-3-Mini, Qwen2-1.5B).
 
-## Ship It
+## Wyślij to
 
-See `outputs/skill-bert-finetuner.md`. The skill scopes a BERT fine-tune (backbone choice, head spec, data, eval, stopping) for a new classification or extraction task.
+Zobacz `outputs/skill-bert-finetuner.md`. Skill scopinguje BERT fine-tune (wybór backbone, specyfikacja head, dane, eval, stopping) dla nowego classification lub extraction task.
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Run `code/main.py` and print the mask distribution across 10,000 tokens. Confirm ~15% are selected, and of those ~80% become `[MASK]`.
-2. **Medium.** Implement whole-word masking: if a word is tokenized into subwords, mask all subwords together or none. Measure whether this improves MLM accuracy on a 500-sentence corpus.
-3. **Hard.** Train a tiny (2-layer, d=64) BERT on 10,000 sentences from a public dataset. Fine-tune the `[CLS]` token for SST-2 sentiment. Compare against a decoder-only baseline at matched params — which wins?
+1. **Łatwe.** Uruchom `code/main.py` i wydrukuj mask distribution przez 10,000 tokenów. Potwierdź ~15% jest wybranych, a z tych ~80% staje się `[MASK]`.
+2. **Średnie.** Zaimplementuj whole-word masking: jeśli słowo jest tokenizowane na subwords, maskuj wszystkie subwords razem lub żadne. Zmierz, czy to poprawia MLM accuracy na 500-zdaniowym corpusie.
+3. **Trudne.** Trenuj tiny (2-warstwowy, d=64) BERT na 10,000 zdań z public dataset. Fine-tune `[CLS]` token dla SST-2 sentiment. Porównaj przeciwko decoder-only baseline przy matched params — który wygrywa?
 
-## Key Terms
+## Kluczowe Terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| MLM | "Masked language modeling" | Training signal: randomly replace 15% of tokens with `[MASK]`, predict the originals. |
-| Bidirectional | "Looks both ways" | Encoder attention has no causal mask — every position sees every other position. |
-| `[CLS]` | "The pooler token" | A special token prepended to every sequence; its final embedding is used as the sentence-level representation. |
-| `[SEP]` | "Segment separator" | Separates paired sequences (e.g. query/doc, sentence A/B). |
-| NSP | "Next sentence prediction" | BERT's second pretraining task; shown to be useless in RoBERTa, dropped after 2019. |
-| Fine-tuning | "Adapt to a task" | Keep the encoder mostly frozen; train a small head on top for the downstream task. |
-| Cross-encoder | "A reranker" | A BERT that takes both query and doc as input, outputs a relevance score. |
-| ModernBERT | "2024 refresh" | Encoder rebuilt with RoPE, RMSNorm, GeGLU, alternating local/global attention, 8K context. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-----------------------|
+| MLM | "Masked language modeling" | Sygnał treningowy: losowo zastąp 15% tokenów `[MASK]`, przewiduj oryginalne. |
+| Bidirectional | "Looks both ways" | Encoder attention nie ma causal mask — każda pozycja widzi każdą inną pozycję. |
+| `[CLS]` | "The pooler token" | Specjalny token dodany do każdej sekwencji; jego final embedding jest używany jako sentence-level representation. |
+| `[SEP]` | "Segment separator" | Separuje paired sequences (np. query/doc, zdanie A/B). |
+| NSP | "Next sentence prediction" | Drugi BERT pretraining task; pokazano, że bezużyteczny w RoBERTa, upuszczony po 2019. |
+| Fine-tuning | "Adapt to a task" | Trzymaj encoder mostly frozen; trenuj mały head na górze dla downstream task. |
+| Cross-encoder | "A reranker" | BERT który bierze zarówno query jak i doc jako input, zwraca relevance score. |
+| ModernBERT | "2024 refresh" | Encoder przebudowany z RoPE, RMSNorm, GeGLU, naprzemiennym local/global attention, 8K kontekst. |
 
-## Further Reading
+## Dalsze Czytanie
 
-- [Devlin et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805) — original paper.
-- [Liu et al. (2019). RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692) — how to train BERT right; kills NSP.
-- [Clark et al. (2020). ELECTRA: Pre-training Text Encoders as Discriminators Rather Than Generators](https://arxiv.org/abs/2003.10555) — replaced-token detection beats MLM at matched compute.
-- [Warner et al. (2024). Smarter, Better, Faster, Longer: A Modern Bidirectional Encoder](https://arxiv.org/abs/2412.13663) — ModernBERT paper.
-- [HuggingFace `modeling_bert.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py) — canonical encoder reference.
+- [Devlin et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805) — oryginalny artykuł.
+- [Liu et al. (2019). RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692) — jak trenować BERT poprawnie; zabija NSP.
+- [Clark et al. (2020). ELECTRA: Pre-training Text Encoders as Discriminators Rather Than Generators](https://arxiv.org/abs/2003.10555) — replaced-token detection bije MLM przy matched compute.
+- [Warner et al. (2024). Smarter, Better, Faster, Longer: A Modern Bidirectional Encoder](https://arxiv.org/abs/2412.13663) — artykuł ModernBERT.
+- [HuggingFace `modeling_bert.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py) — kanoniczny encoder reference.

@@ -1,46 +1,46 @@
-# Scaling Laws
+# Prawa Skalowania
 
-> The 2020 Kaplan paper said: bigger model, lower loss. The 2022 Hoffmann paper said: you were under-training. Compute goes into two buckets — parameters and tokens — and the split is not obvious.
+> Artykuł Kaplana z 2020 powiedział: większy model, niższy loss. Artykuł Hoffmanna z 2022 powiedział: niedoszkalałeś. Compute dzieli się na dwa kubełki — parametry i tokeny — i podział nie jest oczywisty.
 
-**Type:** Learn
-**Languages:** Python
-**Prerequisites:** Phase 7 · 05 (Full Transformer), Phase 7 · 07 (GPT)
-**Time:** ~45 minutes
+**Typ:** Nauka
+**Języki:** Python
+**Wymagania wstępne:** Faza 7 · 05 (Full Transformer), Faza 7 · 07 (GPT)
+**Czas:** ~45 minut
 
-## The Problem
+## Problem
 
-When you have C FLOPs of training compute and want the best model, you face two knobs:
+Gdy masz C FLOPs treningowego compute i chcesz najlepszy model, masz dwa pokrętła:
 
-1. **How many parameters (N)?** Bigger model, higher capacity.
-2. **How many training tokens (D)?** More data, better use of capacity.
+1. **Ile parametrów (N)?** Większy model, większa pojemność.
+2. **Ile tokenów treningowych (D)?** Więcej danych, lepsze wykorzystanie pojemności.
 
-FLOPs scale approximately as `6 × N × D`. You can push N up and D down, or D up and N down. Which is better?
+FLOPy skalują się w przybliżeniu jako `6 × N × D`. Możesz pchać N w górę i D w dół, lub D w górę i N w dół. Co jest lepsze?
 
-Before 2022, the answer was "push N hard." GPT-3 (2020) was 175B parameters trained on ~300B tokens. A ratio of about 1.7 tokens per parameter. The Kaplan scaling laws backed this up.
+Przed 2022 odpowiedź brzmiała "pchać N mocno." GPT-3 (2020) miał 175B parametrów trenowanych na ~300B tokenach. Stosunek około 1.7 tokenów na parametr. Prawa skalowania Kaplana to potwierdzały.
 
-Hoffmann et al. (2022), training a small family of models called Chinchilla, found something different: optimal ratio is closer to **20 tokens per parameter**. GPT-3 was 10× undertrained. Chinchilla (70B params, 1.4T tokens) beat GPT-3 (175B, 300B tokens) on every benchmark at 2.5× less inference cost.
+Hoffmann et al. (2022), trenując małą rodzinę modeli o nazwie Chinchilla, znaleźli coś innego: optymalny stosunek jest bliższy **20 tokenów na parametr**. GPT-3 był 10× niedoszkolony. Chinchilla (70B params, 1.4T tokenów) pobił GPT-3 (175B, 300B tokenów) na każdym benchmarku przy 2.5× mniejszym koszcie inferencji.
 
-2026 is Chinchilla's world — with one important twist. Llama 3 8B was trained on 15 trillion tokens, a ratio of 1,875 tokens per parameter. Ninety-four times past Chinchilla-optimal. Inference cost matters more than training cost for models that will be used at scale, so over-training (past Chinchilla) for a smaller deployable footprint is the 2026 default.
+2026 to świat Chinchilli — z jednym ważnym twistem. Llama 3 8B była trenowana na 15 bilionów tokenów, stosunek 1,875 tokenów na parametr. Dziewięćdziesiąt cztery razy powyżej Chinchilla-optymalnego. Koszt inferencji ma większe znaczenie niż koszt treningu dla modeli które będą używane na skali, więc over-training (ponad Chinchilla) dla mniejszego deployowalnego footprintu to domyślne 2026.
 
-## The Concept
+## Koncepcja
 
 ![Chinchilla curves: loss vs compute at various N/D ratios](../assets/scaling-laws.svg)
 
-### The Hoffmann law
+### Prawo Hoffmanna
 
-From the Chinchilla paper, loss follows:
+Z papieru Chinchilla, loss wynika:
 
 ```
 L(N, D) = A / N^α + B / D^β + E
 ```
 
-- `N` = parameters (non-embedding).
-- `D` = training tokens.
-- `α ≈ 0.34`, `β ≈ 0.28` (roughly symmetric).
-- `E ≈ 1.69`, the irreducible loss ceiling.
+- `N` = parametry (non-embedding).
+- `D` = tokeny treningowe.
+- `α ≈ 0.34`, `β ≈ 0.28` (w przybliżeniu symetryczne).
+- `E ≈ 1.69`, sufit irreducible loss.
 - `A ≈ 406`, `B ≈ 411`.
 
-Two terms trade against each other as you scale. Take the derivative w.r.t. `N` at fixed compute (C = 6ND) and solve:
+Dwa wyrazy handlują przeciwko sobie jak skalujesz. Weź pochodną względem `N` przy ustalonym compute (C = 6ND) i rozwiąż:
 
 ```
 N_opt ≈ 0.6 × (C/6)^0.5
@@ -48,31 +48,31 @@ D_opt ≈ 0.6 × (C/6)^0.5
 D_opt / N_opt ≈ 20
 ```
 
-Compute-optimal: 20 tokens per parameter.
+Compute-optymalne: 20 tokenów na parametr.
 
-### Why over-training anyway
+### Dlaczego over-training anyway
 
-Chinchilla-optimal minimizes training loss per training FLOP. But you pay training cost once; inference cost forever.
+Chinchilla-optymalne minimalizuje training loss per training FLOP. Ale płacisz koszt treningu raz; koszt inferencji na zawsze.
 
-For a chatbot that serves a trillion tokens per month, inference dominates total cost. Llama's approach: train smaller, longer. 8B at 15T tokens is deeply inference-optimized:
+Dla czata który serwuje bilion tokenów miesięcznie, inferencja dominuje całkowity koszt. Podejście Llamy: trenuj mniejszy, dłużej. 8B przy 15T tokenów jest głęboko zoptymalizowane pod inferencję:
 
-- Fits on consumer GPUs.
-- Latency is a fraction of 70B Chinchilla-optimal.
-- Quality is close enough for most tasks.
+- Wszechstronne na GPU konsumentów.
+- Latency to ułamek 70B Chinchilla-optymalnego.
+- Jakość jest wystarczająco blisko dla większości zadań.
 
-DeepMind's 2024 paper ("Over-training is the new optimal") formalized this. For inference-dominated workloads, the right ratio is closer to 100–500 tokens per parameter depending on serving volume.
+Papier DeepMind z 2024 ("Over-training is the new optimal") to sformalizował. Dla workloadów zdominowanych przez inferencję, właściwy stosunek jest bliższy 100–500 tokenów na parametr zależnie od wolumenu serwowania.
 
 ### Emergence vs smoothness
 
-Claim: certain abilities (arithmetic, multi-step reasoning, chain-of-thought following) "emerge" suddenly at some scale.
+Claim: pewne zdolności (arytmetyka, wielo-krokowe rozumowanie, chain-of-thought following) "emergują" nagle na pewnej skali.
 
-Schaeffer et al. (2023) argued this is a measurement artifact: emergent metrics use discontinuous scoring (exact match, accuracy at threshold) that hide smooth improvement in the underlying logits. Continuous metrics (cross-entropy) show smooth curves.
+Schaeffer et al. (2023) argumentowali że to artifact pomiarowy: emergent metrics używają discontinuous scoring (exact match, accuracy at threshold) które ukrywają smooth improvement w underlying logits. Continuous metrics (cross-entropy) pokazują smooth curves.
 
-In 2026 the consensus is: predictions via continuous loss are reliable. Benchmark jumps are often scorer artifacts. Plan budgets against continuous metrics.
+W 2026 consensus jest: predictions via continuous loss są reliable. Benchmark jumps są często scorer artifacts. Plan budgets przeciwko continuous metrics.
 
-### The 2026 picture
+### Obraz 2026
 
-Scaling laws still work, but:
+Prawa skalowania nadal działają, ale:
 
 | Factor | Changed how |
 |--------|-------------|
@@ -82,74 +82,74 @@ Scaling laws still work, but:
 | Multimodality | Image + text tokens scale together; separate curves per modality |
 | Synthetic data | Models generate training data; effective compute can compound |
 
-The Muon optimizer (Kimi Moonlight, 2024) showed a ~2× effective-compute gain over AdamW at matched data. Some 2026 training runs use Muon by default. Changes the absolute constant in the scaling law, not its shape.
+Muon optimizer (Kimi Moonlight, 2024) pokazał ~2× effective-compute gain over AdamW at matched data. Niektóre treningi 2026 używają Muon domyślnie. Zmienia absolutną stałą w prawie skalowania, nie jego kształt.
 
-## Build It
+## Zbuduj To
 
-See `code/main.py`. We implement the Chinchilla loss equation and solve for compute-optimal `(N, D)` at each of several compute budgets.
+Zobacz `code/main.py`. Implementujemy równanie loss Chinchilla i rozwiązujemy dla compute-optymalnego `(N, D)` przy każdym z kilku budżetów compute.
 
-### Step 1: Chinchilla loss
+### Krok 1: Chinchilla loss
 
 ```python
 def chinchilla_loss(N, D, A=406.4, B=410.7, alpha=0.34, beta=0.28, E=1.69):
     return A / N ** alpha + B / D ** beta + E
 ```
 
-Plot `L` as a contour over `(N, D)` at fixed `C = 6ND`. Find the minimum.
+Plot `L` jako kontur nad `(N, D)` przy ustalonym `C = 6ND`. Znajdź minimum.
 
-### Step 2: compute-optimal frontier
+### Krok 2: compute-optimal frontier
 
-For compute budgets from `1e17` to `1e25` FLOPs, find `(N, D)` that minimize loss subject to `6ND = C`. Verify the ratio `D/N ≈ 20`.
+Dla budżetów compute od `1e17` do `1e25` FLOPs, znajdź `(N, D)` które minimalizują loss przy `6ND = C`. Zweryfikuj stosunek `D/N ≈ 20`.
 
-### Step 3: over-training cost
+### Krok 3: over-training cost
 
-Compute the extra loss you pay to train a 10× smaller model (1/10 of optimal N, 10× the optimal D). Reports the inference FLOP savings (proportional to N) in exchange.
+Oblicz dodatkowy loss który płacisz żeby trenować model 10× mniejszy (1/10 optimal N, 10× optimal D). Reports the inference FLOP savings (proportional to N) w zamian.
 
-### Step 4: compare to real models
+### Krok 4: compare to real models
 
-Drop in known `(N, D)` pairs for GPT-3, Chinchilla, Llama 3 8B, DeepSeek-V3 (active params), and compare predicted vs reported loss.
+Wstaw znane pary `(N, D)` dla GPT-3, Chinchilla, Llama 3 8B, DeepSeek-V3 (active params), i porównaj predicted vs reported loss.
 
-## Use It
+## Użyj To
 
-You're unlikely to train a frontier model yourself. But scaling laws tell you:
+Nie będziesz prawdopodobnie trenował frontu modelu sam. Ale prawa skalowania mówią ci:
 
-1. **Whether your fine-tune has enough data.** If your task-specific data is below 20 tokens per param of the base model, expect saturation at some loss floor.
-2. **Whether to pick a bigger base model.** If you're spending all your budget on inference, prefer a smaller, longer-trained model.
-3. **Where the returns diminish.** Beyond 1000× Chinchilla-optimal, log-loss changes become noise.
+1. **Czy twój fine-tune ma wystarczająco dużo danych.** Jeśli twoje dane specyficzne dla zadania są poniżej 20 tokenów na parametr base modelu, spodziewaj się saturacji przy jakimś loss floor.
+2. **Czy wybrać większy base model.** Jeśli wydajesz cały budżet na inferencję, wolisz mniejszy, dłużej trenowany model.
+3. **Gdzie zwroty maleją.** Powyżej 1000× Chinchilla-optymalnego, zmiany log-loss stają się szumem.
 
-**The research trajectory in 2026:**
+**Trajektoria badań w 2026:**
 
-- **Data-constrained regime.** The web has a finite number of high-quality tokens (~5–10 trillion English after filtering). Frontier pretraining is approaching this ceiling. Synthetic data, multilingual, multimodal, and RLHF-scaled fine-tuning are the next levers.
-- **Compute-multiplier tricks.** Muon optimizer, MoE, better data curation — each shifts the absolute constants, not the asymptote.
-- **Scaling laws for RL.** Open question. Early evidence suggests power-law in RL samples but with very different exponents than pretraining.
+- **Data-constrained regime.** Web ma skończoną liczbę high-quality tokens (~5–10 trillion English after filtering). Frontier pretraining zbliża się do tego sufitu. Synthetic data, multilingual, multimodal, i RLHF-scaled fine-tuning to następne dźwignie.
+- **Compute-multiplier tricks.** Muon optimizer, MoE, better data curation — każdy przesuwa absolute constants, nie asymptote.
+- **Prawa skalowania dla RL.** Otwarte pytanie. Wczesne dowody sugerują power-law w RL samples ale z bardzo różnymi exponents niż pretraining.
 
-## Ship It
+## Wyślij To
 
-See `outputs/skill-training-budget-estimator.md`. The skill picks `(N, D, hours, GPU)` for a new training run given compute budget, deployment constraints, and target loss.
+Zobacz `outputs/skill-training-budget-estimator.md`. Skill wybiera `(N, D, hours, GPU)` dla nowego treningu przy danym budżecie compute, deployment constraints, i target loss.
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Run `code/main.py`. Print Chinchilla-optimal `(N, D)` for compute budgets `1e20`, `1e22`, `1e24`. Compare to the real model table.
-2. **Medium.** Implement the Hoffmann loss-as-function-of-compute curve. Plot loss vs `log10(C)` for the compute-optimal frontier. Identify when the law predicts we'd need `>10^28` FLOPs for the next 0.1 reduction in cross-entropy.
-3. **Hard.** Fit your own scaling law on 5 tiny models (100K to 10M params) trained on the same dataset. Estimate `α` and `E`. How well do your exponents match published ones?
+1. **Łatwe.** Uruchom `code/main.py`. Wydrukuj Chinchilla-optymalne `(N, D)` dla budżetów compute `1e20`, `1e22`, `1e24`. Porównaj do real model table.
+2. **Średnie.** Zaimplementuj Hoffmann loss-as-function-of-compute curve. Plot loss vs `log10(C)` dla compute-optimal frontier. Zidentyfikuj kiedy pravo przewiduje że potrzebowalibyśmy `>10^28` FLOPs dla następnego 0.1 redukcji w cross-entropy.
+3. **Trudne.** Dopasuj własne prawo skalowania na 5 tiny models (100K do 10M params) trenowanych na tym samym datasetcie. Oszacuj `α` i `E`. Jak dobrze twoje exponents pasują do opublikowanych?
 
-## Key Terms
+## Kluczowe Terminy
 
-| Term | What people say | What it actually means |
+| Term | Co ludzie mówią | Co to faktycznie oznacza |
 |------|-----------------|-----------------------|
-| Parameters (N) | "Model size" | Non-embedding weight count; determines capacity. |
-| Tokens (D) | "Training data" | Number of training tokens seen; determines how well the parameters get used. |
-| Compute (C) | "FLOPs spent" | Approximately `6 × N × D` for a standard transformer. |
-| Chinchilla-optimal | "D/N ≈ 20" | Ratio that minimizes loss per FLOP of pretraining. |
-| Over-training | "Past Chinchilla" | Spend extra training FLOPs to save inference FLOPs; D/N >> 20. |
-| Irreducible loss | "The floor" | The `E` term in the scaling law; the entropy of the data itself. |
-| Emergent capability | "Sudden jumps at scale" | Often a scorer artifact; continuous loss is smooth. |
-| Effective compute | "Training-efficiency multiplier" | Better data / optimizer / architecture multiplies how far a FLOP goes. |
+| Parameters (N) | "Model size" | Non-embedding weight count; określa pojemność. |
+| Tokens (D) | "Training data" | Liczba tokenów treningowych seen; określa jak dobrze parametry są wykorzystane. |
+| Compute (C) | "FLOPs spent" | W przybliżeniu `6 × N × D` dla standardowego transformerа. |
+| Chinchilla-optimal | "D/N ≈ 20" | Stosunek który minimalizuje loss per FLOP pretrainingu. |
+| Over-training | "Past Chinchilla" | Wydaj dodatkowe treningowe FLOPy żeby zaoszczędzić inference FLOPy; D/N >> 20. |
+| Irreducible loss | "The floor" | Wyraz `E` w prawie skalowania; entropia samych danych. |
+| Emergent capability | "Sudden jumps at scale" | Często artifact scorera; continuous loss jest gładki. |
+| Effective compute | "Training-efficiency multiplier" | Lepsze dane / optimizer / architecture mnożą jak daleko idzie FLOP. |
 
-## Further Reading
+## Dalsze Czytanie
 
-- [Kaplan et al. (2020). Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361) — the first scaling law paper; undertrained.
+- [Kaplan et al. (2020). Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361) — pierwszy paper o prawach skalowania; niedoszkolony.
 - [Hoffmann et al. (2022). Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556) — Chinchilla.
-- [Schaeffer et al. (2023). Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004) — emergence as measurement artifact.
-- [Sardana, Frankle (2024). Beyond Chinchilla-Optimal: Accounting for Inference in Language Model Scaling Laws](https://arxiv.org/abs/2401.00448) — why Llama's over-training is right for its workload.
+- [Schaeffer et al. (2023). Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004) — emergence jako artifact pomiarowy.
+- [Sardana, Frankle (2024). Beyond Chinchilla-Optimal: Accounting for Inference in Language Model Scaling Laws](https://arxiv.org/abs/2401.00448) — dlaczego over-training Llamy jest właściwy dla jej workloadu.
 - [Jordan et al. (2024). Muon: An optimizer for hidden layers in neural networks](https://kellerjordan.github.io/posts/muon/) — 2× compute multiplier.

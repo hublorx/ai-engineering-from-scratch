@@ -1,48 +1,48 @@
 # Multi-Head Attention
 
-> One attention head learns one relation at a time. Eight heads learn eight. Heads are free. Take more of them.
+> Jedna głowa attention uczy się jednej relacji na raz. Osiem głów uczy się ośmiu. Głowy są darmowe. Weź ich więcej.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 7 · 02 (Self-Attention from Scratch)
-**Time:** ~75 minutes
+**Typ:** Buduj
+**Języki:** Python
+**Wymagania wstępne:** Faza 7 · 02 (Self-Attention od Zera)
+**Czas:** ~75 minut
 
-## The Problem
+## Problem
 
-A single self-attention head computes one attention matrix. That matrix captures one kind of relationship — usually the one that minimizes loss on whatever the training signal is. If your data has subject-verb agreement, co-reference, long-range discourse, and syntactic chunking all tangled together, a single head smears them into a single soft-max distribution and loses half the signal.
+Pojedyncza głowa self-attention oblicza jedną macierz attention. Ta macierz przechwytuje jeden rodzaj relacji — zwykle ten, który minimalizuje loss na czymkolwiek, co jest sygnałem treningowym. Jeśli twoje dane mają zgodność podmiotu i orzeczenia, ko-referencję, długodystansowy dyskurs i syntactic chunking wszystkie poplątane razem, pojedyncza głowa rozmasowuje je w jeden miękki rozkład softmax i traci połowę sygnału.
 
-The fix from the 2017 Vaswani paper: run several attention functions in parallel, each with its own Q, K, V projections, and concatenate the outputs. Each head operates in a smaller subspace of dimension `d_model / n_heads`. Total parameters stay the same. Expressive power goes up.
+Poprawka z artykułu Vaswani z 2017: uruchom kilka funkcji attention równolegle, każda z własnymi projekcjami Q, K, V i konkatenuj wyniki. Każda głowa operuje w mniejszej podprzestrzeni o wymiarze `d_model / n_heads`. Całkowita liczba parametrów zostaje taka sama. Siła ekspresyjna rośnie.
 
-Multi-head attention is the default every transformer in 2026 ships with. The only argument is about *how many* heads and whether keys and values share projections (Grouped-Query Attention, Multi-Query Attention, Multi-head Latent Attention).
+Multi-head attention to domyślne, z czym każdy transformer w 2026 jest wydawany. Jedynym argumentem jest *ile* głów i czy keys i values dzielą projekcje (Grouped-Query Attention, Multi-Query Attention, Multi-head Latent Attention).
 
-## The Concept
+## Koncepcja
 
 ![Multi-head attention splits, attends, concatenates](../assets/multi-head-attention.svg)
 
-**Split.** Take `X` of shape `(N, d_model)`. Project to Q, K, V each of shape `(N, d_model)`. Reshape to `(N, n_heads, d_head)` where `d_head = d_model / n_heads`. Transpose to `(n_heads, N, d_head)`.
+**Podziel.** Weź `X` o kształcie `(N, d_model)`. Projektuj do Q, K, V każdy o kształcie `(N, d_model)`. Reshape do `(N, n_heads, d_head)` gdzie `d_head = d_model / n_heads`. Transponuj do `(n_heads, N, d_head)`.
 
-**Attend in parallel.** Run scaled dot-product attention inside each head. Each head produces `(N, d_head)`. The heads operate on different subspaces of the embedding and never talk during the attention computation itself.
+**Uczestnicz równolegle.** Uruchom scaled dot-product attention w każdej głowie. Każda głowa produkuje `(N, d_head)`. Głowy operują na różnych podprzestrzeniach embeddingu i nigdy nie rozmawiają podczas samego obliczania attention.
 
-**Concatenate and project.** Stack heads back to `(N, d_model)` and multiply by a learned output matrix `W_o` of shape `(d_model, d_model)`. `W_o` is where heads get to mix.
+**Konkatenuj i projektuj.** Stack głowy z powrotem do `(N, d_model)` i pomnóż przez nauczoną macierz wyjściową `W_o` o kształcie `(d_model, d_model)`. `W_o` to miejsce, gdzie głowy się mieszają.
 
-**Why it works.** Each head can specialize without competing with the others for representational budget. Probing studies from 2019–2024 show distinct head roles: positional heads, head that attends to the previous token, copy heads, named-entity heads, induction heads (which underlie in-context learning).
+**Dlaczego to działa.** Każda głowa może się specjalizować bez konkurowania z innymi o budżet reprezentacyjny. Studia probing z 2019–2024 pokazują różne role głów: positional heads, głowy które uczestniczą w poprzednim tokenie, copy heads, named-entity heads, induction heads (które stanowią podstawę in-context learning).
 
-**The 2026 lineage of variations:**
+**Linia wariantów w 2026:**
 
-| Variant | Q heads | K/V heads | Used by |
+| Wariant | Q heads | K/V heads | Używany przez |
 |---------|---------|-----------|---------|
 | Multi-head (MHA) | N | N | GPT-2, BERT, T5 |
 | Multi-query (MQA) | N | 1 | PaLM, Falcon |
-| Grouped-query (GQA) | N | G (e.g. N/8) | Llama 2 70B, Llama 3+, Qwen 2+, Mistral |
-| Multi-head latent (MLA) | N | compressed to low-rank | DeepSeek-V2, V3 |
+| Grouped-query (GQA) | N | G (np. N/8) | Llama 2 70B, Llama 3+, Qwen 2+, Mistral |
+| Multi-head latent (MLA) | N | skompresowane do low-rank | DeepSeek-V2, V3 |
 
-GQA is the modern default because it cuts KV-cache memory by a factor of `N/G` while keeping nearly full quality. MLA goes further by compressing K/V into a latent space, then projecting back at compute time — costs FLOPs, saves a lot more memory.
+GQA jest nowoczesnym domyślnym, bo tnie pamięć KV-cache o współczynnik `N/G` przy zachowaniu prawie pełnej jakości. MLA idzie dalej, kompresując K/V do przestrzeni latent, potem projektując z powrotem w czasie obliczeń — kosztuje FLOPs, oszczędza dużo więcej pamięci.
 
-## Build It
+## Zbuduj to
 
-### Step 1: split heads from the single-head attention we already have
+### Krok 1: podziel głowy z single-head attention, którą już mamy
 
-Take the `SelfAttention` from Lesson 02 and wrap it with a split/concat pair. See `code/main.py` for a numpy implementation; the logic is:
+Weź `SelfAttention` z Lekcji 02 i owiń ją z pair split/concat. Zobacz `code/main.py` dla implementacji numpy; logika to:
 
 ```python
 def split_heads(X, n_heads):
@@ -55,11 +55,11 @@ def combine_heads(H):
     return H.transpose(1, 0, 2).reshape(n, h * d_head)
 ```
 
-One reshape and one transpose. No loop. This is exactly what PyTorch does under `nn.MultiheadAttention`.
+Jeden reshape i jedna transpozycja. Bez pętli. To jest dokładnie to, co PyTorch robi pod `nn.MultiheadAttention`.
 
-### Step 2: run scaled-dot-product attention per head
+### Krok 2: uruchom scaled-dot-product attention per head
 
-Each head gets its own slice of Q, K, V. Attention becomes a batched matmul:
+Każda głowa dostaje własny slice Q, K, V. Attention staje się wsadowym matmulem:
 
 ```python
 def mha_forward(X, W_q, W_k, W_v, W_o, n_heads):
@@ -76,11 +76,11 @@ def mha_forward(X, W_q, W_k, W_v, W_o, n_heads):
     return concat @ W_o, weights
 ```
 
-On real hardware `Qh @ Kh.transpose(...)` is one `bmm`. The GPU sees a single batched matmul of shape `(heads, N, d_head) × (heads, d_head, N) -> (heads, N, N)`. Adding heads is free.
+Na prawdziwym sprzęcie `Qh @ Kh.transpose(...)` to jeden `bmm`. GPU widzi jedno wsadowe mnożenie macierzy o kształcie `(heads, N, d_head) × (heads, d_head, N) -> (heads, N, N)`. Dodawanie głów jest darmowe.
 
-### Step 3: Grouped-Query Attention variant
+### Krok 3: wariant Grouped-Query Attention
 
-Only the key and value projections change. Q gets `n_heads` groups; K and V get `n_kv_heads < n_heads` groups and are repeated to match:
+Tylko projekcje key i value się zmieniają. Q dostaje `n_heads` grup; K i V dostają `n_kv_heads < n_heads` grup i są powtarzane, żeby się dopasowały:
 
 ```python
 def gqa_project(X, W, n_kv_heads, n_heads):
@@ -89,15 +89,15 @@ def gqa_project(X, W, n_kv_heads, n_heads):
     return np.repeat(kv, repeat, axis=0)      # (n_heads, n, d_head)
 ```
 
-At inference this saves memory because only `n_kv_heads` copies live in the KV cache, not `n_heads`. Llama 3 70B uses 64 query heads with 8 KV heads — an 8× cache shrink.
+Podczas inferencji to oszczędza pamięć, bo tylko `n_kv_heads` kopii żyje w KV cache, nie `n_heads`. Llama 3 70B używa 64 query heads z 8 KV heads — 8× cache shrink.
 
-### Step 4: probe what each head learned
+### Krok 4: zbadaj, czego każda głowa się nauczyła
 
-Run MHA on a short sentence with 4 heads. For each head, print the `(N, N)` attention matrix. You'll see different heads pick out different structure even with random initialization — that's partly signal, partly rotational symmetry in the subspaces.
+Uruchom MHA na krótkim zdaniu z 4 głowami. Dla każdej głowy, wydrukuj macierz attention `(N, N)`. Zobaczysz różne głowy wybierające różną strukturę nawet z losową inicjalizacją — to częściowo sygnał, częściowo rotational symmetry w podprzestrzeniach.
 
-## Use It
+## Użyj tego
 
-In PyTorch, the one-line version:
+W PyTorch, wersja jednolinijkowa:
 
 ```python
 import torch.nn as nn
@@ -105,7 +105,7 @@ import torch.nn as nn
 mha = nn.MultiheadAttention(embed_dim=512, num_heads=8, batch_first=True)
 ```
 
-GQA as of PyTorch 2.5+:
+GQA od PyTorch 2.5+:
 
 ```python
 from torch.nn.functional import scaled_dot_product_attention
@@ -116,44 +116,44 @@ from torch.nn.functional import scaled_dot_product_attention
 out = scaled_dot_product_attention(q, k, v, is_causal=True, enable_gqa=True)
 ```
 
-**How many heads?** Rules of thumb from production models in 2026:
+**Ile głów?** Zasady kciuka z production models w 2026:
 
-| Model size | d_model | n_heads | d_head |
+| Rozmiar modelu | d_model | n_heads | d_head |
 |------------|---------|---------|--------|
 | Small (~125M) | 768 | 12 | 64 |
 | Base (~350M) | 1024 | 16 | 64 |
 | Large (~1B) | 2048 | 16 | 128 |
 | Frontier (~70B) | 8192 | 64 | 128 |
 
-`d_head` almost always lands at 64 or 128. It is the unit of how much one head can "see." Drop below 32 and heads start fighting the scaling factor `sqrt(d_head)`; go above 256 and you lose the "many small specialists" benefit.
+`d_head` prawie zawsze ląduje na 64 lub 128. To jest jednostka tego, ile jedna głowa może "zobaczyć." Zejdź poniżej 32 i głowy zaczynają walczyć ze skalą `sqrt(d_head)`; idź powyżej 256 i tracisz korzyść "wielu małych specjalistów".
 
-## Ship It
+## Wyślij to
 
-See `outputs/skill-mha-configurator.md`. The skill recommends head count, kv-head count, and projection strategy for a new transformer given parameter budget, sequence length, and deployment target.
+Zobacz `outputs/skill-mha-configurator.md`. Skill poleca liczbę głów, liczbę kv-head i strategię projekcji dla nowego transformera przy danym budżecie parametrów, długości sekwencji i celu deployment.
 
-## Exercises
+## Ćwiczenia
 
-1. **Easy.** Take the MHA from `code/main.py` and change `n_heads` from 1 to 16 with `d_model=64` fixed. Plot the loss of a tiny one-layer model on a synthetic copy task. Do more heads help, plateau, or hurt?
-2. **Medium.** Implement MQA (one KV head shared across all query heads). Measure how much parameter count drops vs full MHA. Compute how much the KV-cache size shrinks at inference for N=2048.
-3. **Hard.** Implement a tiny version of Multi-head Latent Attention: compress K,V to a rank-`r` latent, store the latent in the KV cache, decompress at attention time. At what `r` does cache memory cross below 1/8 of full MHA while quality stays within 1 bit of validation ppl?
+1. **Łatwe.** Weź MHA z `code/main.py` i zmień `n_heads` z 1 na 16 przy `d_model=64` ustawionym. Wykreśl loss małego jednowarstwowego modelu na syntetycznym zadaniu copy. Czy więcej głów pomaga, plateau, czy szkodzi?
+2. **Średnie.** Zaimplementuj MQA (jeden KV head współdzielony przez wszystkie query heads). Zmierz, jak bardzo spada liczba parametrów vs pełne MHA. Oblicz, jak bardzo KV-cache size maleje podczas inferencji dla N=2048.
+3. **Trudne.** Zaimplementuj tiny version Multi-head Latent Attention: kompresuj K,V do rangi `r` latent, przechowuj latent w KV cache, dekompresuj w czasie attention. Przy jakim `r` pamięć cache przekracza poniżej 1/8 pełnego MHA, a jakość zostaje w 1 bicie validation ppl?
 
-## Key Terms
+## Kluczowe Terminy
 
-| Term | What people say | What it actually means |
-|------|-----------------|-----------------------|
-| Head | "A single attention circuit" | One Q/K/V projection of dimension `d_head = d_model / n_heads` with its own attention matrix. |
-| d_head | "Head dimension" | Per-head hidden width; almost always 64 or 128 in production. |
-| Split / combine | "Reshape tricks" | `(N, d_model) ↔ (n_heads, N, d_head)` reshape+transpose around attention. |
-| W_o | "Output projection" | `(d_model, d_model)` matrix applied after concatenating heads; where heads mix. |
-| MQA | "One KV head" | Multi-Query Attention: single shared K/V projection. Smallest KV cache, some quality loss. |
-| GQA | "The default since Llama 2" | Grouped-Query Attention with `n_kv_heads < n_heads`; repeats to match Q. |
-| MLA | "DeepSeek's trick" | Multi-head Latent Attention: K,V compressed to low-rank latent, decompressed at attend time. |
-| Induction head | "The circuit behind in-context learning" | A pair of heads that detect previous occurrences and copy what followed them. |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|-----------------|-----------------------|
+| Head | "A single attention circuit" | Jedna projekcja Q/K/V o wymiarze `d_head = d_model / n_heads` z własną macierzą attention. |
+| d_head | "Head dimension" | Per-head hidden width; prawie zawsze 64 lub 128 w production. |
+| Split / combine | "Reshape tricks" | `(N, d_model) ↔ (n_heads, N, d_head)` reshape+transpose wokół attention. |
+| W_o | "Output projection" | Macierz `(d_model, d_model)` aplikowana po konkatenacji głów; gdzie głowy się mieszają. |
+| MQA | "One KV head" | Multi-Query Attention: jeden współdzielony projekcja K/V. Najmniejszy KV cache, trochę utraty jakości. |
+| GQA | "The default since Llama 2" | Grouped-Query Attention z `n_kv_heads < n_heads`; powtarza, żeby dopasować Q. |
+| MLA | "DeepSeek's trick" | Multi-head Latent Attention: K,V skompresowane do low-rank latent, dekompresowane w czasie attend. |
+| Induction head | "The circuit behind in-context learning" | Para głów, która wykrywa poprzednie wystąpienia i kopiuje to, co po nich followowało. |
 
-## Further Reading
+## Dalsze Czytanie
 
-- [Vaswani et al. (2017). Attention Is All You Need §3.2.2](https://arxiv.org/abs/1706.03762) — the original multi-head spec.
-- [Shazeer (2019). Fast Transformer Decoding: One Write-Head is All You Need](https://arxiv.org/abs/1911.02150) — the MQA paper.
-- [Ainslie et al. (2023). GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/abs/2305.13245) — how to convert MHA to GQA after training.
-- [DeepSeek-AI (2024). DeepSeek-V2 Technical Report](https://arxiv.org/abs/2405.04434) — MLA and why it beats MHA/GQA on cache memory.
-- [Olsson et al. (2022). In-context Learning and Induction Heads](https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html) — mechanistic look at what heads actually do.
+- [Vaswani et al. (2017). Attention Is All You Need §3.2.2](https://arxiv.org/abs/1706.03762) — oryginalna specyfikacja multi-head.
+- [Shazeer (2019). Fast Transformer Decoding: One Write-Head is All You Need](https://arxiv.org/abs/1911.02150) — artykuł o MQA.
+- [Ainslie et al. (2023). GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/abs/2305.13245) — jak konwertować MHA do GQA po treningu.
+- [DeepSeek-AI (2024). DeepSeek-V2 Technical Report](https://arxiv.org/abs/2405.04434) — MLA i dlaczego bije MHA/GQA na pamięci cache.
+- [Olsson et al. (2022). In-context Learning and Induction Heads](https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html) — mechanisticzny look na to, co głowy faktycznie robią.

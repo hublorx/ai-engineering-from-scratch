@@ -1,32 +1,32 @@
-# Self-Attention from Scratch
+# Self-Attention od Zera
 
-> Attention is a lookup table where every word asks "who matters to me?" - and learns the answer.
+> Attention to tabela lookup, gdzie każde słowo pyta "kto jest dla mnie ważny?" - i uczy się odpowiedzi.
 
-**Type:** Build
-**Languages:** Python
-**Prerequisites:** Phase 3 (Deep Learning Core), Phase 5 Lesson 10 (Sequence-to-Sequence)
-**Time:** ~90 minutes
+**Typ:** Buduj
+**Języki:** Python
+**Wymagania wstępne:** Faza 3 (Deep Learning Core), Faza 5 Lekcja 10 (Sequence-to-Sequence)
+**Czas:** ~90 minut
 
-## Learning Objectives
+## Cele uczenia się
 
-- Implement scaled dot-product self-attention from scratch using only NumPy, including query/key/value projections and the softmax-weighted sum
-- Build a multi-head attention layer that splits heads, computes parallel attention, and concatenates results
-- Trace how the attention matrix captures token relationships and explain why scaling by sqrt(d_k) prevents softmax saturation
-- Apply causal masking to convert bidirectional attention into autoregressive (decoder-style) attention
+- Implementuj scaled dot-product self-attention od zera używając tylko NumPy, włącznie z projekcjami query/key/value i sumą ważoną softmax
+- Zbuduj warstwę multi-head attention, która dzieli heads, oblicza równoległą attention i konkatenuje wyniki
+- Śledź, jak macierz attention przechwytuje relacje między tokenami i wyjaśnij, dlaczego skalowanie przez sqrt(dk) zapobiega nasyceniu softmax
+- Zastosuj causal masking, żeby przekonwertować bidirectional attention na autoregressive (decoder-style) attention
 
-## The Problem
+## Problem
 
-RNNs process sequences one token at a time. By the time you reach token 50, the information from token 1 has been squeezed through 50 compression steps. Long-range dependencies get crushed into a fixed-size hidden state - a bottleneck that no amount of LSTM gating fully solves.
+RNN przetwarzają sekwencje jeden token na raz. Kiedy docierasz do tokena 50, informacja z tokena 1 została już ściśnięta przez 50 kroków kompresji. Zależności długiego zasięgu są miażdżone do ukrytego stanu o stałym rozmiarze - bottleneck, którego żadna ilość LSTM gating nie rozwiązuje całkowicie.
 
-The 2014 Bahdanau attention paper showed the fix: let the decoder look back at every encoder position and decide which ones matter for the current step. But it was still bolted onto an RNN. The 2017 "Attention Is All You Need" paper asked a sharper question: what if attention is the *only* mechanism? No recurrence. No convolution. Just attention.
+Artykuł Bahdanau attention z 2014 pokazał poprawkę: pozwól decoderowi patrzeć wstecz na każdą pozycję encoderu i zdecydować, które są ważne dla obecnego kroku. Ale nadal było to doczepione do RNN. Artykuł "Attention Is All You Need" z 2017 zadał ostrzejsze pytanie: co gdy attention jest *jedynym* mechanizmem? Bez rekurencji. Bez konwolucji. Tylko attention.
 
-Self-attention lets every position in a sequence attend to every other position in a single parallel step. That is what makes transformers fast, scalable, and dominant.
+Self-attention pozwala każdej pozycji w sekwencji uczestniczyć w każdej innej pozycji w jednym równoległym kroku. To jest to, co czyni transformers szybkimi, skalowalnymi i dominującymi.
 
-## The Concept
+## Koncepcja
 
-### The Database Lookup Analogy
+### Analogie bazy danych
 
-Think of attention as a soft database lookup:
+Pomyśl o attention jako miękkim lookupie bazy danych:
 
 ```
 Traditional database:
@@ -36,16 +36,16 @@ Attention:
   Query: "capital of France"  -->  similarity to ALL keys  -->  weighted blend of ALL values
 ```
 
-Every token generates three vectors:
-- **Query (Q)**: "What am I looking for?"
-- **Key (K)**: "What do I contain?"
-- **Value (V)**: "What information do I provide if selected?"
+Każdy token generuje trzy wektory:
+- **Query (Q)**: "Czego szukam?"
+- **Key (K)**: "Co zawieram?"
+- **Value (V)**: "Jaką informację dostarczam, jeśli zostanę wybrany?"
 
-The dot product between a query and all keys produces attention scores. High score means "this key matches my query." Those scores weight the values. The output is a weighted sum of values.
+Iloczyn skalarny między query a wszystkimi keys produkuje attention scores. Wysoki score oznacza "ten key pasuje do mojego query." Te scores ważą values. Output to ważona suma values.
 
-### Q, K, V Computation
+### Obliczanie Q, K, V
 
-Each token embedding gets projected through three learned weight matrices:
+Każdy token embedding jest projektowany przez trzy nauczone macierze wag:
 
 ```
 Input embeddings (sequence of n tokens, each d-dimensional):
@@ -65,7 +65,7 @@ Projections:
   V = X @ Wv    shape: (n, dv)      each token's value
 ```
 
-Visually, for one token:
+Wizualnie, dla jednego tokena:
 
 ```
              Wq
@@ -78,9 +78,9 @@ Visually, for one token:
        +----[*]------> v_i    "What do I offer?"
 ```
 
-### The Attention Matrix
+### Macierz Attention
 
-Once you have Q, K, V for all tokens, attention scores form a matrix:
+Kiedy masz już Q, K, V dla wszystkich tokenów, attention scores tworzą macierz:
 
 ```
 Scores = Q @ K^T    shape: (n, n)
@@ -101,19 +101,19 @@ Scores = Q @ K^T    shape: (n, n)
 Each row: one token's attention over the entire sequence
 ```
 
-### Why Scale?
+### Dlaczego skalować?
 
-The dot products grow with dimension dk. If dk = 64, dot products can be in the range of tens, pushing softmax into regions where gradients vanish. The fix: divide by sqrt(dk).
+Iloczyny skalarne rosną z wymiarem dk. Jeśli dk = 64, iloczyny skalarne mogą być w zakresie dziesiątek, pchając softmax w regiony, gdzie gradienty znikają. Poprawka: dziel przez sqrt(dk).
 
 ```
 Scaled scores = (Q @ K^T) / sqrt(dk)
 ```
 
-This keeps values in a range where softmax produces useful gradients.
+To utrzymuje wartości w zakresie, gdzie softmax produkuje użyteczne gradienty.
 
-### Softmax Turns Scores into Weights
+### Softmax zamienia scores w wagi
 
-Softmax converts raw scores into a probability distribution across each row:
+Softmax konwertuje surowe logity na rozkład prawdopodobieństwa w każdym wierszu:
 
 ```
 Raw scores for q1:   [2.1, 0.3, 0.1, 0.8, 0.2]
@@ -123,11 +123,11 @@ Raw scores for q1:   [2.1, 0.3, 0.1, 0.8, 0.2]
 Attention weights:   [0.52, 0.09, 0.07, 0.14, 0.08]   (sums to ~1.0)
 ```
 
-Now each token has a set of weights saying how much to attend to every other token.
+Teraz każdy token ma zbiór wag mówiących, ile uczestniczyć w każdym innym tokenze.
 
-### Weighted Sum of Values
+### Ważona suma wartości
 
-The final output for each token is a weighted sum of all value vectors:
+Końcowy output dla każdego tokena to ważona suma wszystkich wektorów value:
 
 ```
 output_i = sum( attention_weight[i][j] * v_j  for all j )
@@ -136,7 +136,7 @@ For token 1:
   output_1 = 0.52 * v1 + 0.09 * v2 + 0.07 * v3 + 0.14 * v4 + 0.08 * v5
 ```
 
-### Full Pipeline
+### Pełny Pipeline
 
 ```
                     +-------+
@@ -158,17 +158,17 @@ For token 1:
                               +-----------------+
 ```
 
-Formula in one line:
+Formuła w jednej linii:
 
 ```
 Attention(Q, K, V) = softmax( Q @ K^T / sqrt(dk) ) @ V
 ```
 
-## Build It
+## Zbuduj to
 
-### Step 1: Softmax from scratch
+### Krok 1: Softmax od zera
 
-Softmax converts raw logits into probabilities. Subtract the max for numerical stability.
+Softmax konwertuje surowe logity na prawdopodobieństwa. Odejmij maximum dla numerycznej stabilności.
 
 ```python
 import numpy as np
@@ -184,9 +184,9 @@ print(f"softmax: {softmax(logits)}")
 print(f"sum:     {softmax(logits).sum():.4f}")
 ```
 
-### Step 2: Scaled dot-product attention
+### Krok 2: Scaled dot-product attention
 
-The core function. Takes Q, K, V matrices and returns the attention output plus the weight matrix.
+Główna funkcja. Przyjmuje macierze Q, K, V i zwraca attention output plus macierz wag.
 
 ```python
 def scaled_dot_product_attention(Q, K, V):
@@ -197,9 +197,9 @@ def scaled_dot_product_attention(Q, K, V):
     return output, weights
 ```
 
-### Step 3: Self-attention class with learned projections
+### Krok 3: Klasa Self-attention z nauczonymi projekcjami
 
-A full self-attention module with Wq, Wk, Wv weight matrices initialized with Xavier-like scaling.
+Pełny moduł self-attention z macierzami wag Wq, Wk, Wv zainicjalizowanymi z Xavier-like scaling.
 
 ```python
 class SelfAttention:
@@ -220,9 +220,9 @@ class SelfAttention:
         return output, weights
 ```
 
-### Step 4: Run it on a sentence
+### Krok 4: Uruchom to na zdaniu
 
-Create fake embeddings for a sentence and watch the attention weights.
+Stwórz fałszywe embeddings dla zdania i obserwuj attention weights.
 
 ```python
 sentence = ["The", "cat", "sat", "on", "the", "mat"]
@@ -251,9 +251,9 @@ for i, token in enumerate(sentence):
     print()
 ```
 
-### Step 5: Visualize attention with ASCII heatmap
+### Krok 5: Wizualizuj attention z ASCII heatmap
 
-Map attention weights to characters for a quick visual.
+Mapuj attention weights na znaki dla szybkiej wizualizacji.
 
 ```python
 def ascii_heatmap(weights, tokens, chars=" ░▒▓█"):
@@ -274,9 +274,9 @@ def ascii_heatmap(weights, tokens, chars=" ░▒▓█"):
 ascii_heatmap(weights, sentence)
 ```
 
-## Use It
+## Użyj tego
 
-PyTorch's `nn.MultiheadAttention` does exactly what we built, plus multi-head splitting and output projection:
+PyTorch `nn.MultiheadAttention` robi dokładnie to, co zbudowaliśmy, plus multi-head splitting i output projection:
 
 ```python
 import torch
@@ -299,33 +299,33 @@ print(f"\nAttn weights (averaged over heads):")
 print(attn_weights[0].detach().numpy().round(3))
 ```
 
-The key difference: multi-head attention runs multiple attention functions in parallel, each with its own Q, K, V projections of size dk = d_model / n_heads, then concatenates results. This lets the model attend to different relationship types simultaneously.
+Kluczowa różnica: multi-head attention uruchamia wiele funkcji attention równolegle, każda z własnymi projekcjami Q, K, V o rozmiarze dk = d_model / n_heads, a potem konkatenuje wyniki. To pozwala modelowi uczestniczyć w różnych typach relacji jednocześnie.
 
-## Ship It
+## Wyślij to
 
-This lesson produces:
-- `outputs/prompt-attention-explainer.md` - a prompt for explaining attention through the database lookup analogy
+Ta lekcja produkuje:
+- `outputs/prompt-attention-explainer.md` - prompt do wyjaśniania attention przez analogię bazy danych
 
-## Exercises
+## Ćwiczenia
 
-1. Modify `scaled_dot_product_attention` to accept an optional mask matrix that sets certain positions to negative infinity before softmax (this is how causal/decoder masking works)
-2. Implement multi-head attention from scratch: split Q, K, V into `n_heads` chunks, run attention on each, concatenate, and project through a final weight matrix Wo
-3. Take two different sentences of the same length, feed them through the same SelfAttention instance, and compare their attention patterns. What changes? What stays the same?
+1. Zmodyfikuj `scaled_dot_product_attention`, żeby przyjmowała opcjonalną macierz mask, która ustawia pewne pozycje na ujemna nieskończoność przed softmax (to jest jak działa causal/decoder masking)
+2. Zaimplementuj multi-head attention od zera: podziel Q, K, V na `n_heads` kawałków, uruchom attention na każdym, konkatenuj i projektuj przez końcową macierz wag Wo
+3. Weź dwa różne zdania tej samej długości, przepuść je przez tę samą instancję SelfAttention i porównaj ich attention patterns. Co się zmienia? Co pozostaje takie same?
 
-## Key Terms
+## Kluczowe Terminy
 
-| Term | What people say | What it actually means |
-|------|----------------|----------------------|
-| Query (Q) | "The question vector" | A learned projection of the input that represents what information this token is looking for |
-| Key (K) | "The label vector" | A learned projection that represents what information this token contains, matched against queries |
-| Value (V) | "The content vector" | A learned projection carrying the actual information that gets aggregated based on attention scores |
-| Scaled dot-product attention | "The attention formula" | softmax(QK^T / sqrt(dk)) @ V - scaling prevents softmax saturation in high dimensions |
-| Self-attention | "The token looks at itself and others" | Attention where Q, K, V all come from the same sequence, letting every position attend to every other position |
-| Attention weights | "How much focus" | A probability distribution over positions, produced by softmax over scaled dot products |
-| Multi-head attention | "Parallel attention" | Running multiple attention functions with different projections, then concatenating results for richer representations |
+| Termin | Co ludzie mówią | Co to faktycznie oznacza |
+|--------|----------------|----------------------|
+| Query (Q) | "The question vector" | Nauczona projekcja wejścia reprezentująca, jakich informacji ten token szuka |
+| Key (K) | "The label vector" | Nauczona projekcja reprezentująca, jakie informacje ten token zawiera, dopasowywana do queries |
+| Value (V) | "The content vector" | Nauczona projekcja niosąca faktyczną informację, która jest agregowana na podstawie attention scores |
+| Scaled dot-product attention | "The attention formula" | softmax(QK^T / sqrt(dk)) @ V - skalowanie zapobiega nasyceniu softmax w wysokich wymiarach |
+| Self-attention | "The token looks at itself and others" | Attention gdzie Q, K, V wszystkie pochodzą z tej samej sekwencji, pozwalając każdej pozycji uczestniczyć w każdej innej pozycji |
+| Attention weights | "How much focus" | Rozkład prawdopodobieństwa nad pozycjami, produkowany przez softmax nad skalowanymi iloczynami skalarnymi |
+| Multi-head attention | "Parallel attention" | Uruchamianie wielu funkcji attention z różnymi projekcjami, potem konkatenowanie wyników dla bogatszych reprezentacji |
 
-## Further Reading
+## Dalsze Czytanie
 
-- [Attention Is All You Need (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762) - the original transformer paper
-- [The Illustrated Transformer (Jay Alammar)](https://jalammar.github.io/illustrated-transformer/) - best visual walkthrough of the full architecture
-- [The Annotated Transformer (Harvard NLP)](https://nlp.seas.harvard.edu/annotated-transformer/) - line-by-line PyTorch implementation with explanations
+- [Attention Is All You Need (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762) - oryginalny artykuł o transformer
+- [The Illustrated Transformer (Jay Alammar)](https://jalammar.github.io/illustrated-transformer/) - najlepszy wizualny przewodnik po pełnej architekturze
+- [The Annotated Transformer (Harvard NLP)](https://nlp.seas.harvard.edu/annotated-transformer/) - implementacja PyTorch linia po linii z wyjaśnieniami
