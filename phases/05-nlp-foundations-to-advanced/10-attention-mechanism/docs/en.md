@@ -58,7 +58,7 @@ To jest miejsce, gdzie każda implementacja attention idzie źle za pierwszym ra
 
 ## Zbuduj to
 
-### Krok 1: addytywne (Bahdanau) attention
+### Krok 1: addycyjne (Bahdanau) attention
 
 ```python
 import numpy as np

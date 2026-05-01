@@ -138,7 +138,7 @@ Stack 2026.
 |---------|-------------|
 | Dana passza, znajdź fragment odpowiedzi | `deepset/roberta-base-squad2` |
 | Nad ustalonym korpusem, closed-book nieakceptowalne | RAG: dense retriever + LLM reader |
-| Real-time nad dokument store | RAG z hybrid (BM25 + dense) retriever + reranker (lesson 14) |
+| Real-time nad dokument store | RAG z hybrid (BM25 + dense) retriever + reranker (lekcja 14) |
 | Conversational QA (pytania follow-up) | LLM z conversation history + RAG na każdy turn |
 | Wysoce faktyczne, regulowane domeny | Extractive nad authoritative corpus; nigdy same generative |
 

@@ -198,8 +198,8 @@ print(model.wv.most_similar("cat", topn=3))
 
 W prawdziwej pracy prawie nigdy nie trenujesz Word2Vec sam. Ściągasz wstępnie wytrenowane wektory.
 
-- **GloVe** — podejście Standfordu oparte na faktoryzacji macierzy współwystępowania. Checkpointy 50d, 100d, 200d, 300d. Dobry ogólny zasięg. Lesson 04 omawia GloVe konkretnie.
-- **fastText** — rozszerzenie Word2Vec od Facebooka, które osadza character n-gramy. Radzi sobie ze słowami out-of-vocabulary poprzez składanie subwordów. Lesson 04.
+- **GloVe** — podejście Standfordu oparte na faktoryzacji macierzy współwystępowania. Checkpointy 50d, 100d, 200d, 300d. Dobry ogólny zasięg. Lekcja 04 omawia GloVe konkretnie.
+- **fastText** — rozszerzenie Word2Vec od Facebooka, które osadza character n-gramy. Radzi sobie ze słowami out-of-vocabulary poprzez składanie subwordów. Lekcja 04.
 - **Pretrained Word2Vec na Google News** — 300d, 3M słownictwo, opublikowane w 2013. Wciąż pobierane codziennie.
 
 ### Kiedy Word2Vec wciąż wygrywa w 2026
@@ -215,7 +215,7 @@ W prawdziwej pracy prawie nigdy nie trenujesz Word2Vec sam. Ściągasz wstępnie
 
 Contextual embeddings (ELMo, BERT, każdy transformer od tego czasu) rozwiązały to, produkując inny wektor dla każdego wystąpienia słowa na podstawie otaczającego kontekstu. To jest skok od Word2Vec do BERT: ze statycznego na kontekstowy. Phase 7 obejmuje połowę transformerów.
 
-Problem out-of-vocabulary to druga porażka. Word2Vec nigdy nie widziało `Zoomer-approved`, jeśli nie było w danych treningowych. Brak fallbacku. fastText to naprawia subword composition (lesson 04).
+Problem out-of-vocabulary to druga porażka. Word2Vec nigdy nie widziało `Zoomer-approved`, jeśli nie było w danych treningowych. Brak fallbacku. fastText to naprawia subword composition (lekcja 04).
 
 ## Wyślij to
 

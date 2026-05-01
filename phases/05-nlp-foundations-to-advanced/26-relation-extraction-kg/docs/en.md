@@ -138,8 +138,8 @@ To jest atom każdego systemu RAG-over-KG. Skaluj to z RDF triple stores (Blazeg
 
 ## Pułapki
 
-- **Coreference przed RE.** "He founded Apple" — RE musi wiedzieć, kto to "he". Uruchom coref najpierw (lesson 24).
-- **Kanonikalizacja encji.** "Apple Inc" i "Apple" muszą być rozwiązane do tego samego węzła. Entity linking najpierw (lesson 25).
+- **Coreference przed RE.** "He founded Apple" — RE musi wiedzieć, kto to "he". Uruchom coref najpierw (lekcja 24).
+- **Kanonikalizacja encji.** "Apple Inc" i "Apple" muszą być rozwiązane do tego samego węzła. Entity linking najpierw (lekcja 25).
 - **Halucynowane trójki.** LLM-e emitują trójki, których tekst nie wspiera. Egzekwuj weryfikację spanów.
 - **Dryft kanonikalizacji relacji.** Open IE relations są niespójne ("was born in," "came from," "is a native of"). Zwiń do kanonicznych id albo graf jest niequeryowalny.
 - **Błędy temporalne.** "Tim Cook is CEO of Apple" — prawdziwe teraz, fałszywe w 2005. Wiele relacji jest ograniczonych czasowo. Używaj kwalifikatorów (`P580` start time, `P582` end time w Wikidata).

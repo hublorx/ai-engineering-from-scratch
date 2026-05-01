@@ -150,7 +150,7 @@ The 2026 stack:
 | Klasyfikacja, 100 języków | XLM-R-base (~270M) fine-tuned |
 | Zero-shot text classification | `joeddav/xlm-roberta-large-xnli` |
 | Wielojęzyczne sentence embeddings | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` |
-| Tłumaczenie, 200 języków | `facebook/nllb-200-distilled-600M` (see lesson 11) |
+| Tłumaczenie, 200 języków | `facebook/nllb-200-distilled-600M` (see lekcja 11) |
 | Wielojęzyczna generacja | Claude, GPT-4, Aya-23, mT5-XXL |
 | Low-resource language NLP | XLM-V lub domenowo-specyficzny fine-tune na powiązanym języku o dużych zasobach |
 

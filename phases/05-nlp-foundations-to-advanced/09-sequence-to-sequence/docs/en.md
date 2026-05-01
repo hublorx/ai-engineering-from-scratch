@@ -11,7 +11,7 @@
 
 Klasyfikacja mapuje sekwencję o zmiennej długości do pojedynczej etykiety. Tłumaczenie mapuje sekwencję o zmiennej długości do innej sekwencji o zmiennej długości. Wejście i wyjście należą do różnych słowników, możliwie różnych języków, bez gwarancji równej długości.
 
-Architektura seq2seq (Sutskever, Vinyals, Le, 2014) rozwiązała ten problem celowo prostym przepisem. Dwa RNN-y. Jeden czyta zdanie źródłowe i produkuje wektor kontekstowy o stałym rozmiarze. Drugi czyta ten wektor i generuje zdanie docelowe token po tokenie. Ten sam kod, który napisałeś w lesson 08, sklejony inaczej.
+Architektura seq2seq (Sutskever, Vinyals, Le, 2014) rozwiązała ten problem celowo prostym przepisem. Dwa RNN-y. Jeden czyta zdanie źródłowe i produkuje wektor kontekstowy o stałym rozmiarze. Drugi czyta ten wektor i generuje zdanie docelowe token po tokenie. Ten sam kod, który napisałeś w lekcja 08, sklejony inaczej.
 
 Warto to studiować z dwóch powodów. Po pierwsze, wąskie gardło wektora kontekstowego to najbardziej pedagogicznie użyteczna porażka w NLP. Motywuje wszystko, czym attention i transformery są dobre. Po drugie, przepis treningowy (teacher forcing, scheduled sampling, beam search podczas wnioskowania) nadal obowiązuje w każdym nowoczesnym systemie generacji, w tym w LLM-ach.
 
@@ -29,7 +29,7 @@ Warto to studiować z dwóch powodów. Po pierwsze, wąskie gardło wektora kont
 
 **Wąskie gardło.** Wszystko, czego koder się nauczył o źródle, musi być wyciśnięte w jeden wektor kontekstowy. Długie zdania tracą szczegóły. Rzadkie słowy się rozmywają. Zmiana kolejności (chat noir vs. black cat) musi być zapamiętana, nie obliczona.
 
-Attention (lesson 10) to naprawia, pozwalając dekoderowi patrzeć na *każdy* ukryty stan kodera, nie tylko na ostatni. To cała obietnica.
+Attention (lekcja 10) to naprawia, pozwalając dekoderowi patrzeć na *każdy* ukryty stan kodera, nie tylko na ostatni. To cała obietnica.
 
 ## Zbuduj to
 
@@ -52,7 +52,7 @@ class Encoder(nn.Module):
         return outputs, hidden
 ```
 
-`outputs` ma kształt `[batch, seq_len, hidden_dim]` — jeden ukryty stan na pozycję wejściową. `hidden` ma kształt `[1, batch, hidden_dim]` — ostatni krok. Lesson 08 powiedziała "pool over outputs for classification". Tutaj trzymamy ostatni ukryty stan jako wektor kontekstowy i ignorujemy per-step outputs.
+`outputs` ma kształt `[batch, seq_len, hidden_dim]` — jeden ukryty stan na pozycję wejściową. `hidden` ma kształt `[1, batch, hidden_dim]` — ostatni krok. Lekcja 08 powiedziała "pool over outputs for classification". Tutaj trzymamy ostatni ukryty stan jako wektor kontekstowy i ignorujemy per-step outputs.
 
 ### Krok 2: dekoder
 
