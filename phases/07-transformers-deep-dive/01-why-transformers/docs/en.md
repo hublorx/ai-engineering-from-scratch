@@ -33,7 +33,7 @@ Wynik dominuje każdą modalność do 2026. Język (GPT-5, Claude 4, Llama 4), w
 
 **Co kosztują transformers.** Attention memory skaluje się jako `O(N²)`. Dla 2K kontekstu, w porządku. Dla 128K kontekstu, potrzebujesz sliding windows, RoPE extrapolation, Flash Attention tiling, lub linear attention variants. Rekurencja była `O(N)` zarówno w czasie jak i pamięci; transformers wymieniają czas na pamięć, a potem wygrywają czas z powrotem przez równoległość.
 
-**Zmiana inductive bias.** RNN zakładają lokalność i rekencję. Transformers niczego nie zakładają — każda para jest kandydatem na attention. Dlatego transformers potrzebują więcej danych do trenowania, ale skalują się dalej, gdy już je mają. Chinchilla (2022) sformalizowała to: przy wystarczającej liczbie tokenów, transformer zawsze pokonuje RNN o równej liczbie parametrów.
+**Zmiana inductive bias.** RNN zakładają lokalność i rekurencję. Transformers niczego nie zakładają — każda para jest kandydatem na attention. Dlatego transformers potrzebują więcej danych do trenowania, ale skalują się dalej, gdy już je mają. Chinchilla (2022) sformalizowała to: przy wystarczającej liczbie tokenów, transformer zawsze pokonuje RNN o równej liczbie parametrów.
 
 ## Zbuduj to
 

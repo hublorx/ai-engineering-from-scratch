@@ -11,7 +11,7 @@
 
 LLM 70B sampling jeden token bierze ~30 ms na H100. Draft model 3B bierze ~3 ms. Jeśli pozwolimy 3B draftować 5 tokenów do przodu, potem uruchomimy 70B *raz* żeby zweryfikować wszystkie 5, całość to `5×3 + 30 = 45 ms` za do 5 zaakceptowanych tokenów — versus `5×30 = 150 ms` za straight-line generation. To jest pełna obietnica speculative-decoding: handluj niewielką ilością dodatkowej pamięci GPU (draft model) za 2–4× niższy decode latency.
 
-Triк musi zachować rozkład. Speculative sampling, wprowadzony przez Leviathan et al. (2023) i przez Chen et al. concurrently, gwarantuje że output sequence jest **identically distributed** do tego co duży model by wyprodukował sam. Żaden kompromis jakościowy. Po prostu szybsze.
+Trik musi zachować rozkład. Speculative sampling, wprowadzony przez Leviathan et al. (2023) i przez Chen et al. concurrently, gwarantuje że output sequence jest **identically distributed** do tego co duży model by wyprodukował sam. Żaden kompromis jakościowy. Po prostu szybsze.
 
 Cztery rodziny draft-verifier pairs dominują 2026 inference:
 
